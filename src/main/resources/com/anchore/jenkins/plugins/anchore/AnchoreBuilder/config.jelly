@@ -1,0 +1,53 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+
+<!--
+  <f:entry title="Run Analyzer" field="doAnalyze">
+    <f:checkbox name="doAnalyze" checked="${instance.doAnalyze}" default="${true}"/>
+  </f:entry>
+  <f:entry title="Run Policy Gates" field="doGates">
+    <f:checkbox name="doGate" checked="${instance.doGate}" default="${true}"/>
+  </f:entry>
+-->
+  <f:entry title="Run Image Queries" field="doQuery">
+    <f:checkbox name="doQuery" checked="${instance.doQuery}" default="${true}"/>
+  </f:entry>
+  
+  <f:entry title="Image list file" field="name">
+    <f:textbox default="anchore_images"/>
+  </f:entry>
+
+  <f:entry title="Policy file" field="policyName">
+    <f:textbox default="anchore_policy"/>
+  </f:entry>
+      
+  <f:entry title="Fail build on policy check STOP result" field="bailOnFail">
+    <f:checkbox name="bailOnFail" checked="${instance.bailOnFail}" default="${true}"/>
+  </f:entry>
+
+  <f:entry title="Fail build on policy check WARN result" field="bailOnWarn">
+    <f:checkbox name="bailOnWarn" checked="${instance.bailOnWarn}" default="${false}"/>
+  </f:entry>
+
+  <f:entry title="Fail build on critical plugin error" field="bailOnPluginFail">
+    <f:checkbox name="bailOnPluginFail" checked="${instance.bailOnPluginFail}" default="${true}"/>
+  </f:entry>
+
+  <f:entry title="Delete analyzed images from AnchoreDB" field="doCleanup">
+    <f:checkbox name="doCleanup" checked="${instance.doCleanup}" default="${false}"/>
+  </f:entry>
+
+  <f:entry title="Custom Query 1" field="query1">
+    <f:textbox default="list-packages all"/>
+  </f:entry>
+  <f:entry title="Custom Query 2" field="query2">
+    <f:textbox default="list-files all"/>
+  </f:entry>
+  <f:entry title="Custom Query 3" field="query3">
+    <f:textbox default="cve-scan all"/>
+  </f:entry>
+  <f:entry title="Custom Query 4" field="query4">
+    <f:textbox default="show-pkg-diffs base"/>
+  </f:entry>
+
+</j:jelly>
