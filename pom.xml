@@ -9,10 +9,19 @@
     <version>2.11</version>
     <relativePath/>
   </parent>
-  <groupId>com.anchore.jenkins.plugins</groupId>
+
   <artifactId>anchore</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.0rc0</version>
   <packaging>hpi</packaging>
+  <name>Anchore Container Image Scanner Plugin</name>
+  <description>Integrates Jenkins with the Anchore Image Scanner </description>
+  <url>https://www.anchore.com/</url>
+  <licenses>
+    <license>
+      <name>Apache 2 License</name>
+      <url>http://opensource.org/licenses/Apache-2.0</url>
+    </license>
+  </licenses>
 
   <properties>
     <!-- Baseline Jenkins version you use to build the plugin. Users must have this version or newer to run. -->
@@ -27,19 +36,6 @@
          ~ stapler-plugin.version: The Stapler Maven plugin version required by the plugin.
     -->
   </properties>
-
-  <name>Anchore Plugin</name>
-  <description>Runs Anchore Image Scanner</description>
-  <url>https://www.anchore.com/</url>
-
-  <!-- The default licence for Jenkins OSS Plugins is MIT. Substitute for the applicable one if needed. -->
-
-  <licenses>
-    <license>
-      <name>Apache 2 License</name>
-      <url>http://opensource.org/licenses/Apache-2.0</url>
-    </license>
-  </licenses>
 
   <!-- If you want this to appear on the wiki page:
   <developers>
