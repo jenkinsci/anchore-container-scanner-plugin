@@ -549,53 +549,23 @@ public class AnchoreBuilder extends Builder {
     public boolean isAnchoreRunning(Launcher launcher, BuildListener listener) {
 	int exitCode = 0;
 
-	ArgumentListBuilder args = new ArgumentListBuilder();
-	args.add("docker", "start", containerId);
-
-	Launcher.ProcStarter ps = launcher.launch();
-	ps.cmds(args);
-	ps.stdin(null);
-	ps.stderr(null);
-	ps.stdout(anchoreLogStream);
-
-	try {
-	    exitCode = ps.join();
-	} catch (Exception e) {
-	    e.printStackTrace();
-            listener.getLogger().println("Exception:" + e.toString());
+	exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "start", containerId);
+	if (exitCode != 0) {
 	    return(false);
 	}
+	return(true);
 
-	if (exitCode == 0) {
-	    return(true);
-	}
-	return(false);
     }
 
     public boolean isAnchoreImageAvailable(Launcher launcher, BuildListener listener) {
 	int exitCode = 0;
 
-	ArgumentListBuilder args = new ArgumentListBuilder();
-	args.add("docker", "inspect", containerImageId);
-
-	Launcher.ProcStarter ps = launcher.launch();
-	ps.cmds(args);
-	ps.stdin(null);
-	ps.stderr(null);
-	ps.stdout(anchoreLogStream);
-
-	try {
-	    exitCode = ps.join();
-	} catch (Exception e) {
-	    e.printStackTrace();
-            listener.getLogger().println("Exception:" + e.toString());
+	exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "inspect", containerImageId);
+	if (exitCode != 0) {
 	    return(false);
 	}
+	return(true);
 
-	if (exitCode == 0) {
-	    return(true);
-	}
-	return(false);
     }
 
     public boolean runAnchoreContainer(Launcher launcher, BuildListener listener) {
@@ -604,27 +574,12 @@ public class AnchoreBuilder extends Builder {
 	if (!isAnchoreRunning(launcher, listener)) {
 	    if (isAnchoreImageAvailable(launcher, listener)) {
 
-		ArgumentListBuilder args = new ArgumentListBuilder();
-
 		if (localVol != null) {
-		    args.add("docker", "run", "-d", "-v", "/var/run/docker.sock:/var/run/docker.sock", "-v", localVol+":/root/.anchore", "--name", containerId, containerImageId);
+		    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "run", "-d", "-v", "/var/run/docker.sock:/var/run/docker.sock", "-v", localVol+":/root/.anchore", "--name", containerId, containerImageId);
 		} else {
-		    args.add("docker", "run", "-d", "-v", "/var/run/docker.sock:/var/run/docker.sock", "--name", containerId, containerImageId);
+		    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "run", "-d", "-v", "/var/run/docker.sock:/var/run/docker.sock", "--name", containerId, containerImageId);
 		}
-		
-		Launcher.ProcStarter ps = launcher.launch();
-		ps.cmds(args);
-		ps.stdin(null);
-		ps.stderr(null);
-		ps.stdout(anchoreLogStream);
-		
-		try {
-		    exitCode = ps.join();
-		} catch (Exception e) {
-		    e.printStackTrace();
-		    listener.getLogger().println("Exception:" + e.toString());
-		    return(false);
-		}
+
 	    } else {
 		// image is not available
 		listener.getLogger().println("[anchore][error] anchore container not running, image not available to restart");
@@ -647,6 +602,9 @@ public class AnchoreBuilder extends Builder {
 	int exitCode = 0;
 	ArgumentListBuilder args = new ArgumentListBuilder();
 	
+	if (this.useSudo) {
+	    args.add("sudo");
+	}
 	for (String cmdstr : cmd) {
 	    for (String cmdlet : cmdstr.split(" ")) {
 		args.add(cmdlet);
@@ -662,6 +620,9 @@ public class AnchoreBuilder extends Builder {
 	try {
 	    exitCode = ps.join();
 	} catch (Exception e) {
+	    if (soutStream != null) {
+		soutStream.println("command returned non-zero exitcode: " + exitCode);
+	    }
 	    return(1);
 	}
 
