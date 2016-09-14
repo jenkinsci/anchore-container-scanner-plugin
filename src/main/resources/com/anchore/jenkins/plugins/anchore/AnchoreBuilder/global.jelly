@@ -19,6 +19,10 @@
       <f:textbox name="localVol" default=""/>
     </f:entry>
 
+    <f:entry title="Use sudo" field="useSudo">
+      <f:checkbox name="useSudo" checked="${instance.useSudo}" default="${false}"/>
+    </f:entry>
+
     <f:entry title="Enable Debugging" field="debug">
       <f:checkbox name="debug" checked="${instance.debug}" default="${false}"/>
     </f:entry>

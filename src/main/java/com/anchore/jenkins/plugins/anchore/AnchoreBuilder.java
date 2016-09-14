@@ -68,6 +68,7 @@ public class AnchoreBuilder extends Builder {
     private File anchoreLogFile;
     private PrintStream anchoreLogStream;
     private boolean debug;
+    private boolean useSudo;
     private final boolean bailOnPluginFail;
     private final boolean bailOnFail;
     private final boolean bailOnWarn;
@@ -176,9 +177,11 @@ public class AnchoreBuilder extends Builder {
 	    if (debug) {
 		listener.getLogger().println("[anchore][config][global] enabled: " + String.valueOf(getDescriptor().getEnabled()));
 		listener.getLogger().println("[anchore][config][global] debug: " + String.valueOf(getDescriptor().getDebug()));
+		listener.getLogger().println("[anchore][config][global] useSudo: " + String.valueOf(getDescriptor().getUseSudo()));
 		listener.getLogger().println("[anchore][config][global] containerImageId: " + getDescriptor().getContainerImageId());
 		listener.getLogger().println("[anchore][config][global] containerId: " + getDescriptor().getContainerId());
 		listener.getLogger().println("[anchore][config][global] localVol: " + getDescriptor().getLocalVol());
+
 		
 		listener.getLogger().println("[anchore][config][build] doAnalyze: " + String.valueOf(doAnalyze));
 		listener.getLogger().println("[anchore][config][build] doGates: " + String.valueOf(doGate));
@@ -430,6 +433,7 @@ public class AnchoreBuilder extends Builder {
 	    containerImageId = getDescriptor().getContainerImageId();
 	    debug = getDescriptor().getDebug();
 	    localVol = getDescriptor().getLocalVol();
+	    useSudo = getDescriptor().getUseSudo();
 
 	    queries = new TreeMap<String, String>();
 	    queries.put("query1", query1);
@@ -649,8 +653,6 @@ public class AnchoreBuilder extends Builder {
 	    }
 	}
 
-	//args.add(cmd);
-
 	Launcher.ProcStarter ps = launcher.launch();
 	ps.cmds(args);
 	ps.stdin(null);
@@ -678,6 +680,7 @@ public class AnchoreBuilder extends Builder {
 	private String containerImageId;
 	private String containerId;
 	private String localVol;
+	private boolean useSudo;
 
         public DescriptorImpl() {
             load();
@@ -695,9 +698,11 @@ public class AnchoreBuilder extends Builder {
         public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
 	    debug = formData.getBoolean("debug");
 	    enabled = formData.getBoolean("enabled");
+	    useSudo = formData.getBoolean("useSudo");
 	    containerImageId = formData.getString("containerImageId");
 	    containerId = formData.getString("containerId");
 	    localVol = formData.getString("localVol");
+	    
             save();
             return super.configure(req,formData);
         }
@@ -707,6 +712,9 @@ public class AnchoreBuilder extends Builder {
         }
 	public boolean getEnabled() {
             return enabled;
+        }
+	public boolean getUseSudo() {
+            return useSudo;
         }
 	public String getContainerImageId() {
 	    return containerImageId;
