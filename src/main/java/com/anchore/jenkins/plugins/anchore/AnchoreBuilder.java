@@ -209,17 +209,20 @@ public class AnchoreBuilder extends Builder {
 
 	    if (doQuery) {
 		for (Map.Entry<String, String> entry : queries.entrySet()) {
-		    listener.getLogger().println("[anchore][info] " + entry.getKey() + " : " + entry.getValue());
-		    File queryOutputFile = new File(anchoreWorkspace, entry.getKey() + ".html");
-		    outStream = new PrintStream(queryOutputFile, "UTF-8");
+		    String anchoreQuery = entry.getValue();
+		    if (anchoreQuery != null && !anchoreQuery.isEmpty()) {
+			listener.getLogger().println("[anchore][info] " + entry.getKey() + " : " + entry.getValue());
+			File queryOutputFile = new File(anchoreWorkspace, entry.getKey() + ".html");
+			outStream = new PrintStream(queryOutputFile, "UTF-8");
 		    
-		    listener.getLogger().println("[anchore][info] Running Anchore Query: " + entry.getValue());
+			listener.getLogger().println("[anchore][info] Running Anchore Query: " + entry.getValue());
 		    
-		    exitCode = runAnchoreCmd(launcher, outStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--html", "query", "--imagefile", targetImageFile, entry.getValue());
-		    if (queryOutputFile.exists() && queryOutputFile.length() > 0) {
-			queriesOutput.put(entry.getKey(), entry.getValue());
+			exitCode = runAnchoreCmd(launcher, outStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--html", "query", "--imagefile", targetImageFile, entry.getValue());
+			if (queryOutputFile.exists() && queryOutputFile.length() > 0) {
+			    queriesOutput.put(entry.getKey(), entry.getValue());
+			}
+			listener.getLogger().println("[anchore][info] Done Running Anchore Query: exitcode="+exitCode);
 		    }
-		    listener.getLogger().println("[anchore][info] Done Running Anchore Query: exitcode="+exitCode);
 		}
 	    }
 
@@ -427,7 +430,7 @@ public class AnchoreBuilder extends Builder {
 	    workspace = env.expand("${WORKSPACE}");
 	    buildId = String.valueOf(build.getNumber());
 	    //euid = build.getExternalizableId();
-	    euid = build.getParent().getDisplayName() + buildId;
+	    euid = build.getParent().getDisplayName() + "_" + buildId;
 	    anchoreWorkspace = workspace + "/AnchoreReport."+euid;
 	    containerId = getDescriptor().getContainerId();
 	    containerImageId = getDescriptor().getContainerImageId();
