@@ -196,11 +196,16 @@ public class AnchoreBuilder extends Builder {
 	    if (doAnalyze) {
 		listener.getLogger().println("[anchore][info][info] Running Anchore Analyzer:");
 	    
-		exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "analyze", "--imagefile", targetImageFile);
+		if (this.debug) {
+		    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--debug", "analyze", "--imagefile", targetImageFile);
+		} else {
+		    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "analyze", "--imagefile", targetImageFile);
+		}
+
 		
 		listener.getLogger().println("[anchore][info] Done Running Anchore Analyzer: exitcode="+exitCode);
 		if (exitCode != 0) {
-		    listener.getLogger().println("[anchore][error] Anchore analyzer failed: check the anchore.log artifact for the build for details.");
+		    listener.getLogger().println("[anchore][error] Anchore analyzer failed: check output above for details");
 		    if (bailOnPluginFail) {
 			return(false);
 		    }
@@ -217,7 +222,11 @@ public class AnchoreBuilder extends Builder {
 		    
 			listener.getLogger().println("[anchore][info] Running Anchore Query: " + entry.getValue());
 		    
-			exitCode = runAnchoreCmd(launcher, outStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--html", "query", "--imagefile", targetImageFile, entry.getValue());
+			if (this.debug) {
+			    exitCode = runAnchoreCmd(launcher, outStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--debug", "--html", "query", "--imagefile", targetImageFile, entry.getValue());
+			} else {
+			    exitCode = runAnchoreCmd(launcher, outStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--html", "query", "--imagefile", targetImageFile, entry.getValue());
+			}
 			if (queryOutputFile.exists() && queryOutputFile.length() > 0) {
 			    queriesOutput.put(entry.getKey(), entry.getValue());
 			}
@@ -232,9 +241,17 @@ public class AnchoreBuilder extends Builder {
 		listener.getLogger().println("[anchore][info] Running Anchore Gates:");
 
 		if (anchorePolicyFile != null && anchorePolicyFile.exists()) {
-		    exitCode = runAnchoreCmd(launcher, outStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--html", "gate", "--policy", targetPolicyFile, "--imagefile", targetImageFile);
+		    if (this.debug) {
+			exitCode = runAnchoreCmd(launcher, outStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--debug", "--html", "gate", "--policy", targetPolicyFile, "--imagefile", targetImageFile);
+		    } else {
+			exitCode = runAnchoreCmd(launcher, outStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--html", "gate", "--policy", targetPolicyFile, "--imagefile", targetImageFile);
+		    }
 		} else {
-		    exitCode = runAnchoreCmd(launcher, outStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--html", "gate", "--imagefile", targetImageFile);
+		    if (this.debug) {
+			exitCode = runAnchoreCmd(launcher, outStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--debug", "--html", "gate", "--imagefile", targetImageFile);
+		    } else {
+			exitCode = runAnchoreCmd(launcher, outStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--html", "gate", "--imagefile", targetImageFile);
+		    }
 		}
 
 		listener.getLogger().println("[anchore][info] Done Running Anchore Gates: exitcode="+exitCode);
@@ -333,7 +350,12 @@ public class AnchoreBuilder extends Builder {
 
 	if (doCleanup) {
 	    for (String imgId : anchoreInputImages) {
-		exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "toolbox", "--image", imgId, "delete", "--dontask");
+		if (this.debug) {
+		    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--debug", "toolbox", "--image", imgId, "delete", "--dontask");
+		} else {
+		    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "toolbox", "--image", imgId, "delete", "--dontask");
+		}
+
 	    }
 	}
 
