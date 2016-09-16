@@ -8,7 +8,7 @@
     </f:entry>
 
     <f:entry title="Anchore Container Image (ID/repo:tag)" field="containerImageId">
-      <f:textbox name="containerImageId" default="anchore:jenkins"/>
+      <f:textbox name="containerImageId" default="anchore/cli:latestjenkins"/>
     </f:entry>
 
     <f:entry title="Anchore Container (ID/Name)" field="containerId">

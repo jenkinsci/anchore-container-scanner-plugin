@@ -574,7 +574,7 @@ public class AnchoreBuilder extends Builder {
 	if (!isAnchoreRunning(launcher, listener)) {
 	    if (isAnchoreImageAvailable(launcher, listener)) {
 
-		if (localVol != null) {
+		if (localVol != null && !localVol.isEmpty()) {
 		    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "run", "-d", "-v", "/var/run/docker.sock:/var/run/docker.sock", "-v", localVol+":/root/.anchore", "--name", containerId, containerImageId);
 		} else {
 		    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "run", "-d", "-v", "/var/run/docker.sock:/var/run/docker.sock", "--name", containerId, containerImageId);
@@ -582,7 +582,7 @@ public class AnchoreBuilder extends Builder {
 
 	    } else {
 		// image is not available
-		listener.getLogger().println("[anchore][error] anchore container not running, image not available to restart");
+		listener.getLogger().println("[anchore][error] anchore container not running and anchore image ("+containerImageId+") is not available on local dockerhost");
 		return(false);
 	    }
 	} else {
@@ -594,7 +594,7 @@ public class AnchoreBuilder extends Builder {
 	    listener.getLogger().println("[anchore][info] anchore container has been launched");
 	    return(true);
 	}
-	listener.getLogger().println("[anchore][error] anchore container not running, failed to launch container image");
+	listener.getLogger().println("[anchore][error] anchore container ("+containerId+") not running and failed to launch anchore container ("+containerImageId+") image from scratch.");
 	return(false);	    
     }
 
