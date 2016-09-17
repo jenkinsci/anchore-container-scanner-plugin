@@ -10,6 +10,7 @@ import hudson.model.TaskListener;
 import hudson.tasks.Builder;
 import hudson.model.BuildListener;
 import hudson.tasks.BuildStepDescriptor;
+import hudson.model.Node;
 import hudson.AbortException;
 import hudson.tasks.ArtifactArchiver;
 
@@ -25,6 +26,7 @@ import java.io.IOException;
 import hudson.EnvVars;
 import hudson.util.ArgumentListBuilder;
 import java.io.File;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -36,6 +38,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
 import java.util.Map;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 
 import java.nio.file.*;
 import static java.nio.file.FileVisitResult.*;
@@ -44,8 +48,6 @@ import java.nio.file.attribute.*;
 public class AnchoreBuilder extends Builder {
     private String name;
     private String policyName;
-    private String workspace;
-    private String anchoreWorkspace;
     private String buildId;
     private String euid;
     private String targetImageFile;
@@ -62,11 +64,7 @@ public class AnchoreBuilder extends Builder {
     private List<String> oFiles;
     private TreeMap<String, String> queries;
 
-    private File gatesOutputFile;
-    private File anchorePolicyFile;
-    private File anchoreImageFile;
-    private File anchoreLogFile;
-    private PrintStream anchoreLogStream;
+    private OutputStream anchoreLogStream;
     private boolean debug;
     private boolean useSudo;
     private final boolean bailOnPluginFail;
@@ -76,6 +74,15 @@ public class AnchoreBuilder extends Builder {
     private final boolean doGate;
     private final boolean doQuery;
     private final boolean doCleanup;
+
+    //    private Launcher launcher;
+    //    private Node myNode;
+
+    //    private FilePath myWorkspace;
+    //    private FilePath myAnchoreWorkspace;
+    //    private FilePath anchorePolicyFile;
+    //    private FilePath anchoreImageFile;
+
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
@@ -94,6 +101,15 @@ public class AnchoreBuilder extends Builder {
 	this.query2 = query2;
 	this.query3 = query3;
 	this.query4 = query4;
+	
+	//	this.launcher = null;
+	//	this.myNode = null;'
+
+	//	this.myWorkspace = null;
+	//	this.myAnchoreWorkspace = null;
+	//	this.anchorePolicyFile = null;
+	//	this.anchoreImageFile = null;
+
     }
 
     public boolean getBailOnWarn() {
@@ -154,11 +170,20 @@ public class AnchoreBuilder extends Builder {
     }
 
     @Override
-    public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) throws AbortException, java.lang.InterruptedException {
+    public boolean perform(AbstractBuild build, Launcher inLauncher, BuildListener listener) throws AbortException, java.lang.InterruptedException {
 	int exitCode = 0;
-	PrintStream outStream;
 	boolean rc;
 	TreeMap<String, String> queriesOutput = new TreeMap<String, String>();
+	Node myNode = build.getBuiltOn();
+	Launcher launcher = myNode.createLauncher(listener);
+
+	this.buildId = String.valueOf(build.getNumber());
+	this.euid = build.getParent().getDisplayName() + "_" + buildId;
+
+	FilePath myWorkspace = build.getWorkspace();
+	FilePath myAnchoreWorkspace = new FilePath(myWorkspace, "AnchoreReport."+euid);
+	FilePath anchoreImageFile = new FilePath(myWorkspace, name);
+	FilePath anchorePolicyFile = new FilePath(myWorkspace, policyName);
 
 	try {
 
@@ -168,7 +193,7 @@ public class AnchoreBuilder extends Builder {
 		return(true);
 	    }
 
-	    rc = anchoreSetup(build, launcher, listener);
+	    rc = anchoreSetup(build, launcher, listener, myAnchoreWorkspace, anchoreImageFile, anchorePolicyFile);
 	    if (!rc) {
 		listener.getLogger().println("[anchore] failed to setup Anchore - please check the output above");
 		return(selectPluginExitStatus(listener));
@@ -196,7 +221,7 @@ public class AnchoreBuilder extends Builder {
 	    if (doAnalyze) {
 		listener.getLogger().println("[anchore][info][info] Running Anchore Analyzer:");
 	    
-		if (this.debug) {
+		if (debug) {
 		    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--debug", "analyze", "--imagefile", targetImageFile);
 		} else {
 		    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "analyze", "--imagefile", targetImageFile);
@@ -217,15 +242,15 @@ public class AnchoreBuilder extends Builder {
 		    String anchoreQuery = entry.getValue();
 		    if (anchoreQuery != null && !anchoreQuery.isEmpty()) {
 			listener.getLogger().println("[anchore][info] " + entry.getKey() + " : " + entry.getValue());
-			File queryOutputFile = new File(anchoreWorkspace, entry.getKey() + ".html");
-			outStream = new PrintStream(queryOutputFile, "UTF-8");
+
+			FilePath queryOutputFile = new FilePath(myAnchoreWorkspace, entry.getKey() + ".html");
 		    
 			listener.getLogger().println("[anchore][info] Running Anchore Query: " + entry.getValue());
 		    
-			if (this.debug) {
-			    exitCode = runAnchoreCmd(launcher, outStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--debug", "--html", "query", "--imagefile", targetImageFile, entry.getValue());
+			if (debug) {
+			    exitCode = runAnchoreCmd(launcher, queryOutputFile.write(), anchoreLogStream, "docker", "exec", containerId, "anchore", "--debug", "--html", "query", "--imagefile", targetImageFile, entry.getValue());
 			} else {
-			    exitCode = runAnchoreCmd(launcher, outStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--html", "query", "--imagefile", targetImageFile, entry.getValue());
+			    exitCode = runAnchoreCmd(launcher, queryOutputFile.write(), anchoreLogStream, "docker", "exec", containerId, "anchore", "--html", "query", "--imagefile", targetImageFile, entry.getValue());
 			}
 			if (queryOutputFile.exists() && queryOutputFile.length() > 0) {
 			    queriesOutput.put(entry.getKey(), entry.getValue());
@@ -236,21 +261,21 @@ public class AnchoreBuilder extends Builder {
 	    }
 
 	    if (doGate) {
-		outStream = new PrintStream(gatesOutputFile, "UTF-8");
+		FilePath gatesOutputFile = new FilePath(myAnchoreWorkspace, "anchore_gates.html");
 
 		listener.getLogger().println("[anchore][info] Running Anchore Gates:");
 
-		if (anchorePolicyFile != null && anchorePolicyFile.exists()) {
-		    if (this.debug) {
-			exitCode = runAnchoreCmd(launcher, outStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--debug", "--html", "gate", "--policy", targetPolicyFile, "--imagefile", targetImageFile);
+		if (anchorePolicyFile.exists()) {
+		    if (debug) {
+			exitCode = runAnchoreCmd(launcher, gatesOutputFile.write(), anchoreLogStream, "docker", "exec", containerId, "anchore", "--debug", "--html", "gate", "--policy", targetPolicyFile, "--imagefile", targetImageFile);
 		    } else {
-			exitCode = runAnchoreCmd(launcher, outStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--html", "gate", "--policy", targetPolicyFile, "--imagefile", targetImageFile);
+			exitCode = runAnchoreCmd(launcher, gatesOutputFile.write(), anchoreLogStream, "docker", "exec", containerId, "anchore", "--html", "gate", "--policy", targetPolicyFile, "--imagefile", targetImageFile);
 		    }
 		} else {
-		    if (this.debug) {
-			exitCode = runAnchoreCmd(launcher, outStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--debug", "--html", "gate", "--imagefile", targetImageFile);
+		    if (debug) {
+			exitCode = runAnchoreCmd(launcher, gatesOutputFile.write(), anchoreLogStream, "docker", "exec", containerId, "anchore", "--debug", "--html", "gate", "--imagefile", targetImageFile);
 		    } else {
-			exitCode = runAnchoreCmd(launcher, outStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--html", "gate", "--imagefile", targetImageFile);
+			exitCode = runAnchoreCmd(launcher, gatesOutputFile.write(), anchoreLogStream, "docker", "exec", containerId, "anchore", "--html", "gate", "--imagefile", targetImageFile);
 		    }
 		}
 
@@ -259,7 +284,7 @@ public class AnchoreBuilder extends Builder {
 	    }
 
 	    // prep output
-	    rc = prepareReportOutput(listener);
+	    rc = prepareReportOutput(listener, myAnchoreWorkspace);
 	    if (!rc) {
 		listener.getLogger().println("[anchore][error] failed to prepare Anchore output reports.");
 		return(selectPluginExitStatus(listener));
@@ -271,7 +296,7 @@ public class AnchoreBuilder extends Builder {
 	    artifactArchiver.perform(build, build.getWorkspace(), launcher, listener);
 
 	    listener.getLogger().println("[anchore][info] cleaning up anchore artifacts in workspace.");
-	    rc = anchoreCleanup(build, launcher, listener);
+	    rc = anchoreCleanup(build, launcher, listener, myAnchoreWorkspace);
 	    if (!rc) {
 		listener.getLogger().println("[anchore][error] failed to clean up anchore artifacts in workspace.");
 		return(selectPluginExitStatus(listener));
@@ -280,11 +305,9 @@ public class AnchoreBuilder extends Builder {
 	} catch (RuntimeException e) {
             listener.getLogger().println("[anchore][error] RuntimeException:" + e.toString());
 	    return(selectPluginExitStatus(listener));
-	    //	    return(false);
         } catch (Exception e) {
             listener.getLogger().println("[anchore][error] Exception:" + e.toString());
 	    return(selectPluginExitStatus(listener));
-	    //	    return(false);
         } finally {
 	    listener.getLogger().println("[anchore][info] Anchore Plugin Finished");
 	}
@@ -327,14 +350,16 @@ public class AnchoreBuilder extends Builder {
 	    // add the link in jenkins UI for anchore results
 	    build.addAction(new AnchoreAction(build, "", euid, queriesOutput));
 	}
+
 	return(true);
     }
 
-    public boolean anchoreCleanup(AbstractBuild build, Launcher launcher, BuildListener listener) {
+    public boolean anchoreCleanup(AbstractBuild build, Launcher launcher, BuildListener listener, FilePath myAnchoreWorkspace) {
 	int exitCode=0;
+
 	// clean up the workspace items (as they should have been archived)
 	try {
-	    deleteFileOrFolder(Paths.get(anchoreWorkspace));
+	    myAnchoreWorkspace.deleteRecursive();
 	} catch (Exception e) {
 	    e.printStackTrace();
 	    listener.getLogger().println("Exception:" + e.toString());
@@ -350,7 +375,7 @@ public class AnchoreBuilder extends Builder {
 
 	if (doCleanup) {
 	    for (String imgId : anchoreInputImages) {
-		if (this.debug) {
+		if (debug) {
 		    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "--debug", "toolbox", "--image", imgId, "delete", "--dontask");
 		} else {
 		    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "exec", containerId, "anchore", "toolbox", "--image", imgId, "delete", "--dontask");
@@ -388,12 +413,13 @@ public class AnchoreBuilder extends Builder {
 	    });
     };
 
-    public boolean prepareReportOutput(BuildListener listener) {
+    public boolean prepareReportOutput(BuildListener listener, FilePath myAnchoreWorkspace) {
 	BufferedWriter bw;
 	BufferedReader br;
 	try{
 	    // CSS
-	    bw = new BufferedWriter(new FileWriter(new File(anchoreWorkspace, "anchore.css")));
+	    FilePath anchoreCss = new FilePath(myAnchoreWorkspace, "anchore.css");
+	    bw = new BufferedWriter(new OutputStreamWriter(anchoreCss.write()));
 	    // anchore colors: main:blue #3c7fe2 main:grey #d9e1e2 main:yellow #EEDC00 sec:blue #5BC2E7 sec:green #00B388 sec:navygrey #425563
 	    String css = "table {\n"
 		+"    border-collapse: collapse;\n"
@@ -415,11 +441,11 @@ public class AnchoreBuilder extends Builder {
 
 	    // style append to anchore outputs
 	    for (String oFile : oFiles) {
-		File inFile = new File(anchoreWorkspace, oFile + ".html");
+		FilePath inFile = new FilePath(myAnchoreWorkspace, oFile + ".html");
 		if (inFile.exists()) {
 		    if (inFile.length() > 0) {
-			br = new BufferedReader(new FileReader(inFile));
-			bw = new BufferedWriter(new FileWriter(new File(anchoreWorkspace, oFile + "_format.html")));
+			br = new BufferedReader(new InputStreamReader(inFile.read()));
+			bw = new BufferedWriter(new OutputStreamWriter(new FilePath(myAnchoreWorkspace, oFile + "_format.html").write()));
 			bw.write("<link rel=\"stylesheet\" type=\"text/css\" href=\"anchore.css\">\n");
 			String line = null;
 			while ((line = br.readLine()) != null) {
@@ -428,7 +454,7 @@ public class AnchoreBuilder extends Builder {
 			bw.close();
 			br.close();
 		    }
-		    deleteFileOrFolder(Paths.get(anchoreWorkspace + "/"+oFile+".html"));
+		    inFile.delete();
 		}
 	    }
 	} catch (Exception e) {
@@ -440,20 +466,38 @@ public class AnchoreBuilder extends Builder {
 	return(true);
     }
 
-    public boolean anchoreSetup(AbstractBuild build, Launcher launcher, BuildListener listener) {
+    private String executeCommand(String command) {
+
+	StringBuffer output = new StringBuffer();
+
+	Process p;
+	try {
+	    p = Runtime.getRuntime().exec(command);
+	    p.waitFor();
+	    BufferedReader reader =
+		new BufferedReader(new InputStreamReader(p.getInputStream()));
+
+	    String line = "";
+	    while ((line = reader.readLine())!= null) {
+		output.append(line + "\n");
+	    }
+
+	} catch (Exception e) {
+	    e.printStackTrace();
+	}
+
+	return output.toString();
+
+    }
+
+    public boolean anchoreSetup(AbstractBuild build, Launcher launcher, BuildListener listener, FilePath myAnchoreWorkspace, FilePath anchoreImageFile, FilePath anchorePolicyFile) {
 	try {
 	    int exitCode = 0;
 	    boolean rc = false;
-	    final EnvVars env = build.getEnvironment(listener);
-
+	    //final EnvVars env = build.getEnvironment(listener);
 	    oFiles = new ArrayList<String>();
 	    anchoreInputImages = new ArrayList<String>();
 	    
-	    workspace = env.expand("${WORKSPACE}");
-	    buildId = String.valueOf(build.getNumber());
-	    //euid = build.getExternalizableId();
-	    euid = build.getParent().getDisplayName() + "_" + buildId;
-	    anchoreWorkspace = workspace + "/AnchoreReport."+euid;
 	    containerId = getDescriptor().getContainerId();
 	    containerImageId = getDescriptor().getContainerImageId();
 	    debug = getDescriptor().getDebug();
@@ -467,21 +511,16 @@ public class AnchoreBuilder extends Builder {
 	    queries.put("query4", query4);
 
 	    // set up output directory
-	    File htmlDir = new File(anchoreWorkspace);
-	    if (!htmlDir.exists()) {
-		htmlDir.mkdir();
+	    if (!myAnchoreWorkspace.exists()) {
+		myAnchoreWorkspace.mkdirs();
 	    }
 
-	    if (anchoreLogFile == null) {
-		anchoreLogFile = new File(anchoreWorkspace, "anchore.log");
-		anchoreLogFile.createNewFile();
-	    }
-	    if (anchoreLogStream == null) {
-		if (debug) {
-		    anchoreLogStream = listener.getLogger();
-		} else {
-		    anchoreLogStream = new PrintStream(anchoreLogFile, "UTF-8");
-		}
+	    if (debug) {
+		anchoreLogStream = listener.getLogger();
+	    } else {
+		//FilePath anchoreLogFile = new FilePath(myAnchoreWorkspace, "anchore_output.log");
+		//anchoreLogStream = anchoreLogFile.write();
+		anchoreLogStream = listener.getLogger();
 	    }
 
 	    rc = runAnchoreContainer(launcher, listener);
@@ -490,19 +529,14 @@ public class AnchoreBuilder extends Builder {
 		return(false);
 	    }
 
-
 	    // set up input
-	    anchoreImageFile = new File(workspace, name);
 	    if (!anchoreImageFile.exists()) {
-		listener.getLogger().println("[anchore][error] cannot locate anchore image list file (needs to be created prior to anchore plugin build step): " + anchoreImageFile.getAbsolutePath());
+		listener.getLogger().println("[anchore][error] cannot locate anchore image list file (needs to be created prior to anchore plugin build step): " + anchoreImageFile.getRemote());
 		return(false);
 	    }
-
-	    if (policyName != null) {
-		anchorePolicyFile = new File(workspace, policyName);
-		if (!anchorePolicyFile.exists()) {
-		    listener.getLogger().println("[anchore][warn] policy file does not exist ("+ anchorePolicyFile.getAbsolutePath()+"), using anchore default policy.");
-		}
+	    
+	    if (!anchorePolicyFile.exists()) {
+		listener.getLogger().println("[anchore][warn] policy file does not exist ("+ anchorePolicyFile.getRemote()+"), using anchore default policy.");
 	    }
 
 	    oFiles.add("anchore_gates");
@@ -511,18 +545,18 @@ public class AnchoreBuilder extends Builder {
 	    oFiles.add("query3");
 	    oFiles.add("query4");
 
-	    gatesOutputFile = new File(htmlDir, "anchore_gates.html");
+	    //	    gatesOutputFile = new File(htmlDir, "anchore_gates.html");
 
 	    // stage the input files
-	    exitCode = runAnchoreCmd(launcher, listener.getLogger(), listener.getLogger(), "docker", "exec", containerId, "mkdir", "-p", "/root/anchore."+euid);
+	    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "exec", containerId, "mkdir", "-p", "/root/anchore."+euid);
 	    if (exitCode != 0) {
 		listener.getLogger().println("[anchore][error] failed to create build artifact directory inside Anchore container.");
 		return(false);
 	    }
 
-	    File stagedImageFile = new File(anchoreWorkspace, "staged_images."+euid);
-	    BufferedWriter bw = new BufferedWriter(new FileWriter(stagedImageFile));
-	    BufferedReader br = new BufferedReader(new FileReader(anchoreImageFile));
+	    FilePath stagedImageFile = new FilePath(myAnchoreWorkspace, "staged_images."+euid);
+	    BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(stagedImageFile.write()));
+	    BufferedReader br = new BufferedReader(new InputStreamReader(anchoreImageFile.read()));
 	    String line = null;
 	    while ((line = br.readLine()) != null) {
 		String[] kv = line.split(" ");
@@ -538,7 +572,7 @@ public class AnchoreBuilder extends Builder {
 		    try {
 			String dfile = kv[1];
 			targetFile = "/root/anchore."+euid+"/dfile."+imgId;
-			exitCode = runAnchoreCmd(launcher, listener.getLogger(), listener.getLogger(), "docker", "cp", dfile, containerId+":"+targetFile);
+			exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "cp", dfile, containerId+":"+targetFile);
 		    } catch (Exception e) {
 		    }
 		    bw.write(imgId + " " + targetFile + "\n");
@@ -549,11 +583,11 @@ public class AnchoreBuilder extends Builder {
 	    bw.close();
 
 	    targetImageFile = "/root/anchore."+euid+"/images";
-	    exitCode = runAnchoreCmd(launcher, listener.getLogger(), listener.getLogger(),"docker", "cp", stagedImageFile.getAbsolutePath(), containerId+":"+targetImageFile);
+	    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream,"docker", "cp", stagedImageFile.getRemote(), containerId+":"+targetImageFile);
 
-	    if (anchorePolicyFile != null && anchorePolicyFile.exists()) {
+	    if (anchorePolicyFile.exists()) {
 		targetPolicyFile = "/root/anchore."+euid+"/policy";
-		exitCode = runAnchoreCmd(launcher, listener.getLogger(), listener.getLogger(), "docker", "cp", anchorePolicyFile.getAbsolutePath(), containerId+":"+targetPolicyFile);
+		exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "cp", anchorePolicyFile.getRemote(), containerId+":"+targetPolicyFile);
 	    }
 
 	} catch (RuntimeException e) {
@@ -623,7 +657,7 @@ public class AnchoreBuilder extends Builder {
 	return(false);	    
     }
 
-    public int runAnchoreCmd(Launcher launcher, PrintStream soutStream, PrintStream serrStream, String... cmd) {
+    public int runAnchoreCmd(Launcher launcher, OutputStream soutStream, OutputStream serrStream, String... cmd) {
 	int exitCode = 0;
 	ArgumentListBuilder args = new ArgumentListBuilder();
 	
@@ -646,7 +680,7 @@ public class AnchoreBuilder extends Builder {
 	    exitCode = ps.join();
 	} catch (Exception e) {
 	    if (soutStream != null) {
-		soutStream.println("command returned non-zero exitcode: " + exitCode);
+		//soutStream.println("command returned non-zero exitcode: " + exitCode);
 	    }
 	    return(1);
 	}

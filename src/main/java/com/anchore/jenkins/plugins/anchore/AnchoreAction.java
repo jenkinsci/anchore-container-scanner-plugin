@@ -11,14 +11,12 @@ public class AnchoreAction implements Action {
     private String gateStatus;
     private String gateReportUrl;
     private String queryReportUrl;
-    private String testReportUrl;
     private TreeMap<String, String> queries;
     private AbstractBuild<?,?> build;
 
     public AnchoreAction(AbstractBuild<?,?> build, String gateStatus, String euid, TreeMap<String, String> queries) {
 	this.gateReportUrl = "../artifact/AnchoreReport."+euid+"/anchore_gates_format.html";
 	this.queryReportUrl = "../artifact/AnchoreReport."+euid+"/anchore_query_format.html";
-	this.testReportUrl = "../artifact/AnchoreReport."+euid+"/jenk.html";
         this.build = build;
 	this.gateStatus = gateStatus;
 	this.queries = new TreeMap<String, String>();
@@ -54,10 +52,6 @@ public class AnchoreAction implements Action {
 	return this.queryReportUrl;
     }
 
-    public String getTestReportUrl() {
-	return this.testReportUrl;
-    }
-    
     public Map<String, String> getQueries() {
 	return(this.queries);
     }
