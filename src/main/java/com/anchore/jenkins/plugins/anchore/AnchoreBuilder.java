@@ -518,8 +518,6 @@ public class AnchoreBuilder extends Builder {
 	    if (debug) {
 		anchoreLogStream = listener.getLogger();
 	    } else {
-		//FilePath anchoreLogFile = new FilePath(myAnchoreWorkspace, "anchore_output.log");
-		//anchoreLogStream = anchoreLogFile.write();
 		anchoreLogStream = listener.getLogger();
 	    }
 
