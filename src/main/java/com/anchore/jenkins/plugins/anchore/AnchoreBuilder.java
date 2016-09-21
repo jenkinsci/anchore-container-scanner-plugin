@@ -55,6 +55,7 @@ public class AnchoreBuilder extends Builder {
     private String containerId;
     private String containerImageId;
     private String localVol;
+    private String modulesVol;
     private String query1;
     private String query2;
     private String query3;
@@ -101,15 +102,6 @@ public class AnchoreBuilder extends Builder {
 	this.query2 = query2;
 	this.query3 = query3;
 	this.query4 = query4;
-	
-	//	this.launcher = null;
-	//	this.myNode = null;'
-
-	//	this.myWorkspace = null;
-	//	this.myAnchoreWorkspace = null;
-	//	this.anchorePolicyFile = null;
-	//	this.anchoreImageFile = null;
-
     }
 
     public boolean getBailOnWarn() {
@@ -206,6 +198,7 @@ public class AnchoreBuilder extends Builder {
 		listener.getLogger().println("[anchore][config][global] containerImageId: " + getDescriptor().getContainerImageId());
 		listener.getLogger().println("[anchore][config][global] containerId: " + getDescriptor().getContainerId());
 		listener.getLogger().println("[anchore][config][global] localVol: " + getDescriptor().getLocalVol());
+		listener.getLogger().println("[anchore][config][global] modulesVol: " + getDescriptor().getModulesVol());
 
 		
 		listener.getLogger().println("[anchore][config][build] doAnalyze: " + String.valueOf(doAnalyze));
@@ -502,6 +495,7 @@ public class AnchoreBuilder extends Builder {
 	    containerImageId = getDescriptor().getContainerImageId();
 	    debug = getDescriptor().getDebug();
 	    localVol = getDescriptor().getLocalVol();
+	    modulesVol = getDescriptor().getModulesVol();
 	    useSudo = getDescriptor().getUseSudo();
 
 	    queries = new TreeMap<String, String>();
@@ -631,11 +625,19 @@ public class AnchoreBuilder extends Builder {
 	if (!isAnchoreRunning(launcher, listener)) {
 	    if (isAnchoreImageAvailable(launcher, listener)) {
 
+		String cmdstr;
+		cmdstr = "docker run -d -v /var/run/docker.sock:/var/run/docker.sock";
 		if (localVol != null && !localVol.isEmpty()) {
-		    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "run", "-d", "-v", "/var/run/docker.sock:/var/run/docker.sock", "-v", localVol+":/root/.anchore", "--name", containerId, containerImageId);
+		    cmdstr = cmdstr + " -v " + localVol + ":/root/.anchore";
+		    //exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "run", "-d", "-v", "/var/run/docker.sock:/var/run/docker.sock", "-v", localVol+":/root/.anchore", "--name", containerId, containerImageId);
 		} else {
-		    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "run", "-d", "-v", "/var/run/docker.sock:/var/run/docker.sock", "--name", containerId, containerImageId);
+		    //		    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "run", "-d", "-v", "/var/run/docker.sock:/var/run/docker.sock", "--name", containerId, containerImageId);
 		}
+		if (modulesVol != null && !modulesVol.isEmpty()) {
+		    cmdstr = cmdstr + " -v " + modulesVol +":/root/anchore_modules";
+		}
+		cmdstr = cmdstr + " --name " + containerId + " " + containerImageId;
+		exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, cmdstr);
 
 	    } else {
 		// image is not available
@@ -698,6 +700,7 @@ public class AnchoreBuilder extends Builder {
 	private String containerImageId;
 	private String containerId;
 	private String localVol;
+	private String modulesVol;
 	private boolean useSudo;
 
         public DescriptorImpl() {
@@ -720,6 +723,7 @@ public class AnchoreBuilder extends Builder {
 	    containerImageId = formData.getString("containerImageId");
 	    containerId = formData.getString("containerId");
 	    localVol = formData.getString("localVol");
+	    modulesVol = formData.getString("modulesVol");
 	    
             save();
             return super.configure(req,formData);
@@ -742,6 +746,9 @@ public class AnchoreBuilder extends Builder {
 	}
 	public String getLocalVol() {
 	    return localVol;
+	}
+	public String getModulesVol() {
+	    return modulesVol;
 	}
     }
 
