@@ -76,18 +76,9 @@ public class AnchoreBuilder extends Builder {
     private final boolean doQuery;
     private final boolean doCleanup;
 
-    //    private Launcher launcher;
-    //    private Node myNode;
-
-    //    private FilePath myWorkspace;
-    //    private FilePath myAnchoreWorkspace;
-    //    private FilePath anchorePolicyFile;
-    //    private FilePath anchoreImageFile;
-
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
-    //    public AnchoreBuilder(String name, String policyName, boolean bailOnFail, boolean bailOnWarn, boolean doAnalyze, boolean doGate, boolean doQuery, boolean doCleanup) {
     public AnchoreBuilder(String name, String policyName, boolean bailOnFail, boolean bailOnWarn, boolean doQuery, boolean doCleanup, boolean bailOnPluginFail, String query1, String query2, String query3, String query4) {
 	this.bailOnPluginFail = bailOnPluginFail;
 	this.bailOnFail = bailOnFail;
