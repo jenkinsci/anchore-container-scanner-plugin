@@ -15,7 +15,9 @@
   <packaging>hpi</packaging>
   <name>Anchore Container Image Scanner Plugin</name>
   <description>Integrates Jenkins with the Anchore Image Scanner </description>
-  <url>https://www.anchore.com/</url>
+
+  <url>https://wiki.jenkins-ci.org/display/JENKINS/Anchore+Container+Image+Scanner+Plugin</url>
+
   <licenses>
     <license>
       <name>Apache 2 License</name>
@@ -37,15 +39,13 @@
     -->
   </properties>
 
-  <!-- If you want this to appear on the wiki page:
   <developers>
     <developer>
-      <id>bhacker</id>
-      <name>Bob Q. Hacker</name>
-      <email>bhacker@nowhere.net</email>
+      <id>nurmi</id>
+      <name>Daniel Nurmi</name>
+      <email>nurmi@anchore.com</email>
     </developer>
   </developers>
-  -->
 
   <scm>
     <connection>scm:git:git://github.com/jenkinsci/${project.artifactId}-plugin.git</connection>
