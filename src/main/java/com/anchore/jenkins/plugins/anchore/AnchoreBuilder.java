@@ -34,6 +34,7 @@ import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.FileNotFoundException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
@@ -403,40 +404,50 @@ public class AnchoreBuilder extends Builder {
 	try{
 	    // CSS
 	    FilePath anchoreCss = new FilePath(myAnchoreWorkspace, "anchore.css");
-	    bw = new BufferedWriter(new OutputStreamWriter(anchoreCss.write()));
-	    // anchore colors: main:blue #3c7fe2 main:grey #d9e1e2 main:yellow #EEDC00 sec:blue #5BC2E7 sec:green #00B388 sec:navygrey #425563
-	    String css = "table {\n"
-		+"    border-collapse: collapse;\n"
-		+"    width: 100%;\n"
-		+"}\n"
-		+"th, td {\n"
-		+"    text-align: left;\n"
-		+"    padding: 8px;\n"
-		+"    transition: all 0.3s;\n"
-		+"}\n"
-		+"tr:nth-child(even){background-color: #eaf2f3}\n"
-		+"th {\n"
-		+"    background-color: #3c7fe2;;\n"
-		+"    color: #EEDC00;\n"
-		+"}\n"
-		+"tr td:hover { background: #5BC2E7; color: #FFFFFF; }\n";
-	    bw.write(css);
-	    bw.close();
+	    bw = new BufferedWriter(new OutputStreamWriter(anchoreCss.write(),StandardCharsets.UTF_8));
+	    try {
+		// anchore colors: main:blue #3c7fe2 main:grey #d9e1e2 main:yellow #EEDC00 sec:blue #5BC2E7 sec:green #00B388 sec:navygrey #425563
+		String css = "table {\n"
+		    +"    border-collapse: collapse;\n"
+		    +"    width: 100%;\n"
+		    +"}\n"
+		    +"th, td {\n"
+		    +"    text-align: left;\n"
+		    +"    padding: 8px;\n"
+		    +"    transition: all 0.3s;\n"
+		    +"}\n"
+		    +"tr:nth-child(even){background-color: #eaf2f3}\n"
+		    +"th {\n"
+		    +"    background-color: #3c7fe2;;\n"
+		    +"    color: #EEDC00;\n"
+		    +"}\n"
+		    +"tr td:hover { background: #5BC2E7; color: #FFFFFF; }\n";
+
+		bw.write(css);
+	    } finally {
+		bw.close();
+	    }
 
 	    // style append to anchore outputs
 	    for (String oFile : oFiles) {
 		FilePath inFile = new FilePath(myAnchoreWorkspace, oFile + ".html");
 		if (inFile.exists()) {
 		    if (inFile.length() > 0) {
-			br = new BufferedReader(new InputStreamReader(inFile.read()));
-			bw = new BufferedWriter(new OutputStreamWriter(new FilePath(myAnchoreWorkspace, oFile + "_format.html").write()));
-			bw.write("<link rel=\"stylesheet\" type=\"text/css\" href=\"anchore.css\">\n");
-			String line = null;
-			while ((line = br.readLine()) != null) {
-			    bw.write(line + "\n");
+			br = new BufferedReader(new InputStreamReader(inFile.read(), StandardCharsets.UTF_8));
+			try {
+			    bw = new BufferedWriter(new OutputStreamWriter(new FilePath(myAnchoreWorkspace, oFile + "_format.html").write(),StandardCharsets.UTF_8));
+			    try {
+				bw.write("<link rel=\"stylesheet\" type=\"text/css\" href=\"anchore.css\">\n");
+				String line = null;
+				while ((line = br.readLine()) != null) {
+				    bw.write(line + "\n");
+				}
+			    } finally {
+				bw.close();
+			    }
+			} finally {
+			    br.close();
 			}
-			bw.close();
-			br.close();
 		    }
 		    inFile.delete();
 		}
@@ -450,22 +461,23 @@ public class AnchoreBuilder extends Builder {
 	return(true);
     }
 
+    /*
     private String executeCommand(String command) {
-
 	StringBuffer output = new StringBuffer();
-
 	Process p;
+	BufferedReader reader;
 	try {
 	    p = Runtime.getRuntime().exec(command);
 	    p.waitFor();
-	    BufferedReader reader =
-		new BufferedReader(new InputStreamReader(p.getInputStream()));
-
-	    String line = "";
-	    while ((line = reader.readLine())!= null) {
-		output.append(line + "\n");
+	    reader = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8));
+	    try {
+		String line = "";
+		while ((line = reader.readLine())!= null) {
+		    output.append(line + "\n");
+		}
+	    } finally {
+		reader.close();
 	    }
-
 	} catch (Exception e) {
 	    e.printStackTrace();
 	}
@@ -473,6 +485,7 @@ public class AnchoreBuilder extends Builder {
 	return output.toString();
 
     }
+    */
 
     public boolean anchoreSetup(AbstractBuild build, Launcher launcher, BuildListener listener, FilePath myAnchoreWorkspace, FilePath anchoreImageFile, FilePath anchorePolicyFile) {
 	try {
@@ -538,32 +551,42 @@ public class AnchoreBuilder extends Builder {
 	    }
 
 	    FilePath stagedImageFile = new FilePath(myAnchoreWorkspace, "staged_images."+euid);
-	    BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(stagedImageFile.write()));
-	    BufferedReader br = new BufferedReader(new InputStreamReader(anchoreImageFile.read()));
-	    String line = null;
-	    while ((line = br.readLine()) != null) {
-		String[] kv = line.split(" ");
-		String imgId;
+	    BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(stagedImageFile.write(), StandardCharsets.UTF_8));
+	    try {
+		BufferedReader br = new BufferedReader(new InputStreamReader(anchoreImageFile.read(), StandardCharsets.UTF_8));
 		try {
-		    imgId = kv[0];
-		} catch (Exception e) {
-		    imgId = null;
-		}
-		
-		if (imgId != null) {
-		    String targetFile = "";
-		    try {
-			String dfile = kv[1];
-			targetFile = "/root/anchore."+euid+"/dfile."+imgId;
-			exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "cp", dfile, containerId+":"+targetFile);
-		    } catch (Exception e) {
+		    String line = null;
+		    while ((line = br.readLine()) != null) {
+			String[] kv = line.split(" ");
+			String imgId;
+			try {
+			    imgId = kv[0];
+			} catch (Exception e) {
+			    imgId = null;
+			}
+			
+			if (imgId != null) {
+			    String targetFile = "";
+			    String dfile = kv[1];
+			    exitCode = 1;
+			    targetFile = "/root/anchore."+euid+"/dfile."+imgId;
+			    
+			    try {
+				exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "cp", dfile, containerId+":"+targetFile);
+				bw.write(imgId + " " + targetFile + "\n");
+				anchoreInputImages.add(imgId);
+			    } catch (Exception e) {
+				listener.getLogger().println("[anchore][warn] failed to add image to target image file in the anchore container, skipping: " + imgId);
+				exitCode = 1;
+			    }
+			}
 		    }
-		    bw.write(imgId + " " + targetFile + "\n");
-		    anchoreInputImages.add(imgId);
+		} finally {
+		    br.close();
 		}
+	    } finally {
+		bw.close();
 	    }
-	    br.close();
-	    bw.close();
 
 	    targetImageFile = "/root/anchore."+euid+"/images";
 	    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream,"docker", "cp", stagedImageFile.getRemote(), containerId+":"+targetImageFile);
