@@ -173,12 +173,16 @@ public class AnchoreBuilder extends Builder {
 	FilePath myAnchoreWorkspace = new FilePath(myWorkspace, "AnchoreReport."+euid);
 	FilePath anchoreImageFile = new FilePath(myWorkspace, name);
 	FilePath anchorePolicyFile = new FilePath(myWorkspace, policyName);
-	
-
 
 	try {
+	    
 	    myNode = build.getBuiltOn();
-	    launcher = myNode.createLauncher(listener);
+	    if (myNode != null) {
+		launcher = myNode.createLauncher(listener);
+	    } else {
+		return(selectPluginExitStatus(listener));
+	    }
+
 	    listener.getLogger().println("[anchore] Anchore Plugin Started:");
 	    if (!getDescriptor().getEnabled()) {
 		listener.getLogger().println("[anchore] Anchore plugin is disabled - please enable the plugin in the global Anchore configuration section in Jenkins and try again");
@@ -286,11 +290,10 @@ public class AnchoreBuilder extends Builder {
 	    // store anchore output html files using jenkins archiver (for remote storage as well)
 	    listener.getLogger().println("[anchore][info] archiving anchore results.");
 	    ArtifactArchiver artifactArchiver = new ArtifactArchiver("AnchoreReport."+euid+"/");
-	    if (artifactArchiver != null) {
-		artifactArchiver.perform(build, build.getWorkspace(), launcher, listener);
-	    }
+	    artifactArchiver.perform(build, myWorkspace, launcher, listener);
 
 	    listener.getLogger().println("[anchore][info] cleaning up anchore artifacts in workspace.");
+
 	    rc = anchoreCleanup(build, launcher, listener, myAnchoreWorkspace);
 	    if (!rc) {
 		listener.getLogger().println("[anchore][error] failed to clean up anchore artifacts in workspace.");
@@ -306,7 +309,7 @@ public class AnchoreBuilder extends Builder {
         } finally {
 	    listener.getLogger().println("[anchore][info] Anchore Plugin Finished");
 	}
-
+	
 	if (doGate) {
 	    if (exitCode == 0) {
 		listener.getLogger().println("[anchore][info] Anchore Gate Policy Final Action: GO");
@@ -411,7 +414,7 @@ public class AnchoreBuilder extends Builder {
     public boolean prepareReportOutput(BuildListener listener, FilePath myAnchoreWorkspace) {
 	BufferedWriter bw;
 	BufferedReader br;
-	try{
+	try {
 	    // CSS
 	    FilePath anchoreCss = new FilePath(myAnchoreWorkspace, "anchore.css");
 	    bw = new BufferedWriter(new OutputStreamWriter(anchoreCss.write(),StandardCharsets.UTF_8));
@@ -462,12 +465,14 @@ public class AnchoreBuilder extends Builder {
 		    inFile.delete();
 		}
 	    }
+	} catch (RuntimeException e) {
+	    throw e;
 	} catch (Exception e) {
 	    e.printStackTrace();
 	    listener.getLogger().println("Exception:" + e.toString());	    
 	    return(false);
 	}
-
+	
 	return(true);
     }
 
