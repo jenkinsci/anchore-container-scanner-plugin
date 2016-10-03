@@ -48,8 +48,8 @@
   </developers>
 
   <scm>
-    <connection>scm:git:ssh://github.com/jenkinsci/${project.artifactId}-plugin.git</connection>
-    <developerConnection>scm:git:ssh://git@github.com:jenkinsci/${project.artifactId}-plugin.git</developerConnection>
+    <connection>scm:git:https://github.com/jenkinsci/${project.artifactId}-plugin.git</connection>
+    <developerConnection>scm:git:https://git@github.com:jenkinsci/${project.artifactId}-plugin.git</developerConnection>
     <url>http://github.com/jenkinsci/${project.artifactId}-plugin</url>
   </scm>
 
