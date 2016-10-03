@@ -158,19 +158,27 @@ public class AnchoreBuilder extends Builder {
 	int exitCode = 0;
 	boolean rc;
 	TreeMap<String, String> queriesOutput = new TreeMap<String, String>();
+
+	/*
 	Node myNode = build.getBuiltOn();
 	Launcher launcher = myNode.createLauncher(listener);
+	*/
+	Node myNode;
+	Launcher launcher;
 
 	this.buildId = String.valueOf(build.getNumber());
 	this.euid = build.getParent().getDisplayName() + "_" + buildId;
-
+	
 	FilePath myWorkspace = build.getWorkspace();
 	FilePath myAnchoreWorkspace = new FilePath(myWorkspace, "AnchoreReport."+euid);
 	FilePath anchoreImageFile = new FilePath(myWorkspace, name);
 	FilePath anchorePolicyFile = new FilePath(myWorkspace, policyName);
+	
+
 
 	try {
-
+	    myNode = build.getBuiltOn();
+	    launcher = myNode.createLauncher(listener);
 	    listener.getLogger().println("[anchore] Anchore Plugin Started:");
 	    if (!getDescriptor().getEnabled()) {
 		listener.getLogger().println("[anchore] Anchore plugin is disabled - please enable the plugin in the global Anchore configuration section in Jenkins and try again");
@@ -278,7 +286,9 @@ public class AnchoreBuilder extends Builder {
 	    // store anchore output html files using jenkins archiver (for remote storage as well)
 	    listener.getLogger().println("[anchore][info] archiving anchore results.");
 	    ArtifactArchiver artifactArchiver = new ArtifactArchiver("AnchoreReport."+euid+"/");
-	    artifactArchiver.perform(build, build.getWorkspace(), launcher, listener);
+	    if (artifactArchiver != null) {
+		artifactArchiver.perform(build, build.getWorkspace(), launcher, listener);
+	    }
 
 	    listener.getLogger().println("[anchore][info] cleaning up anchore artifacts in workspace.");
 	    rc = anchoreCleanup(build, launcher, listener, myAnchoreWorkspace);
@@ -513,11 +523,7 @@ public class AnchoreBuilder extends Builder {
 		myAnchoreWorkspace.mkdirs();
 	    }
 
-	    if (debug) {
-		anchoreLogStream = listener.getLogger();
-	    } else {
-		anchoreLogStream = listener.getLogger();
-	    }
+	    anchoreLogStream = listener.getLogger();
 
 	    rc = runAnchoreContainer(launcher, listener);
 	    if (!rc) {
