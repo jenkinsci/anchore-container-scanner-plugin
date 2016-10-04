@@ -27,7 +27,7 @@ public class AnchoreAction implements Action {
 
     @Override
     public String getIconFileName() {
-	return "/plugin/anchore/images/anchore.png";
+	return "/plugin/anchore-container-scanner/images/anchore.png";
     }
 
     @Override

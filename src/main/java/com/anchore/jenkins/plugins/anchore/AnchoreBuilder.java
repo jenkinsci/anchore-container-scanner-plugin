@@ -578,18 +578,17 @@ public class AnchoreBuilder extends Builder {
 			
 			if (imgId != null) {
 			    String targetFile = "";
-			    String dfile = kv[1];
-			    exitCode = 1;
-			    targetFile = "/root/anchore."+euid+"/dfile."+imgId;
-			    
+			    exitCode = 1;			    
 			    try {
+				String dfile = kv[1];
+				targetFile = "/root/anchore."+euid+"/dfile."+imgId;
 				exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "cp", dfile, containerId+":"+targetFile);
-				bw.write(imgId + " " + targetFile + "\n");
-				anchoreInputImages.add(imgId);
 			    } catch (Exception e) {
 				listener.getLogger().println("[anchore][warn] failed to add image to target image file in the anchore container, skipping: " + imgId);
 				exitCode = 1;
 			    }
+			    bw.write(imgId + " " + targetFile + "\n");
+			    anchoreInputImages.add(imgId);
 			}
 		    }
 		} finally {
