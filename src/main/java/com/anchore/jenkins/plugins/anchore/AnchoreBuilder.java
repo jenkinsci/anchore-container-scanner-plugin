@@ -567,6 +567,7 @@ public class AnchoreBuilder extends Builder {
 		BufferedReader br = new BufferedReader(new InputStreamReader(anchoreImageFile.read(), StandardCharsets.UTF_8));
 		try {
 		    String line = null;
+		    int count=0;
 		    while ((line = br.readLine()) != null) {
 			String[] kv = line.split(" ");
 			String imgId;
@@ -581,15 +582,20 @@ public class AnchoreBuilder extends Builder {
 			    exitCode = 1;			    
 			    try {
 				String dfile = kv[1];
-				targetFile = "/root/anchore."+euid+"/dfile."+imgId;
+				String imgCount = String.valueOf(count);
+				targetFile = "/root/anchore."+euid+"/dfile."+imgCount;
 				exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "cp", dfile, containerId+":"+targetFile);
 			    } catch (Exception e) {
-				listener.getLogger().println("[anchore][warn] failed to add image to target image file in the anchore container, skipping: " + imgId);
-				exitCode = 1;
+				listener.getLogger().println("[anchore][warn] no dockerfile specified for image: anchore analyzer will attempt to construct dockerfile: " + imgId);
 			    }
-			    bw.write(imgId + " " + targetFile + "\n");
+			    String imageLine = imgId + " " + targetFile + "\n";
+			    if (debug) {
+				listener.getLogger().println("[anchore][debug]: adding line to anchore image input file: " + imageLine);
+			    }
+			    bw.write(imageLine);
 			    anchoreInputImages.add(imgId);
 			}
+			count++;
 		    }
 		} finally {
 		    br.close();
