@@ -20,6 +20,10 @@
   <f:entry title="Policy file" field="policyName">
     <f:textbox default="anchore_policy"/>
   </f:entry>
+
+  <f:entry title="User scripts directory" field="userScripts">
+    <f:textbox default="anchore_user_scripts"/>
+  </f:entry>
       
   <f:entry title="Fail build on policy check STOP result" field="bailOnFail">
     <f:checkbox name="bailOnFail" checked="${instance.bailOnFail}" default="${true}"/>
