@@ -264,6 +264,11 @@ public class AnchoreBuilder extends Builder {
 			if (debug) {
 			    anchoreCmd += " --debug";
 			}			    
+
+			if (anchoreScriptsDir.exists()) {
+			    anchoreCmd += " --config-override";
+			    anchoreCmd += " user_scripts_dir="+targetScriptsDir;
+			}
 			
 			exitCode = runAnchoreCmd(launcher, queryOutputFile.write(), anchoreLogStream, "docker", "exec", containerId, anchoreCmd, "--html", "query", "--imagefile", targetImageFile, entry.getValue());
 
@@ -284,6 +289,11 @@ public class AnchoreBuilder extends Builder {
 		
 		if (debug) {
 		    anchoreCmd += " --debug";
+		}
+
+		if (anchoreScriptsDir.exists()) {
+		    anchoreCmd += " --config-override";
+		    anchoreCmd += " user_scripts_dir="+targetScriptsDir;
 		}
 
 		if (anchorePolicyFile.exists()) {
