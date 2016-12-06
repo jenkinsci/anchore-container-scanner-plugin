@@ -10,7 +10,7 @@
   </parent>
 
   <artifactId>anchore-container-scanner</artifactId>
-  <version>1.0.4</version>
+  <version>1.0.5-SNAPSHOT</version>
   <packaging>hpi</packaging>
   <name>Anchore Container Image Scanner Plugin</name>
   <description>Integrates Jenkins with the Anchore Image Scanner </description>
@@ -50,7 +50,7 @@
     <connection>scm:git:git://github.com/jenkinsci/${project.artifactId}-plugin.git</connection>
     <developerConnection>scm:git:git@github.com:jenkinsci/${project.artifactId}-plugin.git</developerConnection>
     <url>http://github.com/jenkinsci/${project.artifactId}-plugin</url>
-    <tag>anchore-container-scanner-1.0.4</tag>
+    <tag>anchore-container-scanner-1.0.0</tag>
   </scm>
 <!--
   <scm>
