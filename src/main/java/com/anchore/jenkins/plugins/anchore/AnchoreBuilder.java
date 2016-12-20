@@ -412,32 +412,6 @@ public class AnchoreBuilder extends Builder {
 	return(true);
     }
 
-    public static void deleteFileOrFolder(final Path path) throws IOException {
-	Files.walkFileTree(path, new SimpleFileVisitor<Path>(){
-		@Override public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs)
-		    throws IOException {
-		    Files.delete(file);
-		    return CONTINUE;
-		}
-
-		@Override public FileVisitResult visitFileFailed(final Path file, final IOException e) {
-		    return handleException(e);
-		}
-
-		private FileVisitResult handleException(final IOException e) {
-		    e.printStackTrace(); // replace with more robust error handling
-		    return TERMINATE;
-		}
-
-		@Override public FileVisitResult postVisitDirectory(final Path dir, final IOException e)
-		    throws IOException {
-		    if(e!=null)return handleException(e);
-		    Files.delete(dir);
-		    return CONTINUE;
-		}
-	    });
-    };
-
     public boolean prepareReportOutput(BuildListener listener, FilePath myAnchoreWorkspace) {
 	BufferedWriter bw;
 	BufferedReader br;
@@ -503,32 +477,6 @@ public class AnchoreBuilder extends Builder {
 	return(true);
     }
 
-    /*
-    private String executeCommand(String command) {
-	StringBuffer output = new StringBuffer();
-	Process p;
-	BufferedReader reader;
-	try {
-	    p = Runtime.getRuntime().exec(command);
-	    p.waitFor();
-	    reader = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8));
-	    try {
-		String line = "";
-		while ((line = reader.readLine())!= null) {
-		    output.append(line + "\n");
-		}
-	    } finally {
-		reader.close();
-	    }
-	} catch (Exception e) {
-	    e.printStackTrace();
-	}
-
-	return output.toString();
-
-    }
-    */
-
     public boolean anchoreSetup(AbstractBuild build, Launcher launcher, BuildListener listener, FilePath myAnchoreWorkspace, FilePath anchoreImageFile, FilePath anchorePolicyFile, FilePath anchoreScriptsDir) {
 	try {
 	    int exitCode = 0;
@@ -579,8 +527,6 @@ public class AnchoreBuilder extends Builder {
 	    oFiles.add("query3");
 	    oFiles.add("query4");
 
-	    //	    gatesOutputFile = new File(htmlDir, "anchore_gates.html");
-
 	    // stage the input files
 	    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "exec", containerId, "mkdir", "-p", "/root/anchore."+euid);
 	    if (exitCode != 0) {
@@ -588,6 +534,7 @@ public class AnchoreBuilder extends Builder {
 		return(false);
 	    }
 
+	    boolean inputFailed = false;
 	    FilePath stagedImageFile = new FilePath(myAnchoreWorkspace, "staged_images."+euid);
 	    BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(stagedImageFile.write(), StandardCharsets.UTF_8));
 	    try {
@@ -596,25 +543,33 @@ public class AnchoreBuilder extends Builder {
 		    String line = null;
 		    int count=0;
 		    while ((line = br.readLine()) != null) {
-			String[] kv = line.split(" ");
+			String[] kv = line.split("\\s+");
 			String imgId;
+
 			try {
 			    imgId = kv[0];
 			} catch (Exception e) {
 			    imgId = null;
 			}
 			
-			if (imgId != null) {
+			if (imgId != null && !imgId.isEmpty()) {
 			    String targetFile = "";
-			    exitCode = 1;			    
+			    exitCode = 0;
 			    try {
 				String dfile = kv[1];
 				String imgCount = String.valueOf(count);
+
 				targetFile = "/root/anchore."+euid+"/dfile."+imgCount;
 				exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "cp", dfile, containerId+":"+targetFile);
+				if (exitCode != 0) {
+				    listener.getLogger().println("[anchore][error] input dockerfile ("+dfile+") could not be staged (check above command for errors)`");
+				    inputFailed = true;
+				}
+
 			    } catch (Exception e) {
-				listener.getLogger().println("[anchore][warn] no dockerfile specified for image: anchore analyzer will attempt to construct dockerfile: " + imgId);
+				listener.getLogger().println("[anchore][warn] no dockerfile specified for image ("+imgId+"): anchore analyzer will attempt to construct dockerfile");
 			    }
+
 			    String imageLine = imgId + " " + targetFile + "\n";
 			    if (debug) {
 				listener.getLogger().println("[anchore][debug]: adding line to anchore image input file: " + imageLine);
@@ -631,17 +586,37 @@ public class AnchoreBuilder extends Builder {
 		bw.close();
 	    }
 
+	    if (inputFailed) {
+		listener.getLogger().println("[anchore][error]: preparing of input failed, bailing out");
+		return(false);
+	    }
+
+	    // finally, stage the rest of the files
 	    targetImageFile = "/root/anchore."+euid+"/images";
 	    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream,"docker", "cp", stagedImageFile.getRemote(), containerId+":"+targetImageFile);
+	    if (exitCode != 0) {
+		inputFailed = true;
+	    }
 
 	    if (anchoreScriptsDir.exists()) {
 		targetScriptsDir = "/root/anchore."+euid+"/anchorescripts/";
 		exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream,"docker", "cp", anchoreScriptsDir.getRemote(), containerId+":"+targetScriptsDir);
+		if (exitCode != 0) {
+		    inputFailed = true;
+		}
 	    }
 
 	    if (anchorePolicyFile.exists()) {
 		targetPolicyFile = "/root/anchore."+euid+"/policy";
 		exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "cp", anchorePolicyFile.getRemote(), containerId+":"+targetPolicyFile);
+		if (exitCode != 0) {
+		    inputFailed = true;
+		}
+	    }
+
+	    if (inputFailed) {
+		listener.getLogger().println("[anchore][error]: preparing of input failed, bailing out");
+		return(false);
 	    }
 
 	} catch (RuntimeException e) {
@@ -691,10 +666,8 @@ public class AnchoreBuilder extends Builder {
 		cmdstr = "docker run -d -v /var/run/docker.sock:/var/run/docker.sock";
 		if (localVol != null && !localVol.isEmpty()) {
 		    cmdstr = cmdstr + " -v " + localVol + ":/root/.anchore";
-		    //exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "run", "-d", "-v", "/var/run/docker.sock:/var/run/docker.sock", "-v", localVol+":/root/.anchore", "--name", containerId, containerImageId);
-		} else {
-		    //		    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "run", "-d", "-v", "/var/run/docker.sock:/var/run/docker.sock", "--name", containerId, containerImageId);
 		}
+
 		if (modulesVol != null && !modulesVol.isEmpty()) {
 		    cmdstr = cmdstr + " -v " + modulesVol +":/root/anchore_modules";
 		}
@@ -727,7 +700,7 @@ public class AnchoreBuilder extends Builder {
 	    args.add("sudo");
 	}
 	for (String cmdstr : cmd) {
-	    for (String cmdlet : cmdstr.split(" ")) {
+	    for (String cmdlet : cmdstr.split("\\s+")) {
 		args.add(cmdlet);
 	    }
 	}
@@ -741,9 +714,6 @@ public class AnchoreBuilder extends Builder {
 	try {
 	    exitCode = ps.join();
 	} catch (Exception e) {
-	    if (soutStream != null) {
-		//soutStream.println("command returned non-zero exitcode: " + exitCode);
-	    }
 	    return(1);
 	}
 
