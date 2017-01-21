@@ -1,5 +1,6 @@
 <div>
 
-  If specified, the plugin will use this directory as a volume that is attached to the running Anchore container, which is made available within the container as /root/.anchore (all anchore configuration data is stored here).  If left blank, the container will use internal local storage to run anchore commands and store anchore data.
+  If specified, the plugin will mount this directory as a volume in the running Anchore container at /root/.anchore. All Anchore
+  configuration data is stored here. If left blank, the container will use internal local storage to store Anchore data.
 
 </div>

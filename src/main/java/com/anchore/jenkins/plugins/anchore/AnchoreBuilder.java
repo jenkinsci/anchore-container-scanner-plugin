@@ -1,788 +1,1080 @@
 package com.anchore.jenkins.plugins.anchore;
-import hudson.Launcher;
+
+
+import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import hudson.AbortException;
 import hudson.Extension;
 import hudson.FilePath;
-import hudson.util.FormValidation;
-import hudson.model.AbstractProject;
+import hudson.Launcher;
+import hudson.PluginWrapper;
+import hudson.Util;
 import hudson.model.AbstractBuild;
-import hudson.model.Run;
-import hudson.model.TaskListener;
-import hudson.tasks.Builder;
+import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
-import hudson.tasks.BuildStepDescriptor;
 import hudson.model.Node;
-import hudson.AbortException;
 import hudson.tasks.ArtifactArchiver;
-
-import jenkins.tasks.SimpleBuildStep;
-import net.sf.json.JSONObject;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.StaplerRequest;
-import org.kohsuke.stapler.QueryParameter;
-
-import javax.servlet.ServletException;
-import java.io.IOException;
-
-import hudson.EnvVars;
-import hudson.util.ArgumentListBuilder;
-import java.io.File;
-import java.io.OutputStream;
-import java.io.PrintStream;
+import hudson.tasks.BuildStepDescriptor;
+import hudson.tasks.Builder;
+import hudson.util.FormValidation;
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.BufferedWriter;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.FileNotFoundException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
-import java.util.TreeMap;
 import java.util.Map;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
+import java.util.logging.Logger;
+import java.util.regex.Pattern;
+import jenkins.model.Jenkins;
+import net.sf.json.JSONObject;
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.StaplerRequest;
 
-import java.nio.file.*;
-import static java.nio.file.FileVisitResult.*;
-import java.nio.file.attribute.*;
-
+/**
+ * TODO Some description for this plugin does
+ */
 public class AnchoreBuilder extends Builder {
-    private String name;
-    private String policyName;
-    private String userScripts;
-    private String buildId;
-    private String euid;
-    private String targetImageFile;
-    private String targetPolicyFile;
-    private String targetScriptsDir;
-    private String containerId;
+
+  //  Log handler for logging above INFO level events to jenkins log
+  private static final Logger LOG = Logger.getLogger(AnchoreBuilder.class.getName());
+  // This is probably the slowest way of formatting strings, should do for now but please figure out a better way
+  private static final String LOG_FORMAT = "%1$tY-%1$tm-%1$tdT%1$tH:%1$tM:%1$tS.%1$tL %2$-6s AnchorePlugin %3$s";
+  private static final Splitter IMAGE_LIST_SPLITTER = Splitter.on(Pattern.compile("\\s+")).trimResults().omitEmptyStrings();
+  private static final String ANCHORE_BINARY = "anchore";
+  private static final String ANCHORE_CSS = "anchore.css";
+
+  private enum GATE_ACTION {STOP, WARN, GO}
+
+  // Build configuration
+  private String name;
+  private String policyName;
+  private String userScripts;
+  private boolean bailOnFail;
+  private boolean bailOnWarn;
+  private boolean bailOnPluginFail;
+  private boolean doCleanup;
+  private List<AnchoreQuery> inputQueries;
+
+  // Initialized at the very beginning of perform()
+  private PrintStream buildLog; // Log handler for logging to build console
+  private boolean enableDebug; // Class member to avoid passing DescriptorImpl for debug logging
+  private String buildId;
+
+  // Initialized by Jenkins workspace prep // TODO check if this creates problems duirng upgrade
+  private String jenkinsOutputDirName;
+  // Populated as you go along
+  private GATE_ACTION finalAction;
+
+  // Initialized by Anchore workspace prep
+  private String anchoreWorkspaceDirName;
+  private List<String> anchoreInputImages;
+  private String anchoreImageFile;
+  private String anchorePolicyFileName;
+  private String anchoreScriptsDirName;
+
+  // Getters are used by config.jelly
+  public String getName() {
+    return (name);
+  }
+
+  public String getPolicyName() {
+    return (policyName);
+  }
+
+  public String getUserScripts() {
+    return (userScripts);
+  }
+
+  public boolean getBailOnFail() {
+    return (bailOnFail);
+  }
+
+  public boolean getBailOnWarn() {
+    return (bailOnWarn);
+  }
+
+  public boolean getBailOnPluginFail() {
+    return (bailOnPluginFail);
+  }
+
+  public boolean getDoCleanup() {
+    return (doCleanup);
+  }
+
+  public List<AnchoreQuery> getInputQueries() {
+    return inputQueries;
+  }
+
+  // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
+  @DataBoundConstructor
+  public AnchoreBuilder(String name, String policyName, String userScripts, boolean bailOnFail, boolean bailOnWarn,
+      boolean bailOnPluginFail, boolean doCleanup, AnchoreQueriesBlock queriesBlock) {
+    this.name = name;
+    this.policyName = policyName;
+    this.userScripts = userScripts;
+    this.bailOnFail = bailOnFail;
+    this.bailOnWarn = bailOnWarn;
+    this.doCleanup = doCleanup;
+    this.bailOnPluginFail = bailOnPluginFail;
+    if (null != queriesBlock) {
+      this.inputQueries = queriesBlock.inputQueries;
+    }
+  }
+
+  public static class AnchoreQueriesBlock {
+
+    private List<AnchoreQuery> inputQueries;
+
+    @DataBoundConstructor
+    public AnchoreQueriesBlock(List<AnchoreQuery> inputQueries) {
+      this.inputQueries = inputQueries != null ? new ArrayList<>(inputQueries) : Collections.<AnchoreQuery>emptyList();
+    }
+  }
+
+  @Override
+  public boolean perform(AbstractBuild build, Launcher inLauncher, BuildListener listener) throws AbortException {
+
+    // Declaring them here as they are used by finally block
+    DescriptorImpl globalConfig = null;
+    Launcher jenkinsLauncher = null;
+
+    try {
+      LOG.warning(
+          "Starting Anchore Container Image Scanner plugin, project: " + build.getParent().getDisplayName() + ", build: " + build
+              .getNumber());
+
+
+      /* Some basic initialization here because Jenkins does not like complex class members due to serialization issues.
+      May be all of this could be refactored into a different class at a later time */
+
+      //      // Initialize console logger and global configuration before doing anything. Behaves like a constructor in lieu of a
+      // real one
+      //      initializeBasics(build, listener);
+
+      // Initialize build logger to log output to console, use local logging methods only after this initializer completes
+      if (null == listener || null == (buildLog = listener.getLogger())) {
+        LOG.warning("Anchore Container Image Scanner plugin cannot access build listener");
+        throw new AbortException("Anchore Container Image Scanner plugin cannot access build listener. Aborting plugin");
+      }
+      logInfo("Starting Anchore Container Image Scanner plugin, project: " + build.getParent().getDisplayName() + ", build: " + build
+          .getNumber());
+
+      // Fetch and initialize global configuration
+      if (null == (globalConfig = getDescriptor())) {
+        logError("Global configuration for the plugin is invalid");
+        throw new AbortException(
+            "Global configuration for the plugin is invalid. Please configure the plugin under Manage Jenkins->Configure "
+                + "System->Anchore Configuration and retry");
+      }
+
+      // Initialize debug logging
+      enableDebug = globalConfig.getDebug();
+
+      // TODO is this necessary? Can't we use the launcher that was passed in
+      Node jenkinsNode = build.getBuiltOn();
+      if (null == jenkinsNode || null == (jenkinsLauncher = jenkinsNode.createLauncher(listener))) {
+        LOG.warning("Anchore Container Image Scanner plugin is unable to initialize Jenkins process executor");
+        logError("Unable to initialize Jenkins process executor");
+        throw new AbortException("Unable to initialize Jenkins process executor");
+      }
+
+      if (Strings.isNullOrEmpty(buildId = build.getParent().getDisplayName() + "_" + build.getNumber())) {
+        logWarn("Unable to generate a unique identifier for this build due to invalid configuration");
+        throw new AbortException("Unable to generate a unique identifier for this build due to invalid configuration");
+      }
+
+
+      /* Print build and global configuration */
+      printConfig(globalConfig);
+
+
+      /* Check config */
+      checkConfig(build, globalConfig);
+
+
+      /* Initialize Jenkins workspace */
+      initializeJenkinsWorkspace(build);
+      // Cannot be a class member due to serialization issues
+      Map<String, FilePath> jenkinsGeneratedOutput = new HashMap<>(); // Output files generated by processes
+      Map<String, String> successfulQueries = new HashMap<>(); // TODO refactor this
+
+
+      /* Initialize Anchore workspace */
+      initializeAnchoreWorkspace(build, jenkinsLauncher, globalConfig);
+
+
+      /* Run analysis */
+      runAnalyzer(jenkinsLauncher, globalConfig);
+
+      /* Run gates */
+      runGates(build, jenkinsLauncher, globalConfig, jenkinsGeneratedOutput);
+
+
+      /* Run queries and continue even if it fails */
+      try {
+        runQueries(build, jenkinsLauncher, globalConfig, jenkinsGeneratedOutput, successfulQueries);
+      } catch (Exception e) {
+        logWarn("Recording failure to execute Anchore queries and moving on with plugin operation", e);
+      }
+
+
+      /* Generate reports */
+      generateReports(build, jenkinsGeneratedOutput, successfulQueries);
+
+
+      /* Archive reports */
+      archiveReports(build, jenkinsLauncher, listener);
+
+
+      /* Evaluate end result, its is based on the gate action*/
+      if (null != finalAction) {
+        if ((bailOnFail && GATE_ACTION.STOP.equals(finalAction)) || (bailOnWarn && GATE_ACTION.WARN.equals(finalAction))) {
+          logWarn("Failing Anchore Container Image Scanner Plugin build step due to final gate result " + finalAction);
+          return false;
+        } else {
+          logInfo("Marking Anchore Container Image Scanner build step as successful, final gate result " + finalAction);
+          return true;
+        }
+      } else {
+        logInfo("Marking Anchore Container Image Scanner build step as successful, no final gate result");
+        return true;
+      }
+    } catch (Exception e) {
+      logError("Failed to execute Anchore Image Scanner Plugin build step", e);
+      if (bailOnPluginFail) {
+        logWarn("Failing Anchore Container Image Scanner Plugin build step due to errors in plugin execution");
+        return false;
+      } else {
+        logWarn("Marking Anchore Container Image Scanner build step as successful despite errors in plugin execution");
+        return true;
+      }
+    } finally {
+      // Wrap cleanup in try catch block to ensure this finally block does not throw an exception
+      if (null != jenkinsLauncher && null != globalConfig) {
+        try {
+          cleanup(build, jenkinsLauncher, globalConfig);
+        } catch (Exception e) {
+          logDebug("Failed to cleanup after the plugin, ignoring the errors", e);
+        }
+      }
+      logInfo("Completed Anchore Container Image Scanner build step");
+      LOG.warning("Completed Anchore Container Image Scanner build step");
+    }
+  }
+
+  @Override
+  public DescriptorImpl getDescriptor() {
+    return (DescriptorImpl) super.getDescriptor();
+  }
+
+  private void printConfig(DescriptorImpl globalConfig) throws AbortException {
+
+    logInfo("Jenkins version: " + Jenkins.VERSION);
+    List<PluginWrapper> plugins;
+    if (Jenkins.getActiveInstance() != null && Jenkins.getActiveInstance().getPluginManager() != null
+        && (plugins = Jenkins.getActiveInstance().getPluginManager().getPlugins()) != null) {
+      for (PluginWrapper plugin : plugins) {
+        if (plugin.getShortName()
+            .equals("anchore-container-scanner")) { // artifact ID of the plugin, TODO is there a better way to get this
+          logInfo(plugin.getDisplayName() + " version: " + plugin.getVersion());
+          break;
+        }
+      }
+    }
+
+    logInfo("[global] enabled: " + String.valueOf(globalConfig.getEnabled()));
+    logInfo("[global] debug: " + String.valueOf(globalConfig.getDebug()));
+    logInfo("[global] useSudo: " + String.valueOf(globalConfig.getUseSudo()));
+    logInfo("[global] containerImageId: " + globalConfig.getContainerImageId());
+    logInfo("[global] containerId: " + globalConfig.getContainerId());
+    logInfo("[global] localVol: " + globalConfig.getLocalVol());
+    logInfo("[global] modulesVol: " + globalConfig.getModulesVol());
+
+    logInfo("[build] name: " + name);
+    logInfo("[build] policyName: " + policyName);
+    logInfo("[build] userScripts: " + userScripts);
+    logInfo("[build] bailOnFail: " + bailOnFail);
+    logInfo("[build] bailOnWarn: " + bailOnWarn);
+    logInfo("[build] bailOnPluginFail: " + bailOnPluginFail);
+    logInfo("[build] doCleanup: " + doCleanup);
+    if (null != inputQueries && !inputQueries.isEmpty()) {
+      for (AnchoreQuery anchoreQuery : inputQueries) {
+        logInfo("[build] query: " + anchoreQuery.getQuery());
+      }
+    }
+  }
+
+  /**
+   * Check if the minimum required config is available
+   */
+  private void checkConfig(AbstractBuild build, DescriptorImpl globalConfig) throws AbortException {
+    if (!globalConfig.getEnabled()) {
+      logError("Anchore image scanning is disabled");
+      throw new AbortException(
+          "Anchore image scanning is disabled. Please enable image scanning in Anchore Configuration under Manage Jenkins -> "
+              + "Configure System and try again");
+    }
+
+    if (Strings.isNullOrEmpty(name)) {
+      logError("Image list file not found");
+      throw new AbortException(
+          "Image list file not specified. Please specify a valid image list file name in the Anchore plugin build step "
+              + "configuration and try again");
+    }
+
+    try {
+      if (!new FilePath(build.getWorkspace(), name).exists()) {
+        logError("Cannot open image list file " + name + " under " + build.getWorkspace());
+        throw new AbortException("Cannot open image list file " + name
+            + ". Please ensure that image list file is created prior to Anchore Container Image Scanner build step");
+      }
+    } catch (AbortException e) {
+      throw e;
+    } catch (Exception e) {
+      logWarn("Unable to access image list file " + name + " under " + build.getWorkspace(), e);
+      throw new AbortException("Unable to access image list file " + name
+          + ". Please ensure that image list file is created prior to Anchore Container Image Scanner build step");
+    }
+
+    if (Strings.isNullOrEmpty(globalConfig.getContainerId())) {
+      logError("Anchore Container ID not found");
+      throw new AbortException(
+          "Please configure \"Anchore Container ID\" under Manage Jenkins->Configure System->Anchore Configuration and retry. If the"
+              + " container is not running, the plugin will launch it");
+    }
+
+    // TODO docker and image checks necessary here? check with Dan
+
+  }
+
+  private void initializeJenkinsWorkspace(AbstractBuild build) throws AbortException {
+    try {
+      logDebug("Initializing Jenkins workspace");
+
+      jenkinsOutputDirName = "AnchoreReport." + buildId;
+      FilePath jenkinsReportDir = new FilePath(build.getWorkspace(), jenkinsOutputDirName);
+
+      // Create output directories
+      if (!jenkinsReportDir.exists()) {
+        logDebug("Creating workspace directory " + jenkinsOutputDirName);
+        jenkinsReportDir.mkdirs();
+      }
+    } catch (AbortException e) {
+      // probably caught one of the thrown exceptions, let it pass through
+      throw e;
+    } catch (Exception e) {
+      // caught unknown exception, log it and wrap it
+      logWarn("Failed to initialize Jenkins workspace", e);
+      throw new AbortException("Failed to initialize Jenkins workspace due to to an unexpected error");
+    }
+  }
+
+  private void initializeAnchoreWorkspace(AbstractBuild build, Launcher jenkinsLauncher, DescriptorImpl globalConfig)
+      throws AbortException {
+    try {
+      logDebug("Initializing Anchore workspace");
+
+      // Setup the container first
+      setupAnchoreContainer(jenkinsLauncher, globalConfig);
+
+      // stage directory in anchore container
+      anchoreWorkspaceDirName = "/root/anchore." + buildId;
+
+      logDebug(
+          "Creating build artifact directory " + anchoreWorkspaceDirName + " in Anchore container " + globalConfig.getContainerId());
+      int rc = executeCommand(jenkinsLauncher, globalConfig,
+          "docker exec " + globalConfig.getContainerId() + " mkdir -p " + anchoreWorkspaceDirName);
+      if (rc != 0) {
+        logError("Failed to create build artifact directory " + anchoreWorkspaceDirName + " in Anchore container " + globalConfig
+            .getContainerId());
+        throw new AbortException(
+            "Failed to create build artifact directory " + anchoreWorkspaceDirName + " in Anchore container " + globalConfig
+                .getContainerId());
+      }
+
+      // Sanitize the input image list
+      // - Copy dockerfile for images to anchore container
+      // - Create a staging file with adjusted paths
+      logDebug("Staging image file in Jenkins workspace");
+      anchoreInputImages = new ArrayList<>();
+      FilePath jenkinsOutputDirFP = new FilePath(build.getWorkspace(), jenkinsOutputDirName);
+      FilePath jenkinsStagedImageFP = new FilePath(jenkinsOutputDirFP, "staged_images." + buildId);
+      FilePath inputImageFP = new FilePath(build.getWorkspace(), name); // Already checked in checkConfig()
+
+      try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(jenkinsStagedImageFP.write(), StandardCharsets.UTF_8))) {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(inputImageFP.read(), StandardCharsets.UTF_8))) {
+          String line;
+          int count = 0;
+          while ((line = br.readLine()) != null) {
+            // TODO check for a later libriary of guava that lets your slit strings into a list
+            Iterable<String> iterable = IMAGE_LIST_SPLITTER.split(line);
+            Iterator<String> partIterator;
+
+            if (null != iterable && null != (partIterator = iterable.iterator()) && partIterator.hasNext()) {
+              String imgId = partIterator.next();
+              String lineToBeAdded = imgId;
+
+              if (partIterator.hasNext()) {
+                String jenkinsDFile = partIterator.next();
+                String anchoreDFile = anchoreWorkspaceDirName + "/dfile." + (++count);
+
+                // Copy file from Jenkins to Anchore container
+                logDebug("Copying Dockerfile from Jenkins workspace: " + jenkinsDFile + ", to Anchore workspace: " + anchoreDFile);
+                rc = executeCommand(jenkinsLauncher, globalConfig,
+                    "docker cp " + jenkinsDFile + " " + globalConfig.getContainerId() + ":" + anchoreDFile);
+                if (rc != 0) {
+                  // TODO check with Dan if operation should continue for other images
+                  logError(
+                      "Failed to copy Dockerfile from Jenkins workspace: " + jenkinsDFile + ", to Anchore workspace: " + anchoreDFile);
+                  throw new AbortException(
+                      "Failed to copy Dockerfile from Jenkins workspace: " + jenkinsDFile + ", to Anchore workspace: " + anchoreDFile
+                          + ". Please ensure that Dockerfile is present in the Jenkins workspace prior to running Anchore plugin");
+                }
+                lineToBeAdded += " " + anchoreDFile;
+              } else {
+                logWarn("No dockerfile specified for image " + imgId + ". Anchore analyzer will attempt to construct dockerfile");
+              }
+
+              logDebug("Staging sanitized entry: \"" + lineToBeAdded + "\"");
+
+              lineToBeAdded += "\n";
+
+              bw.write(lineToBeAdded);
+              anchoreInputImages.add(imgId);
+            } else {
+              logWarn("Cannot parse: \"" + line
+                  + "\". Format for each line in input image file is \"imageId /path/to/Dockerfile\", where the Dockerfile is "
+                  + "optional");
+            }
+          }
+        }
+      }
+
+      if (anchoreInputImages.isEmpty()) {
+        // nothing to analyze here
+        logError("List of input images to be analyzed is empty");
+        throw new AbortException(
+            "List of input images to be analyzed is empty. Please ensure that image file is populated with a list of images to be "
+                + "analyzed. " + "Format for each line is \"imageId /path/to/Dockerfile\", where the Dockerfile is optional");
+      }
+
+      // finally, stage the rest of the files
+      anchoreImageFile = anchoreWorkspaceDirName + "/images";
+      logDebug("Copying staged image file from Jenkins workspace: " + jenkinsStagedImageFP.getRemote() + ", to Anchore workspace: "
+          + anchoreImageFile);
+      rc = executeCommand(jenkinsLauncher, globalConfig,
+          "docker cp " + jenkinsStagedImageFP.getRemote() + " " + globalConfig.getContainerId() + ":" + anchoreImageFile);
+      if (rc != 0) {
+        logError(
+            "Failed to copy staged image file from Jenkins workspace: " + jenkinsStagedImageFP.getRemote() + ", to Anchore workspace: "
+                + anchoreImageFile);
+        throw new AbortException(
+            "Failed to copy staged image file from Jenkins workspace: " + jenkinsStagedImageFP.getRemote() + ", to Anchore workspace: "
+                + anchoreImageFile);
+      }
+
+      try {
+        FilePath jenkinsScriptsDir;
+        if (!Strings.isNullOrEmpty(userScripts) && (jenkinsScriptsDir = new FilePath(build.getWorkspace(), userScripts)).exists()) {
+          anchoreScriptsDirName = anchoreWorkspaceDirName + "/anchorescripts/";
+          logDebug("Copying user scripts from Jenkins workspace: " + jenkinsScriptsDir.getRemote() + ", to Anchore workspace: "
+              + anchoreScriptsDirName);
+          rc = executeCommand(jenkinsLauncher, globalConfig,
+              "docker cp " + jenkinsScriptsDir.getRemote() + " " + globalConfig.getContainerId() + ":" + anchoreScriptsDirName);
+          if (rc != 0) {
+            // TODO Check with Dan if we should abort or just move on with default
+            logError(
+                "Failed to copy user scripts from Jenkins workspace: " + jenkinsScriptsDir.getRemote() + ", to Anchore workspace: "
+                    + anchoreScriptsDirName);
+            throw new AbortException(
+                "Failed to copy user scripts from Jenkins workspace: " + jenkinsScriptsDir.getRemote() + ", to Anchore workspace: "
+                    + anchoreScriptsDirName);
+          }
+        } else {
+          logDebug("No user scripts/modules found, using default Anchore modules");
+        }
+      } catch (IOException | InterruptedException e) {
+        logWarn("Failed to resolve user modules, using default Anchore modules");
+      }
+
+      try {
+        FilePath jenkinsPolicyFile;
+        if (!Strings.isNullOrEmpty(policyName) && (jenkinsPolicyFile = new FilePath(build.getWorkspace(), policyName)).exists()) {
+          logDebug("Copying policy file from Jenkins workspace: " + jenkinsPolicyFile.getRemote() + ", to Anchore workspace: "
+              + anchorePolicyFileName);
+          anchorePolicyFileName = anchoreWorkspaceDirName + "/policy";
+          rc = executeCommand(jenkinsLauncher, globalConfig,
+              "docker cp " + jenkinsPolicyFile.getRemote() + " " + globalConfig.getContainerId() + ":" + anchorePolicyFileName);
+          if (rc != 0) {
+            // TODO check with Dan if we should abor tor just move on with default
+            logWarn("Failed to copy policy file from Jenkins workspace: " + jenkinsPolicyFile.getRemote() + ", to Anchore workspace: "
+                + anchorePolicyFileName);
+            throw new AbortException(
+                "Failed to copy policy file from Jenkins workspace: " + jenkinsPolicyFile.getRemote() + ", to Anchore workspace: "
+                    + anchorePolicyFileName);
+          }
+        } else {
+          logInfo("Policy file either not specified or does not exist, using default Anchore policy");
+        }
+      } catch (IOException | InterruptedException e) {
+        logWarn("Failed to resolve user policy, using default Anchore policy");
+      }
+    } catch (AbortException e) {
+      // probably caught one of the thrown exceptions, let it pass through
+      throw e;
+    } catch (Exception e) {
+      // caught unknown exception, log it and wrap it
+      logError("Failed to initialize Anchore workspace due to an unexpected error", e);
+      throw new AbortException(
+          "Failed to initialize Anchore workspace due to an unexpected error. Please refer to above logs for more information");
+    }
+  }
+
+  private void runAnalyzer(Launcher jenkinsLauncher, DescriptorImpl globalConfig) throws AbortException {
+    try {
+      logInfo("Running Anchore Analyzer");
+
+      int rc = executeAnchoreCommand(jenkinsLauncher, globalConfig, "analyze --imagefile " + anchoreImageFile);
+      if (rc != 0) {
+        logError("Anchore analyzer failed with return code " + rc + ", check output above for details");
+        throw new AbortException("Anchore analyzer failed, check output above for details");
+      }
+      logDebug("Anchore analyzer completed successfully");
+    } catch (AbortException e) {
+      // probably caught one of the thrown exceptions, let it pass through
+      throw e;
+    } catch (Exception e) {
+      // caught unknown exception, log it and wrap it
+      logError("Failed to run Anchore analyzer due to an unexpected error", e);
+      throw new AbortException(
+          "Failed to run Anchore analyzer due to an unexpected error. Please refer to above logs for more information");
+    }
+  }
+
+  private void runGates(AbstractBuild build, Launcher jenkinsLauncher, DescriptorImpl globalConfig,
+      Map<String, FilePath> jenkinsGeneratedOutput) throws AbortException {
+    try {
+      logInfo("Running Anchore Gates");
+
+      FilePath jenkinsOutputDirFP = new FilePath(build.getWorkspace(), jenkinsOutputDirName);
+      FilePath jenkinsGatesOutputFP = new FilePath(jenkinsOutputDirFP, "anchore_gates.html");
+      String cmd = "--html gate --imagefile " + anchoreImageFile;
+
+      if (!Strings.isNullOrEmpty(anchorePolicyFileName)) {
+        cmd += " --policy " + anchorePolicyFileName;
+      }
+
+      try {
+        int rc = executeAnchoreCommand(jenkinsLauncher, globalConfig, cmd, jenkinsGatesOutputFP.write());
+        jenkinsGeneratedOutput.put("anchore_gates", jenkinsGatesOutputFP);
+        switch (rc) {
+          case 0:
+            finalAction = GATE_ACTION.GO;
+            break;
+          case 2:
+            finalAction = GATE_ACTION.WARN;
+            break;
+          default:
+            finalAction = GATE_ACTION.STOP;
+        }
+
+        logDebug("Anchore gate execution completed successfully, final action: " + finalAction);
+      } catch (IOException | InterruptedException e) {
+        // TODO check with dan if we should error out or continue
+        logWarn("Failed to write gates output to " + jenkinsGatesOutputFP.getRemote(), e);
+        throw new AbortException("Failed to write gates output to " + jenkinsGatesOutputFP.getRemote());
+      }
+    } catch (AbortException e) {
+      // probably caught one of the thrown exceptions, let it pass through
+      throw e;
+    } catch (Exception e) {
+      // caught unknown exception, log it and wrap it
+      logError("Failed to run Anchore gates due to an unexpected error", e);
+      throw new AbortException(
+          "Failed to run Anchore gates due to an unexpected error. Please refer to above logs for more information");
+    }
+  }
+
+  private void runQueries(AbstractBuild build, Launcher jenkinsLauncher, DescriptorImpl globalConfig,
+      Map<String, FilePath> jenkinsGeneratedOutput, Map<String, String> successfulQueries) throws AbortException {
+    try {
+      if (inputQueries != null && !inputQueries.isEmpty()) {
+        int key = 0;
+        for (AnchoreQuery query : inputQueries) {
+          if (!Strings.isNullOrEmpty(query.getQuery())) {
+            logInfo("Running Anchore Query: " + query.getQuery());
+            String queryId = "query" + ++key;
+            FilePath jenkinsOutputDirFP = new FilePath(build.getWorkspace(), jenkinsOutputDirName);
+            FilePath jenkinsQueryOutputFP = new FilePath(jenkinsOutputDirFP, queryId + ".html");
+            try {
+              int rc = executeAnchoreCommand(jenkinsLauncher, globalConfig,
+                  "--html query --imagefile " + anchoreImageFile + " " + query.getQuery(), jenkinsQueryOutputFP.write());
+              if (rc != 0) {
+                // Record failure and move on to next query
+                logWarn("Query execution failed for: " + query.getQuery() + ", return code: " + rc
+                    + ". Recording the failure and moving on");
+              } else {
+                if (jenkinsQueryOutputFP.exists() && jenkinsQueryOutputFP.length() > 0) {
+                  logDebug("Query execution completed successfully and generated a report for: " + query.getQuery());
+                  jenkinsGeneratedOutput.put(queryId, jenkinsQueryOutputFP);
+                  successfulQueries.put(queryId, query.getQuery());
+                } else {
+                  // Record failure and move on to next query
+                  logWarn("Query execution completed successfully but did not generate a report for: " + query.getQuery());
+                  jenkinsQueryOutputFP.delete();
+                }
+              }
+            } catch (IOException | InterruptedException e) {
+              // Record failure and move on to next query
+              logWarn("Query execution failed for: " + query.getQuery() + ". Recording the failure and moving on", e);
+            }
+          } else {
+            logWarn("Invalid or empty query found, skipping query execution");
+          }
+        }
+      } else {
+        logDebug("No queries found, skipping query execution");
+      }
+    } catch (RuntimeException e) {
+      logError("Failed to run Anchore queries due to an unexpected error", e);
+      throw new AbortException(
+          "Failed to run Anchore queries due to an unexpected error. Please refer to above logs for more information");
+    }
+  }
+
+  private void generateReports(AbstractBuild build, Map<String, FilePath> jenkinsGeneratedOutput,
+      Map<String, String> successfulQueries) throws AbortException {
+    try {
+      logDebug("Generating reports");
+
+      // CSS
+      FilePath jenkinsOutputDirFP = new FilePath(build.getWorkspace(), jenkinsOutputDirName);
+      FilePath anchoreCss = new FilePath(jenkinsOutputDirFP, ANCHORE_CSS);
+      try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(anchoreCss.write(), StandardCharsets.UTF_8))) {
+        // anchore colors: main:blue #3c7fe2 main:grey #d9e1e2 main:yellow #EEDC00 sec:blue #5BC2E7 sec:green #00B388 sec:navygrey
+        // #425563
+        String css =
+            "table {\n" + "    border-collapse: collapse;\n" + "    width: 100%;\n" + "}\n" + "th, td {\n" + "    text-align: left;\n"
+                + "    padding: 8px;\n" + "    transition: all 0.3s;\n" + "}\n" + "tr:nth-child(even){background-color: #eaf2f3}\n"
+                + "th {\n" + "    background-color: #3c7fe2;;\n" + "    color: #EEDC00;\n" + "}\n"
+                + "tr td:hover { background: #5BC2E7; color: #FFFFFF; }\n";
+
+        bw.write(css);
+      }
+
+      // style append to anchore outputs
+      for (Map.Entry<String, FilePath> in : jenkinsGeneratedOutput.entrySet()) {
+        FilePath inFile = in.getValue();
+        if (inFile.exists() && inFile.length() > 0) {
+          try (BufferedReader br = new BufferedReader(new InputStreamReader(inFile.read(), StandardCharsets.UTF_8))) {
+            try (BufferedWriter bw = new BufferedWriter(
+                new OutputStreamWriter(new FilePath(jenkinsOutputDirFP, in.getKey() + "_format.html").write(),
+                    StandardCharsets.UTF_8))) {
+              bw.write("<link rel=\"stylesheet\" type=\"text/css\" href=\"anchore.css\">\n");
+              Util.copyStreamAndClose(br, bw);
+            }
+          }
+          inFile.delete();
+        } else {
+          logWarn("File not found or empty: " + in.getValue().getRemote());
+        }
+      }
+
+      // add the link in jenkins UI for anchore results
+      if (finalAction != null) {
+        switch (finalAction) {
+          case STOP:
+            build.addAction(new AnchoreAction(build, "STOP", buildId, successfulQueries));
+            break;
+          case WARN:
+            build.addAction(new AnchoreAction(build, "WARN", buildId, successfulQueries));
+            break;
+          case GO:
+            build.addAction(new AnchoreAction(build, "GO", buildId, successfulQueries));
+            break;
+        }
+      } else {
+        build.addAction(new AnchoreAction(build, "", buildId, successfulQueries));
+      }
+    } catch (IOException | InterruptedException e) {
+      logWarn("Unable to generate reports", e);
+      throw new AbortException("Unable to generate reports due to " + e.getMessage());
+    } catch (Exception e) {
+      // caught unknown exception, log it and wrap it
+      logError("Failed to run Anchore gates due to an unexpected error", e);
+      throw new AbortException(
+          "Failed to run Anchore gates due to an unexpected error. Please refer to above logs for more information");
+    }
+  }
+
+  private void archiveReports(AbstractBuild build, Launcher jenkinsLauncher, BuildListener listener) throws AbortException {
+    try {
+      // store anchore output html files using jenkins archiver (for remote storage as well)
+      logInfo("Archiving results");
+      FilePath buildWorkspaceFP = build.getWorkspace();
+      if (null != buildWorkspaceFP) {
+        ArtifactArchiver artifactArchiver = new ArtifactArchiver(jenkinsOutputDirName + "/");
+        artifactArchiver.perform(build, buildWorkspaceFP, jenkinsLauncher, listener);
+      } else {
+        logError("Unable to archive results due to an invalid reference to Jenkins build workspace");
+        throw new AbortException("Unable to archive results due to an invalid reference to Jenkins build workspace");
+      }
+    } catch (AbortException e) {
+      // probably caught one of the thrown exceptions, let it pass through
+      throw e;
+    } catch (Exception e) {
+      // caught unknown exception, log it and wrap it
+      logError("Failed to archive results due to an unexpected error", e);
+      throw new AbortException(
+          "Failed to archive results due to an unexpected error. Please refer to above logs for more information");
+    }
+  }
+
+  private void cleanup(AbstractBuild build, Launcher jenkinsLauncher, DescriptorImpl globalConfig) {
+    try {
+      logDebug("Cleaning up build artifacts");
+      int rc;
+
+      // Clear Jenkins workspace
+      if (!Strings.isNullOrEmpty(jenkinsOutputDirName)) {
+        try {
+          logDebug("Deleting Jenkins workspace " + jenkinsOutputDirName);
+          FilePath jenkinsOutputDirFP = new FilePath(build.getWorkspace(), jenkinsOutputDirName);
+          jenkinsOutputDirFP.deleteRecursive();
+        } catch (IOException | InterruptedException e) {
+          logDebug("Unable to delete Jenkins workspace " + jenkinsOutputDirName, e);
+        }
+      }
+
+      // Clear Anchore Container workspace
+      if (!Strings.isNullOrEmpty(anchoreWorkspaceDirName)) {
+        try {
+          logDebug("Deleting Anchore container workspace " + anchoreWorkspaceDirName);
+          rc = executeCommand(jenkinsLauncher, globalConfig,
+              "docker exec " + globalConfig.getContainerId() + " rm -rf " + anchoreWorkspaceDirName);
+          if (rc != 0) {
+            logWarn("Unable to delete Anchore container workspace " + anchoreWorkspaceDirName + ", process returned " + rc);
+          }
+        } catch (Exception e) {
+          logWarn("Failed to recursively delete Anchore container workspace " + anchoreWorkspaceDirName, e);
+        }
+      }
+
+      if (doCleanup && null != anchoreInputImages) {
+        for (String imageId : anchoreInputImages) {
+          try {
+            logDebug("Deleting analytics for " + imageId + " from Anchore database");
+            rc = executeAnchoreCommand(jenkinsLauncher, globalConfig, "toolbox --image " + imageId + " delete --dontask");
+            if (rc != 0) {
+              logWarn("Failed to delete analytics for " + imageId + " from Anchore database, process returned " + rc);
+            }
+          } catch (Exception e) {
+            logWarn("Failed to delete analytics for " + imageId + " from Anchore database", e);
+          }
+        }
+      }
+    } catch (RuntimeException e) {
+      // caught unknown exception, log it and wrap it
+      logDebug("Failed to clean up build artifacts due to an unexpected error", e);
+    }
+  }
+
+  private void setupAnchoreContainer(Launcher jenkinsLauncher, DescriptorImpl globalConfig) throws AbortException {
+    String containerId = globalConfig.getContainerId();
+
+    if (!isAnchoreRunning(jenkinsLauncher, globalConfig)) {
+      logDebug("Anchore container " + containerId + " is not running");
+      String containerImageId = globalConfig.getContainerImageId();
+
+      if (isAnchoreImageAvailable(jenkinsLauncher, globalConfig)) {
+        logInfo("Launching Anchore container " + containerId + " from image " + containerImageId);
+
+        String cmd = "docker run -d -v /var/run/docker.sock:/var/run/docker.sock";
+        if (!Strings.isNullOrEmpty(globalConfig.localVol)) {
+          cmd = cmd + " -v " + globalConfig.localVol + ":/root/.anchore";
+        }
+
+        if (!Strings.isNullOrEmpty(globalConfig.getModulesVol())) {
+          cmd = cmd + " -v " + globalConfig.getModulesVol() + ":/root/anchore_modules";
+        }
+        cmd = cmd + " --name " + containerId + " " + containerImageId;
+
+        int rc = executeCommand(jenkinsLauncher, globalConfig, cmd);
+
+        if (rc == 0) {
+          logDebug("Anchore container " + containerId + " has been launched");
+        } else {
+          logError("Failed to launch Anchore container " + containerId + " ");
+          throw new AbortException("Failed to launch Anchore container " + containerId);
+        }
+
+      } else {
+        // image is not available
+        logError("Anchore container image " + containerImageId + " not found on local dockerhost, cannot launch Anchore container "
+            + containerId);
+        throw new AbortException(
+            "Anchore container image " + containerImageId + " not found on local dockerhost, cannot launch Anchore container "
+                + containerId + ". Please make the anchore/jenkins image available to the local dockerhost and retry");
+      }
+    } else {
+      logDebug("Anchore container " + containerId + " is already running");
+    }
+  }
+
+  private boolean isAnchoreRunning(Launcher jenkinsLauncher, DescriptorImpl globalConfig) throws AbortException {
+    logDebug("Checking container " + globalConfig.getContainerId());
+    if (!Strings.isNullOrEmpty(globalConfig.getContainerId())) {
+      if (executeCommand(jenkinsLauncher, globalConfig, "docker start " + globalConfig.getContainerId()) != 0) {
+        return false;
+      } else {
+        return true;
+      }
+    } else {
+      logError("Anchore Container ID not found");
+      throw new AbortException(
+          "Please configure \"Anchore Container ID\" under Manage Jenkins->Configure System->Anchore Configuration and retry. If the"
+              + " container is not running, the plugin will launch it");
+    }
+  }
+
+  private boolean isAnchoreImageAvailable(Launcher jenkinsLauncher, DescriptorImpl globalConfig) throws AbortException {
+    logDebug("Checking container image " + globalConfig.getContainerImageId());
+    if (!Strings.isNullOrEmpty(globalConfig.getContainerImageId())) {
+      if (executeCommand(jenkinsLauncher, globalConfig, "docker inspect " + globalConfig.getContainerImageId()) != 0) {
+        return false;
+      } else {
+        return true;
+      }
+    } else {
+      logError("Anchore Container Image ID not found");
+      throw new AbortException(
+          "Please configure \"Anchore Container Image ID\" under Manage Jenkins->Configure System->Anchore Configuration and retry.");
+    }
+  }
+
+  private int executeCommand(Launcher jenkinsLauncher, DescriptorImpl globalConfig, String cmd) throws AbortException {
+    // log stdout to console only if debug is turned on
+    // always log stderr to console
+    return executeCommand(jenkinsLauncher, globalConfig, cmd, globalConfig.getDebug() ? buildLog : null, buildLog);
+  }
+
+  private int executeCommand(Launcher jenkinsLauncher, DescriptorImpl globalConfig, String cmd, OutputStream out, OutputStream error)
+      throws AbortException {
+    int rc;
+
+    if (globalConfig.getUseSudo()) {
+      cmd = "sudo " + cmd;
+    }
+
+    Launcher.ProcStarter ps = jenkinsLauncher.launch();
+    ps.cmdAsSingleString(cmd);
+    ps.stdin(null);
+    if (null != out) {
+      ps.stdout(out);
+    }
+    if (null != error) {
+      ps.stderr(error);
+    }
+
+    try {
+      logDebug("Executing \"" + cmd + "\"");
+      rc = ps.join();
+      logDebug("Execution of \"" + cmd + "\" returned " + rc);
+      return rc;
+    } catch (Exception e) {
+      logWarn("Failed to execute \"" + cmd + "\"", e);
+      throw new AbortException("Failed to execute \"" + cmd + "\"");
+    }
+  }
+
+  private int executeAnchoreCommand(Launcher jenkinsLauncher, DescriptorImpl globalConfig, String cmd) throws AbortException {
+    return executeAnchoreCommand(jenkinsLauncher, globalConfig, cmd, globalConfig.getDebug() ? buildLog : null, buildLog);
+  }
+
+  private int executeAnchoreCommand(Launcher jenkinsLauncher, DescriptorImpl globalConfig, String cmd, OutputStream out)
+      throws AbortException {
+    return executeAnchoreCommand(jenkinsLauncher, globalConfig, cmd, out, buildLog);
+  }
+
+  /**
+   * Helper for executing Anchore CLI. Abstracts docker and debug options out for the caller
+   */
+  private int executeAnchoreCommand(Launcher jenkinsLauncher, DescriptorImpl globalConfig, String cmd, OutputStream out,
+      OutputStream error) throws AbortException {
+    String dockerCmd = "docker exec " + globalConfig.getContainerId() + " " + ANCHORE_BINARY;
+
+    if (globalConfig.getDebug()) {
+      dockerCmd += " --debug";
+    }
+
+    if (!Strings.isNullOrEmpty(anchoreScriptsDirName)) {
+      dockerCmd += " --config-override user_scripts_dir=" + anchoreScriptsDirName;
+    }
+
+    dockerCmd += " " + cmd;
+
+    return executeCommand(jenkinsLauncher, globalConfig, dockerCmd, out, error);
+  }
+
+  private void logDebug(String msg) {
+    if (enableDebug) {
+      buildLog.println(String.format(LOG_FORMAT, new Date(), "DEBUG", msg));
+    }
+  }
+
+  private void logDebug(String msg, Throwable t) {
+    logDebug(msg);
+    if (null != t) {
+      t.printStackTrace(buildLog);
+    }
+  }
+
+  private void logInfo(String msg) {
+    buildLog.println(String.format(LOG_FORMAT, new Date(), "INFO", msg));
+  }
+
+  private void logWarn(String msg) {
+    buildLog.println(String.format(LOG_FORMAT, new Date(), "WARN", msg));
+  }
+
+  private void logWarn(String msg, Throwable t) {
+    logWarn(msg);
+    if (null != t) {
+      t.printStackTrace(buildLog);
+    }
+  }
+
+  private void logError(String msg) {
+    buildLog.println(String.format(LOG_FORMAT, new Date(), "ERROR", msg));
+  }
+
+  private void logError(String msg, Throwable t) {
+    logError(msg);
+    if (null != t) {
+      t.printStackTrace(buildLog);
+    }
+  }
+
+
+  @Extension // This indicates to Jenkins that this is an implementation of an extension point.
+  public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
+
+    // Global configuration
+
+    private boolean debug;
+    private boolean enabled;
     private String containerImageId;
+    private String containerId;
     private String localVol;
     private String modulesVol;
-    private String query1;
-    private String query2;
-    private String query3;
-    private String query4;
-
-    private List<String> anchoreInputImages;
-    private List<String> oFiles;
-    private TreeMap<String, String> queries;
-
-    private OutputStream anchoreLogStream;
-    private boolean debug;
     private boolean useSudo;
-    private final boolean bailOnPluginFail;
-    private final boolean bailOnFail;
-    private final boolean bailOnWarn;
-    private final boolean doAnalyze;
-    private final boolean doGate;
-    private final boolean doQuery;
-    private final boolean doCleanup;
 
+    private static final List<AnchoreQuery> DEFAULT_QUERIES = ImmutableList
+        .of(new AnchoreQuery("list-packages all"), new AnchoreQuery("list-files all"), new AnchoreQuery("cve-scan all"),
+            new AnchoreQuery("show-pkg-diffs base"));
 
-    // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
-    @DataBoundConstructor
-    public AnchoreBuilder(String name, String policyName, String userScripts, boolean bailOnFail, boolean bailOnWarn, boolean doQuery, boolean doCleanup, boolean bailOnPluginFail, String query1, String query2, String query3, String query4) {
-	this.bailOnPluginFail = bailOnPluginFail;
-	this.bailOnFail = bailOnFail;
-	this.bailOnWarn = bailOnWarn;
-        this.name = name;
-        this.policyName = policyName;
-	this.userScripts = userScripts;
-	this.doAnalyze = true;
-	this.doGate = true;
-	this.doQuery = doQuery;
-	this.doCleanup = doCleanup;
-	this.query1 = query1;
-	this.query2 = query2;
-	this.query3 = query3;
-	this.query4 = query4;
+    public boolean getDebug() {
+      return debug;
     }
 
-    public boolean getBailOnWarn() {
-	return (bailOnWarn);
+    public boolean getEnabled() {
+      return enabled;
     }
 
-    public boolean getBailOnFail() {
-	return (bailOnFail);
+    public boolean getUseSudo() {
+      return useSudo;
     }
 
-    public boolean getBailOnPluginFail() {
-	return(bailOnPluginFail);
+    public String getContainerImageId() {
+      return containerImageId;
     }
 
-    public boolean getDoAnalyze() {
-	return (doAnalyze);
+    public String getContainerId() {
+      return containerId;
     }
 
-    public boolean getDoGate() {
-	return (doGate);
+    public String getLocalVol() {
+      return localVol;
     }
 
-    public boolean getDoQuery() {
-	return (doQuery);
+    public String getModulesVol() {
+      return modulesVol;
     }
 
-    public boolean getDoCleanup() {
-	return (doCleanup);
+    public List<AnchoreQuery> getDefaultQueries() {
+      return DEFAULT_QUERIES;
     }
 
-    public String getName() {
-        return (name);
-    }
-
-    public String getQuery1() {
-        return (query1);
-    }
-    public String getQuery2() {
-        return (query2);
-    }
-    public String getQuery3() {
-        return (query3);
-    }
-    public String getQuery4() {
-        return (query4);
-    }
-    public String getPolicyName() {
-        return (policyName);
-    }
-    public String getUserScripts() {
-        return (userScripts);
-    }
-
-    public boolean selectPluginExitStatus(BuildListener listener) {
-	if (bailOnPluginFail) {
-	    return(false);
-	}
-	listener.getLogger().println("[anchore][error] Critical error encountered, but Anchore build step is configured to proceed - ignoring error.");
-	return(true);
+    public DescriptorImpl() {
+      load();
     }
 
     @Override
-    public boolean perform(AbstractBuild build, Launcher inLauncher, BuildListener listener) throws AbortException, java.lang.InterruptedException {
-	int exitCode = 0;
-	boolean rc;
-	String anchoreCmd;
-
-	TreeMap<String, String> queriesOutput = new TreeMap<String, String>();
-
-	/*
-	Node myNode = build.getBuiltOn();
-	Launcher launcher = myNode.createLauncher(listener);
-	*/
-	Node myNode;
-	Launcher launcher;
-
-	this.buildId = String.valueOf(build.getNumber());
-	this.euid = build.getParent().getDisplayName() + "_" + buildId;
-	
-	FilePath myWorkspace = build.getWorkspace();
-	FilePath myAnchoreWorkspace = new FilePath(myWorkspace, "AnchoreReport."+euid);
-	FilePath anchoreImageFile = new FilePath(myWorkspace, name);
-	FilePath anchorePolicyFile = new FilePath(myWorkspace, policyName);
-	FilePath anchoreScriptsDir = new FilePath(myWorkspace, userScripts);
-
-	try {
-	    
-	    myNode = build.getBuiltOn();
-	    if (myNode != null) {
-		launcher = myNode.createLauncher(listener);
-	    } else {
-		return(selectPluginExitStatus(listener));
-	    }
-
-	    listener.getLogger().println("[anchore] Anchore Plugin Started:");
-	    if (!getDescriptor().getEnabled()) {
-		listener.getLogger().println("[anchore] Anchore plugin is disabled - please enable the plugin in the global Anchore configuration section in Jenkins and try again");
-		return(true);
-	    }
-
-	    rc = anchoreSetup(build, launcher, listener, myAnchoreWorkspace, anchoreImageFile, anchorePolicyFile, anchoreScriptsDir);
-	    if (!rc) {
-		listener.getLogger().println("[anchore] failed to setup Anchore - please check the output above");
-		return(selectPluginExitStatus(listener));
-	    }
-
-	    if (debug) {
-		listener.getLogger().println("[anchore][config][global] enabled: " + String.valueOf(getDescriptor().getEnabled()));
-		listener.getLogger().println("[anchore][config][global] debug: " + String.valueOf(getDescriptor().getDebug()));
-		listener.getLogger().println("[anchore][config][global] useSudo: " + String.valueOf(getDescriptor().getUseSudo()));
-		listener.getLogger().println("[anchore][config][global] containerImageId: " + getDescriptor().getContainerImageId());
-		listener.getLogger().println("[anchore][config][global] containerId: " + getDescriptor().getContainerId());
-		listener.getLogger().println("[anchore][config][global] localVol: " + getDescriptor().getLocalVol());
-		listener.getLogger().println("[anchore][config][global] modulesVol: " + getDescriptor().getModulesVol());
-
-		
-		listener.getLogger().println("[anchore][config][build] doAnalyze: " + String.valueOf(doAnalyze));
-		listener.getLogger().println("[anchore][config][build] doGates: " + String.valueOf(doGate));
-		listener.getLogger().println("[anchore][config][build] doQuery: " + String.valueOf(doQuery));
-		listener.getLogger().println("[anchore][config][build] doCleanup: " + String.valueOf(doCleanup));
-		listener.getLogger().println("[anchore][config][build] imageFile: " + name);
-		listener.getLogger().println("[anchore][config][build] policyFile: " + policyName);
-		listener.getLogger().println("[anchore][config][build] userScripts: " + userScripts);
-		listener.getLogger().println("[anchore][config][build] stopOnGateStop: " + String.valueOf(bailOnFail));
-		listener.getLogger().println("[anchore][config][build] stopOnGateWarn: " + String.valueOf(bailOnWarn));
-	    }
-
-	    if (doAnalyze) {
-		listener.getLogger().println("[anchore][info][info] Running Anchore Analyzer:");
-	    
-		anchoreCmd = "anchore";
-
-		if (debug) {
-		    anchoreCmd += " --debug";
-		}
-
-		if (anchoreScriptsDir.exists()) {
-		    anchoreCmd += " --config-override";
-		    anchoreCmd += " user_scripts_dir="+targetScriptsDir;
-		}
-		  
-		exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "exec", containerId, anchoreCmd, "analyze", "--imagefile", targetImageFile);
-
-		listener.getLogger().println("[anchore][info] Done Running Anchore Analyzer: exitcode="+exitCode);
-		if (exitCode != 0) {
-		    listener.getLogger().println("[anchore][error] Anchore analyzer failed: check output above for details");
-		    if (bailOnPluginFail) {
-			return(false);
-		    }
-		}
-	    }
-
-	    if (doQuery) {
-		for (Map.Entry<String, String> entry : queries.entrySet()) {
-		    String anchoreQuery = entry.getValue();
-		    if (anchoreQuery != null && !anchoreQuery.isEmpty()) {
-			listener.getLogger().println("[anchore][info] " + entry.getKey() + " : " + entry.getValue());
-
-			FilePath queryOutputFile = new FilePath(myAnchoreWorkspace, entry.getKey() + ".html");
-		    
-			listener.getLogger().println("[anchore][info] Running Anchore Query: " + entry.getValue());
-		    
-			anchoreCmd = "anchore";
-
-			if (debug) {
-			    anchoreCmd += " --debug";
-			}			    
-
-			if (anchoreScriptsDir.exists()) {
-			    anchoreCmd += " --config-override";
-			    anchoreCmd += " user_scripts_dir="+targetScriptsDir;
-			}
-			
-			exitCode = runAnchoreCmd(launcher, queryOutputFile.write(), anchoreLogStream, "docker", "exec", containerId, anchoreCmd, "--html", "query", "--imagefile", targetImageFile, entry.getValue());
-
-			if (queryOutputFile.exists() && queryOutputFile.length() > 0) {
-			    queriesOutput.put(entry.getKey(), entry.getValue());
-			}
-			listener.getLogger().println("[anchore][info] Done Running Anchore Query: exitcode="+exitCode);
-		    }
-		}
-	    }
-
-	    if (doGate) {
-		FilePath gatesOutputFile = new FilePath(myAnchoreWorkspace, "anchore_gates.html");
-
-		listener.getLogger().println("[anchore][info] Running Anchore Gates:");
-
-		anchoreCmd = "anchore";
-		
-		if (debug) {
-		    anchoreCmd += " --debug";
-		}
-
-		if (anchoreScriptsDir.exists()) {
-		    anchoreCmd += " --config-override";
-		    anchoreCmd += " user_scripts_dir="+targetScriptsDir;
-		}
-
-		if (anchorePolicyFile.exists()) {
-		    exitCode = runAnchoreCmd(launcher, gatesOutputFile.write(), anchoreLogStream, "docker", "exec", containerId, anchoreCmd, "--html", "gate", "--policy", targetPolicyFile, "--imagefile", targetImageFile);
-
-		} else {
-		    exitCode = runAnchoreCmd(launcher, gatesOutputFile.write(), anchoreLogStream, "docker", "exec", containerId, anchoreCmd, "--html", "gate", "--imagefile", targetImageFile);
-		}
-
-		listener.getLogger().println("[anchore][info] Done Running Anchore Gates: exitcode="+exitCode);
-		
-	    }
-
-	    // prep output
-	    rc = prepareReportOutput(listener, myAnchoreWorkspace);
-	    if (!rc) {
-		listener.getLogger().println("[anchore][error] failed to prepare Anchore output reports.");
-		return(selectPluginExitStatus(listener));
-	    }
-
-	    // store anchore output html files using jenkins archiver (for remote storage as well)
-	    listener.getLogger().println("[anchore][info] archiving anchore results.");
-	    ArtifactArchiver artifactArchiver = new ArtifactArchiver("AnchoreReport."+euid+"/");
-	    artifactArchiver.perform(build, myWorkspace, launcher, listener);
-
-	    listener.getLogger().println("[anchore][info] cleaning up anchore artifacts in workspace.");
-
-	    rc = anchoreCleanup(build, launcher, listener, myAnchoreWorkspace);
-	    if (!rc) {
-		listener.getLogger().println("[anchore][error] failed to clean up anchore artifacts in workspace.");
-		return(selectPluginExitStatus(listener));
-	    }
-	    
-	} catch (RuntimeException e) {
-            listener.getLogger().println("[anchore][error] RuntimeException:" + e.toString());
-	    return(selectPluginExitStatus(listener));
-        } catch (Exception e) {
-            listener.getLogger().println("[anchore][error] Exception:" + e.toString());
-	    return(selectPluginExitStatus(listener));
-        } finally {
-	    listener.getLogger().println("[anchore][info] Anchore Plugin Finished");
-	}
-	
-	if (doGate) {
-	    if (exitCode == 0) {
-		listener.getLogger().println("[anchore][info] Anchore Gate Policy Final Action: GO");
-
-		// add the link in jenkins UI for anchore results
-		build.addAction(new AnchoreAction(build, "GO", euid, queriesOutput));
-
-		return(true);
-	    } else if (exitCode == 2) {
-		listener.getLogger().println("[anchore][warn] Anchore Gate Policy Final Action: WARN");
-
-		// add the link in jenkins UI for anchore results
-		build.addAction(new AnchoreAction(build, "WARN", euid, queriesOutput));
-
-		if (bailOnWarn) {
-		    return(false);
-		} else {
-		    listener.getLogger().println("[anchore][info] Final action is WARN but plugin is configured to return success even on policy failure.");
-		    return(true);
-		}
-
-	    } else {
-		listener.getLogger().println("[anchore][warn] Anchore Gate Policy Final Action: STOP");
-		
-		// add the link in jenkins UI for anchore results
-		build.addAction(new AnchoreAction(build, "STOP", euid, queriesOutput));
-		
-		if (bailOnFail) {
-		    return(false);
-	    } else {
-		    listener.getLogger().println("[anchore][warn] Final action is STOP but plugin is configured to return success even on policy failure.");
-		    return(true);
-		}
-	    }
-	} else {
-	    // add the link in jenkins UI for anchore results
-	    build.addAction(new AnchoreAction(build, "", euid, queriesOutput));
-	}
-
-	return(true);
-    }
-
-    public boolean anchoreCleanup(AbstractBuild build, Launcher launcher, BuildListener listener, FilePath myAnchoreWorkspace) {
-	int exitCode=0;
-	String anchoreCmd;
-
-	// clean up the workspace items (as they should have been archived)
-	try {
-	    myAnchoreWorkspace.deleteRecursive();
-	} catch (Exception e) {
-	    e.printStackTrace();
-	    listener.getLogger().println("Exception:" + e.toString());
-	    return(false);
-	}
-
-	// clean up the build in anchore (if cleanup is set in config)
-	exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "exec", containerId, "rm", "-rf", "/root/anchore."+euid);
-	if (exitCode != 0) {
-	    listener.getLogger().println("[anchore][error] failed to cleanup build artifacts inside Anchore container.");
-	    return(false);
-	}
-
-	if (doCleanup) {
-	    anchoreCmd = "anchore";
-	    if (debug) {
-		anchoreCmd += " --debug";
-	    }
-	    for (String imgId : anchoreInputImages) {
-		exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "exec", containerId, anchoreCmd, "toolbox", "--image", imgId, "delete", "--dontask");
-	    }
-	}
-	
-	return(true);
-    }
-
-    public boolean prepareReportOutput(BuildListener listener, FilePath myAnchoreWorkspace) {
-	BufferedWriter bw;
-	BufferedReader br;
-	try {
-	    // CSS
-	    FilePath anchoreCss = new FilePath(myAnchoreWorkspace, "anchore.css");
-	    bw = new BufferedWriter(new OutputStreamWriter(anchoreCss.write(),StandardCharsets.UTF_8));
-	    try {
-		// anchore colors: main:blue #3c7fe2 main:grey #d9e1e2 main:yellow #EEDC00 sec:blue #5BC2E7 sec:green #00B388 sec:navygrey #425563
-		String css = "table {\n"
-		    +"    border-collapse: collapse;\n"
-		    +"    width: 100%;\n"
-		    +"}\n"
-		    +"th, td {\n"
-		    +"    text-align: left;\n"
-		    +"    padding: 8px;\n"
-		    +"    transition: all 0.3s;\n"
-		    +"}\n"
-		    +"tr:nth-child(even){background-color: #eaf2f3}\n"
-		    +"th {\n"
-		    +"    background-color: #3c7fe2;;\n"
-		    +"    color: #EEDC00;\n"
-		    +"}\n"
-		    +"tr td:hover { background: #5BC2E7; color: #FFFFFF; }\n";
-
-		bw.write(css);
-	    } finally {
-		bw.close();
-	    }
-
-	    // style append to anchore outputs
-	    for (String oFile : oFiles) {
-		FilePath inFile = new FilePath(myAnchoreWorkspace, oFile + ".html");
-		if (inFile.exists()) {
-		    if (inFile.length() > 0) {
-			br = new BufferedReader(new InputStreamReader(inFile.read(), StandardCharsets.UTF_8));
-			try {
-			    bw = new BufferedWriter(new OutputStreamWriter(new FilePath(myAnchoreWorkspace, oFile + "_format.html").write(),StandardCharsets.UTF_8));
-			    try {
-				bw.write("<link rel=\"stylesheet\" type=\"text/css\" href=\"anchore.css\">\n");
-				String line = null;
-				while ((line = br.readLine()) != null) {
-				    bw.write(line + "\n");
-				}
-			    } finally {
-				bw.close();
-			    }
-			} finally {
-			    br.close();
-			}
-		    }
-		    inFile.delete();
-		}
-	    }
-	} catch (RuntimeException e) {
-	    throw e;
-	} catch (Exception e) {
-	    e.printStackTrace();
-	    listener.getLogger().println("Exception:" + e.toString());	    
-	    return(false);
-	}
-	
-	return(true);
-    }
-
-    public boolean anchoreSetup(AbstractBuild build, Launcher launcher, BuildListener listener, FilePath myAnchoreWorkspace, FilePath anchoreImageFile, FilePath anchorePolicyFile, FilePath anchoreScriptsDir) {
-	try {
-	    int exitCode = 0;
-	    boolean rc = false;
-	    //final EnvVars env = build.getEnvironment(listener);
-	    oFiles = new ArrayList<String>();
-	    anchoreInputImages = new ArrayList<String>();
-	    
-	    containerId = getDescriptor().getContainerId();
-	    containerImageId = getDescriptor().getContainerImageId();
-	    debug = getDescriptor().getDebug();
-	    localVol = getDescriptor().getLocalVol();
-	    modulesVol = getDescriptor().getModulesVol();
-	    useSudo = getDescriptor().getUseSudo();
-
-	    queries = new TreeMap<String, String>();
-	    queries.put("query1", query1);
-	    queries.put("query2", query2);
-	    queries.put("query3", query3);
-	    queries.put("query4", query4);
-
-	    // set up output directory
-	    if (!myAnchoreWorkspace.exists()) {
-		myAnchoreWorkspace.mkdirs();
-	    }
-
-	    anchoreLogStream = listener.getLogger();
-
-	    rc = runAnchoreContainer(launcher, listener);
-	    if (!rc) {
-		listener.getLogger().println("[anchore][error] failed to (re)launch backing Anchore container.");
-		return(false);
-	    }
-
-	    // set up input
-	    if (!anchoreImageFile.exists()) {
-		listener.getLogger().println("[anchore][error] cannot locate anchore image list file (needs to be created prior to anchore plugin build step): " + anchoreImageFile.getRemote());
-		return(false);
-	    }
-	    
-	    if (!anchorePolicyFile.exists()) {
-		listener.getLogger().println("[anchore][warn] policy file does not exist ("+ anchorePolicyFile.getRemote()+"), using anchore default policy.");
-	    }
-
-	    oFiles.add("anchore_gates");
-	    oFiles.add("query1");
-	    oFiles.add("query2");
-	    oFiles.add("query3");
-	    oFiles.add("query4");
-
-	    // stage the input files
-	    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "exec", containerId, "mkdir", "-p", "/root/anchore."+euid);
-	    if (exitCode != 0) {
-		listener.getLogger().println("[anchore][error] failed to create build artifact directory inside Anchore container.");
-		return(false);
-	    }
-
-	    boolean inputFailed = false;
-	    FilePath stagedImageFile = new FilePath(myAnchoreWorkspace, "staged_images."+euid);
-	    BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(stagedImageFile.write(), StandardCharsets.UTF_8));
-	    try {
-		BufferedReader br = new BufferedReader(new InputStreamReader(anchoreImageFile.read(), StandardCharsets.UTF_8));
-		try {
-		    String line = null;
-		    int count=0;
-		    while ((line = br.readLine()) != null) {
-			String[] kv = line.split("\\s+");
-			String imgId;
-
-			try {
-			    imgId = kv[0];
-			} catch (Exception e) {
-			    imgId = null;
-			}
-			
-			if (imgId != null && !imgId.isEmpty()) {
-			    String targetFile = "";
-			    exitCode = 0;
-			    try {
-				String dfile = kv[1];
-				String imgCount = String.valueOf(count);
-
-				targetFile = "/root/anchore."+euid+"/dfile."+imgCount;
-				exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "cp", dfile, containerId+":"+targetFile);
-				if (exitCode != 0) {
-				    listener.getLogger().println("[anchore][error] input dockerfile ("+dfile+") could not be staged (check above command for errors)`");
-				    inputFailed = true;
-				}
-
-			    } catch (Exception e) {
-				listener.getLogger().println("[anchore][warn] no dockerfile specified for image ("+imgId+"): anchore analyzer will attempt to construct dockerfile");
-			    }
-
-			    String imageLine = imgId + " " + targetFile + "\n";
-			    if (debug) {
-				listener.getLogger().println("[anchore][debug]: adding line to anchore image input file: " + imageLine);
-			    }
-			    bw.write(imageLine);
-			    anchoreInputImages.add(imgId);
-			}
-			count++;
-		    }
-		} finally {
-		    br.close();
-		}
-	    } finally {
-		bw.close();
-	    }
-
-	    if (inputFailed) {
-		listener.getLogger().println("[anchore][error]: preparing of input failed, bailing out");
-		return(false);
-	    }
-
-	    // finally, stage the rest of the files
-	    targetImageFile = "/root/anchore."+euid+"/images";
-	    exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream,"docker", "cp", stagedImageFile.getRemote(), containerId+":"+targetImageFile);
-	    if (exitCode != 0) {
-		inputFailed = true;
-	    }
-
-	    if (anchoreScriptsDir.exists()) {
-		targetScriptsDir = "/root/anchore."+euid+"/anchorescripts/";
-		exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream,"docker", "cp", anchoreScriptsDir.getRemote(), containerId+":"+targetScriptsDir);
-		if (exitCode != 0) {
-		    inputFailed = true;
-		}
-	    }
-
-	    if (anchorePolicyFile.exists()) {
-		targetPolicyFile = "/root/anchore."+euid+"/policy";
-		exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "cp", anchorePolicyFile.getRemote(), containerId+":"+targetPolicyFile);
-		if (exitCode != 0) {
-		    inputFailed = true;
-		}
-	    }
-
-	    if (inputFailed) {
-		listener.getLogger().println("[anchore][error]: preparing of input failed, bailing out");
-		return(false);
-	    }
-
-	} catch (RuntimeException e) {
-	    e.printStackTrace();
-            listener.getLogger().println("RuntimeException:" + e.toString());
-	    return(false);
-        } catch (Exception e) {
-	    e.printStackTrace();
-            listener.getLogger().println("Exception:" + e.toString());
-	    return(false);
-        } finally {
-	    listener.getLogger().println("[anchore][info] setup complete.");
-	}
-
-	return(true);
-    }
-
-    public boolean isAnchoreRunning(Launcher launcher, BuildListener listener) {
-	int exitCode = 0;
-
-	exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "start", containerId);
-	if (exitCode != 0) {
-	    return(false);
-	}
-	return(true);
-
-    }
-
-    public boolean isAnchoreImageAvailable(Launcher launcher, BuildListener listener) {
-	int exitCode = 0;
-
-	exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, "docker", "inspect", containerImageId);
-	if (exitCode != 0) {
-	    return(false);
-	}
-	return(true);
-
-    }
-
-    public boolean runAnchoreContainer(Launcher launcher, BuildListener listener) {
-	int exitCode = 0;	
-
-	if (!isAnchoreRunning(launcher, listener)) {
-	    if (isAnchoreImageAvailable(launcher, listener)) {
-
-		String cmdstr;
-		cmdstr = "docker run -d -v /var/run/docker.sock:/var/run/docker.sock";
-		if (localVol != null && !localVol.isEmpty()) {
-		    cmdstr = cmdstr + " -v " + localVol + ":/root/.anchore";
-		}
-
-		if (modulesVol != null && !modulesVol.isEmpty()) {
-		    cmdstr = cmdstr + " -v " + modulesVol +":/root/anchore_modules";
-		}
-		cmdstr = cmdstr + " --name " + containerId + " " + containerImageId;
-		exitCode = runAnchoreCmd(launcher, anchoreLogStream, anchoreLogStream, cmdstr);
-
-	    } else {
-		// image is not available
-		listener.getLogger().println("[anchore][error] anchore container not running and anchore image ("+containerImageId+") is not available on local dockerhost");
-		return(false);
-	    }
-	} else {
-	    listener.getLogger().println("[anchore][info] anchore container is running");
-	    exitCode = 0;
-	}
-
-	if (exitCode == 0) {
-	    listener.getLogger().println("[anchore][info] anchore container has been launched");
-	    return(true);
-	}
-	listener.getLogger().println("[anchore][error] anchore container ("+containerId+") not running and failed to launch anchore container ("+containerImageId+") image from scratch.");
-	return(false);	    
-    }
-
-    public int runAnchoreCmd(Launcher launcher, OutputStream soutStream, OutputStream serrStream, String... cmd) {
-	int exitCode = 0;
-	ArgumentListBuilder args = new ArgumentListBuilder();
-	
-	if (this.useSudo) {
-	    args.add("sudo");
-	}
-	for (String cmdstr : cmd) {
-	    for (String cmdlet : cmdstr.split("\\s+")) {
-		args.add(cmdlet);
-	    }
-	}
-
-	Launcher.ProcStarter ps = launcher.launch();
-	ps.cmds(args);
-	ps.stdin(null);
-	ps.stderr(serrStream);
-	ps.stdout(soutStream);
-
-	try {
-	    exitCode = ps.join();
-	} catch (Exception e) {
-	    return(1);
-	}
-
-	return(exitCode);
+    public boolean isApplicable(Class<? extends AbstractProject> aClass) {
+      return true;
     }
 
     @Override
-    public DescriptorImpl getDescriptor() {
-        return (DescriptorImpl)super.getDescriptor();
+    public String getDisplayName() {
+      return "Anchore Container Image Scanner";
     }
 
-    @Extension // This indicates to Jenkins that this is an implementation of an extension point.
-    public static class DescriptorImpl extends BuildStepDescriptor<Builder> {
-        private boolean debug;
-        private boolean enabled;
-	private String containerImageId;
-	private String containerId;
-	private String localVol;
-	private String modulesVol;
-	private boolean useSudo;
+    @Override
+    public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
+      debug = formData.getBoolean("debug");
+      enabled = formData.getBoolean("enabled");
+      useSudo = formData.getBoolean("useSudo");
+      containerImageId = formData.getString("containerImageId");
+      containerId = formData.getString("containerId");
+      localVol = formData.getString("localVol");
+      modulesVol = formData.getString("modulesVol");
 
-        public DescriptorImpl() {
-            load();
-        }
-
-        public boolean isApplicable(Class<? extends AbstractProject> aClass) {
-            return true;
-        }
-
-	public String getDisplayName() {
-            return "Anchore Container Image Scanner";
-        }
-
-        @Override
-        public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
-	    debug = formData.getBoolean("debug");
-	    enabled = formData.getBoolean("enabled");
-	    useSudo = formData.getBoolean("useSudo");
-	    containerImageId = formData.getString("containerImageId");
-	    containerId = formData.getString("containerId");
-	    localVol = formData.getString("localVol");
-	    modulesVol = formData.getString("modulesVol");
-	    
-            save();
-            return super.configure(req,formData);
-        }
-
-	public boolean getDebug() {
-            return debug;
-        }
-	public boolean getEnabled() {
-            return enabled;
-        }
-	public boolean getUseSudo() {
-            return useSudo;
-        }
-	public String getContainerImageId() {
-	    return containerImageId;
-	}
-	public String getContainerId() {
-	    return containerId;
-	}
-	public String getLocalVol() {
-	    return localVol;
-	}
-	public String getModulesVol() {
-	    return modulesVol;
-	}
+      save();
+      return super.configure(req, formData);
     }
 
+    /**
+     * Performs on-the-fly validation of the form field 'name' (Image list file)
+     *
+     * @param value This parameter receives the value that the user has typed in the 'Image list file' box
+     * @return Indicates the outcome of the validation. This is sent to the browser. <p> Note that returning {@link
+     * FormValidation#error(String)} does not prevent the form from being saved. It just means that a message will be displayed to the
+     * user
+     */
+    public FormValidation doCheckName(@QueryParameter String value) {
+      if (!Strings.isNullOrEmpty(value)) {
+        return FormValidation.ok();
+      } else {
+        return FormValidation.error("Please enter a valid file name");
+      }
+    }
+
+    public FormValidation doCheckContainerImageId(@QueryParameter String value) {
+      if (!Strings.isNullOrEmpty(value)) {
+        return FormValidation.ok();
+      } else {
+        return FormValidation.error("Please provide a valid Anchore Container Image ID");
+      }
+    }
+
+    public FormValidation doCheckContainerId(@QueryParameter String value) {
+      if (!Strings.isNullOrEmpty(value)) {
+        return FormValidation.ok();
+      } else {
+        return FormValidation.error("Please provide a valid Anchore Container ID");
+      }
+    }
+  }
 }
 

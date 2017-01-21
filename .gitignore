@@ -13,3 +13,10 @@ hs_err_pid*
 
 # build stuff
 target/
+
+# IDE
+.idea
+*.iml
+
+# OS
+.DS_Store
