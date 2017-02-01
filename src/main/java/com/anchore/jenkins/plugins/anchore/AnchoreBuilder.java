@@ -59,6 +59,7 @@ import org.kohsuke.stapler.StaplerRequest;
  * jenkins job that includes an Anchore Container Image Scanner build step.</li>
  * </ol>
  */
+
 public class AnchoreBuilder extends Builder {
 
   //  Log handler for logging above INFO level events to jenkins log
@@ -67,7 +68,7 @@ public class AnchoreBuilder extends Builder {
   private static final String LOG_FORMAT = "%1$tY-%1$tm-%1$tdT%1$tH:%1$tM:%1$tS.%1$tL %2$-6s AnchorePlugin %3$s";
   private static final Splitter IMAGE_LIST_SPLITTER = Splitter.on(Pattern.compile("\\s+")).trimResults().omitEmptyStrings();
   private static final String ANCHORE_BINARY = "anchore";
-  private static final String ANCHORE_CSS = "anchore.css";
+  private static final String ANCHORE_CSS = "/plugin/anchore-container-scanner/css/anchore.css";
 
   private enum GATE_ACTION {STOP, WARN, GO}
 
@@ -700,22 +701,9 @@ public class AnchoreBuilder extends Builder {
     try {
       logDebug("Generating reports");
 
-      // CSS
       FilePath jenkinsOutputDirFP = new FilePath(build.getWorkspace(), jenkinsOutputDirName);
-      FilePath anchoreCss = new FilePath(jenkinsOutputDirFP, ANCHORE_CSS);
-      try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(anchoreCss.write(), StandardCharsets.UTF_8))) {
-        // anchore colors: main:blue #3c7fe2 main:grey #d9e1e2 main:yellow #EEDC00 sec:blue #5BC2E7 sec:green #00B388 sec:navygrey
-        // #425563
-        String css =
-            "table {\n" + "    border-collapse: collapse;\n" + "    width: 100%;\n" + "}\n" + "th, td {\n" + "    text-align: left;\n"
-                + "    padding: 8px;\n" + "    transition: all 0.3s;\n" + "}\n" + "tr:nth-child(even){background-color: #eaf2f3}\n"
-                + "th {\n" + "    background-color: #3c7fe2;;\n" + "    color: #EEDC00;\n" + "}\n"
-                + "tr td:hover { background: #5BC2E7; color: #FFFFFF; }\n";
 
-        bw.write(css);
-      }
-
-      // style append to anchore outputs
+      // This is just for appending CSS style to anchore outputs. TODO there may be a better way of doing this, fix it!
       for (Map.Entry<String, FilePath> in : jenkinsGeneratedOutput.entrySet()) {
         FilePath inFile = in.getValue();
         if (inFile.exists() && inFile.length() > 0) {
@@ -723,7 +711,7 @@ public class AnchoreBuilder extends Builder {
             try (BufferedWriter bw = new BufferedWriter(
                 new OutputStreamWriter(new FilePath(jenkinsOutputDirFP, in.getKey() + "_format.html").write(),
                     StandardCharsets.UTF_8))) {
-              bw.write("<link rel=\"stylesheet\" type=\"text/css\" href=\"anchore.css\">\n");
+              bw.write("<link rel=\"stylesheet\" type=\"text/css\" href=\"" + ANCHORE_CSS + "\">\n");
               Util.copyStreamAndClose(br, bw);
             }
           }
