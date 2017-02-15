@@ -4,16 +4,50 @@
     <st:include it="${it.build}" page="sidepanel.jelly" />
 
     <l:main-panel>
-      <h3>Anchore Policy Evaluation Report</h3>
-      <iframe width="100%" height="300" frameborder="1" src="${it.gateReportUrl}"/>
-      <br></br>
+      <j:choose>
+        <j:when test="${!empty(it.gateOutputUrl)}">
 
-      <j:forEach var="e" items="${it.queries}">
-        <h3>Anchore Image Query Report (${e.value})</h3>
-        <iframe width="100%" height="300" frameborder="1" src="${e.key}"/>
-        <br></br>
-      </j:forEach>
+          <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css"/>
+          <link rel="stylesheet" type="text/css" href="/plugin/anchore-container-scanner/css/dataTables.bootstrap.min.css"/>
 
+          <script type="text/javascript" src="/plugin/anchore-container-scanner/js/jquery.min.js"></script>
+          <script>jQuery.noConflict();</script> <!-- To prevent overwriting jenkins prototype.js $ function -->
+          <script type="text/javascript" src="/plugin/anchore-container-scanner/js/jquery.dataTables.min.js"></script>
+          <script type="text/javascript" src="/plugin/anchore-container-scanner/js/dataTables.bootstrap.min.js"></script>
+          <script type="text/javascript" src="/plugin/anchore-container-scanner/js/renderOutput.js"></script>
+
+          <style>#gates_wrapper {float: left;}</style>
+          <h3>Anchore Policy Evaluation Report</h3>
+          <table id="gates" class="table table-striped table-bordered dataTable no-footer"></table>
+          <script type="text/javascript">
+            buildDataTable("${it.gateOutputUrl}", "#gates");
+          </script>
+
+          <j:set var="counter" value="0"/>
+          <j:forEach var="e" items="${it.queryOutputUrls}">
+            <j:set var="counter" value="${counter + 1}"/>
+            <h3 style="margin-top: 50px;">Anchore Image Query Report (${e.key})</h3>
+            <table id="query${counter}" class="table table-striped table-bordered dataTable no-footer"></table>
+            <script type="text/javascript">
+              buildDataTable("${e.value}", "#query${counter}");
+            </script>
+          </j:forEach>
+
+        </j:when>
+
+        <j:otherwise>
+          <h3>Anchore Policy Evaluation Report</h3>
+          <iframe width="100%" height="300" frameborder="1" src="${it.gateReportUrl}"/>
+          <br></br>
+
+          <j:forEach var="e" items="${it.queries}">
+            <h3>Anchore Image Query Report (${e.value})</h3>
+            <iframe width="100%" height="300" frameborder="1" src="${e.key}"/>
+            <br></br>
+          </j:forEach>
+        </j:otherwise>
+
+      </j:choose>
     </l:main-panel>
   </l:layout>
 </j:jelly>

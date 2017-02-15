@@ -1,32 +1,44 @@
 package com.anchore.jenkins.plugins.anchore;
 
+import com.google.common.base.Function;
+import com.google.common.collect.Maps;
 import hudson.model.AbstractBuild;
 import hudson.model.Action;
 import java.util.Map;
-import java.util.TreeMap;
+import javax.annotation.Nullable;
+import jenkins.model.Jenkins;
 
 public class AnchoreAction implements Action {
 
-  private String gateStatus;
-  private String gateReportUrl;
-  private String queryReportUrl;
-  private Map<String, String> queries;
   private AbstractBuild<?, ?> build;
+  private String gateStatus;
+  private String gateOutputUrl;
+  private Map<String, String> queryOutputUrls;
 
-  public AnchoreAction(AbstractBuild<?, ?> build, String gateStatus, String euid, Map<String, String> queries) {
-    this.gateReportUrl = "../artifact/AnchoreReport." + euid + "/anchore_gates_format.html";
-    this.queryReportUrl = "../artifact/AnchoreReport." + euid + "/anchore_query_format.html";
+  // For backwards compatibility
+  @Deprecated
+  private String gateReportUrl;
+  @Deprecated
+  private Map<String, String> queries;
+
+
+  public AnchoreAction(AbstractBuild<?, ?> build, String gateStatus, final String jenkinsOutputDirName, String gateReport,
+      Map<String, String> queryReports) {
     this.build = build;
     this.gateStatus = gateStatus;
-    this.queries = new TreeMap<String, String>();
-    for (Map.Entry<String, String> entry : queries.entrySet()) {
-      this.queries.put("../artifact/AnchoreReport." + euid + "/" + entry.getKey() + "_format.html", entry.getValue());
-    }
+    this.gateOutputUrl = "../artifact/" + jenkinsOutputDirName + "/" + gateReport;
+    this.queryOutputUrls = Maps.transformValues(queryReports, new Function<String, String>() {
+
+      @Override
+      public String apply(@Nullable String queryOutput) {
+        return "../artifact/" + jenkinsOutputDirName + "/" + queryOutput;
+      }
+    });
   }
 
   @Override
   public String getIconFileName() {
-    return "/plugin/anchore-container-scanner/images/anchore.png";
+    return Jenkins.RESOURCE_PATH + "/plugin/anchore-container-scanner/images/anchore.png";
   }
 
   @Override
@@ -43,16 +55,24 @@ public class AnchoreAction implements Action {
     return this.build;
   }
 
+  public String getGateStatus() {
+    return gateStatus;
+  }
+
+  public String getGateOutputUrl() {
+    return this.gateOutputUrl;
+  }
+
+  public Map<String, String> getQueryOutputUrls() {
+    return this.queryOutputUrls;
+  }
+
   public String getGateReportUrl() {
     return this.gateReportUrl;
   }
 
-  public String getQueryReportUrl() {
-    return this.queryReportUrl;
-  }
-
   public Map<String, String> getQueries() {
-    return (this.queries);
+    return this.queries;
   }
 }
 

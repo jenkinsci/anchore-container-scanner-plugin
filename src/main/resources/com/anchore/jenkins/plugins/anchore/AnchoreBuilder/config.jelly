@@ -30,12 +30,12 @@
   </f:entry>
 
   <!-- doQuery is deprecated but using it here for upgrade purposes -->
-  <f:entry>
+  <f:nested>
     <f:optionalBlock title="Enable Queries" name="queriesBlock" checked="${instance == null || instance.inputQueries != null || instance.doQuery}" help="/plugin/anchore-container-scanner/help/help-queriesBlock.html">
       <f:entry title="Anchore Query List" field="inputQueries">
         <f:repeatableProperty field="inputQueries" noAddButton="true" default="${(instance != null &amp;&amp; instance.doQuery) ? descriptor.getQueries(instance.query1, instance.query2, instance.query3, instance.query4) : descriptor.getDefaultQueries()}"/>
       </f:entry>
     </f:optionalBlock>
-  </f:entry>
+  </f:nested>
 
 </j:jelly>
