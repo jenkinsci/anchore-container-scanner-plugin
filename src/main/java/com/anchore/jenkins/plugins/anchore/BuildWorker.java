@@ -565,6 +565,7 @@ public class BuildWorker {
             console.logWarn(
                 "Failed to copy user scripts from Jenkins workspace: " + jenkinsScriptsDir.getRemote() + ", to Anchore workspace: "
                     + anchoreScriptsDirName + ". Using default Anchore modules");
+            anchoreScriptsDirName = null; // reset it so it doesn't get used later
             // throw new AbortException(
             //    "Failed to copy user scripts from Jenkins workspace: " + jenkinsScriptsDir.getRemote() + ", to Anchore workspace: "
             //        + anchoreScriptsDirName);
@@ -592,6 +593,7 @@ public class BuildWorker {
             console.logWarn(
                 "Failed to copy policy file from Jenkins workspace: " + jenkinsPolicyFile.getRemote() + ", to Anchore workspace: "
                     + anchorePolicyFileName + ". Using default Anchore policy");
+            anchorePolicyFileName = null; // reset it so it doesn't get used later
             // throw new AbortException(
             //    "Failed to copy policy file from Jenkins workspace: " + jenkinsPolicyFile.getRemote() + ", to Anchore workspace: "
             //        + anchorePolicyFileName);
