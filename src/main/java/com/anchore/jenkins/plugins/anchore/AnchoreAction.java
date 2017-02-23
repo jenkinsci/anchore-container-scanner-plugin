@@ -7,6 +7,7 @@ import hudson.model.Action;
 import java.util.Map;
 import javax.annotation.Nullable;
 import jenkins.model.Jenkins;
+import net.sf.json.JSONObject;
 
 public class AnchoreAction implements Action {
 
@@ -14,6 +15,7 @@ public class AnchoreAction implements Action {
   private String gateStatus;
   private String gateOutputUrl;
   private Map<String, String> queryOutputUrls;
+  private JSONObject gateSummary;
 
   // For backwards compatibility
   @Deprecated
@@ -23,7 +25,7 @@ public class AnchoreAction implements Action {
 
 
   public AnchoreAction(AbstractBuild<?, ?> build, String gateStatus, final String jenkinsOutputDirName, String gateReport,
-      Map<String, String> queryReports) {
+      Map<String, String> queryReports, JSONObject gateSummary) {
     this.build = build;
     this.gateStatus = gateStatus;
     this.gateOutputUrl = "../artifact/" + jenkinsOutputDirName + "/" + gateReport;
@@ -34,6 +36,7 @@ public class AnchoreAction implements Action {
         return "../artifact/" + jenkinsOutputDirName + "/" + queryOutput;
       }
     });
+    this.gateSummary = gateSummary;
   }
 
   @Override
@@ -65,6 +68,10 @@ public class AnchoreAction implements Action {
 
   public Map<String, String> getQueryOutputUrls() {
     return this.queryOutputUrls;
+  }
+
+  public JSONObject getGateSummary() {
+    return gateSummary;
   }
 
   public String getGateReportUrl() {

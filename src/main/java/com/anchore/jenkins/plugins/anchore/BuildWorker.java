@@ -1,6 +1,7 @@
 package com.anchore.jenkins.plugins.anchore;
 
 import com.anchore.jenkins.plugins.anchore.Util.GATE_ACTION;
+import com.anchore.jenkins.plugins.anchore.Util.GATE_SUMMARY_COLUMN;
 import com.google.common.base.Strings;
 import hudson.AbortException;
 import hudson.FilePath;
@@ -24,6 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 import jenkins.model.Jenkins;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
 
 /**
  * A helper class to ensure concurrent jobs don't step on each other's toes. Anchore plugin instantiates a new instance of this class
@@ -59,6 +62,7 @@ public class BuildWorker {
   private Map<String, String> queryOutputMap; // TODO rename
   private String gateOutputFileName;
   private GATE_ACTION finalAction;
+  private JSONObject gateSummary;
 
   // Initialized by Anchore workspace prep
   private String anchoreWorkspaceDirName;
@@ -188,12 +192,92 @@ public class BuildWorker {
           }
 
           console.logDebug("Anchore gate execution completed successfully, final action: " + finalAction);
-
-          return finalAction;
         } catch (IOException | InterruptedException e) {
           console.logWarn("Failed to write gates output to " + jenkinsGatesOutputFP.getRemote(), e);
           throw new AbortException("Failed to write gates output to " + jenkinsGatesOutputFP.getRemote());
         }
+
+        // Parse gate output and generate summary json
+        try {
+          console.logDebug("Parsing and summarizing gate output in " + jenkinsGatesOutputFP.getRemote());
+          if (jenkinsGatesOutputFP.exists() && jenkinsGatesOutputFP.length() > 0) {
+            JSONObject gatesJson = JSONObject.fromObject(jenkinsGatesOutputFP.readToString());
+            if (gatesJson != null) {
+              JSONArray summaryRows = new JSONArray();
+              for (Object imageKey : gatesJson.keySet()) {
+                JSONObject content = gatesJson.getJSONObject((String) imageKey);
+                if (null != content) {
+                  JSONObject result = content.getJSONObject("result");
+                  if (null != result) {
+                    JSONArray rows = result.getJSONArray("rows");
+                    if (null != rows) {
+                      int stop = 0, warn = 0, go = 0;
+                      String repoTag = null;
+
+                      for (int i = 0; i < rows.size(); i++) {
+                        JSONArray row = rows.getJSONArray(i);
+                        if (row.size() == 6 && !row.getString(2).equals("FINAL")) {
+                          if (Strings.isNullOrEmpty(repoTag)) {
+                            repoTag = row.getString(1);
+                          }
+                          switch (row.getString(5)) {
+                            case "STOP":
+                              stop++;
+                              break;
+                            case "WARN":
+                              warn++;
+                              break;
+                            case "GO":
+                              go++;
+                              break;
+                            default:
+                              break;
+                          }
+                        }
+                      }
+
+                      JSONObject summaryRow = new JSONObject();
+                      summaryRow.put(GATE_SUMMARY_COLUMN.Repo_Tag.toString(), repoTag);
+                      summaryRow.put(GATE_SUMMARY_COLUMN.Stop_Actions.toString(), stop);
+                      summaryRow.put(GATE_SUMMARY_COLUMN.Warn_Actions.toString(), warn);
+                      summaryRow.put(GATE_SUMMARY_COLUMN.Go_Actions.toString(), go);
+                      summaryRow.put(GATE_SUMMARY_COLUMN.Final_Action.toString(), result.getString("final_action"));
+                      summaryRows.add(summaryRow);
+
+                    } else { // rows object not found
+                      console.logWarn("\'rows\' element not found in gate output for " + imageKey + ", moving on");
+                      continue;
+                    }
+                  } else { // result object not found, log and move on
+                    console.logWarn("\'result\' element not found in gate output for " + imageKey + ", moving on");
+                    continue;
+                  }
+                } else { // no content found for a given image id, log and move on
+                  console.logWarn("No mapped object found in gate output for " + imageKey + " in gate output, moving on");
+                  continue;
+                }
+              }
+
+              gateSummary = new JSONObject();
+              gateSummary.put("header", generateDataTablesColumnsForGateSummary());
+              gateSummary.put("rows", summaryRows);
+
+            } else { // could not load gates output to json object
+              console.logWarn("Failed to load/parse gate output from " + jenkinsGatesOutputFP.getRemote());
+            }
+
+          } else {
+            console.logError("Gate output file not found or empty: " + jenkinsGatesOutputFP.getRemote());
+            throw new AbortException("Gate output file not found or empty: " + jenkinsGatesOutputFP.getRemote());
+          }
+        } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
+          throw e;
+        } catch (Exception e) {
+          console.logError("Failed to generate gate output summary", e);
+          throw new AbortException("Failed to generate gate output summary");
+        }
+
+        return finalAction;
       } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
         throw e;
       } catch (Exception e) { // caught unknown exception, log it and wrap it
@@ -279,19 +363,10 @@ public class BuildWorker {
       console.logDebug("Setting up build results");
 
       if (finalAction != null) {
-        switch (finalAction) {
-          case STOP:
-            build.addAction(new AnchoreAction(build, "STOP", jenkinsOutputDirName, gateOutputFileName, queryOutputMap));
-            break;
-          case WARN:
-            build.addAction(new AnchoreAction(build, "WARN", jenkinsOutputDirName, gateOutputFileName, queryOutputMap));
-            break;
-          case GO:
-            build.addAction(new AnchoreAction(build, "GO", jenkinsOutputDirName, gateOutputFileName, queryOutputMap));
-            break;
-        }
+        build.addAction(
+            new AnchoreAction(build, finalAction.toString(), jenkinsOutputDirName, gateOutputFileName, queryOutputMap, gateSummary));
       } else {
-        build.addAction(new AnchoreAction(build, "", jenkinsOutputDirName, gateOutputFileName, queryOutputMap));
+        build.addAction(new AnchoreAction(build, "", jenkinsOutputDirName, gateOutputFileName, queryOutputMap, gateSummary));
       }
     } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
       throw e;
@@ -684,6 +759,17 @@ public class BuildWorker {
       throw new AbortException(
           "Please configure \"Anchore Container Image ID\" under Manage Jenkins->Configure System->Anchore Configuration and retry.");
     }
+  }
+
+  private JSONArray generateDataTablesColumnsForGateSummary() {
+    JSONArray headers = new JSONArray();
+    for (GATE_SUMMARY_COLUMN column : GATE_SUMMARY_COLUMN.values()) {
+      JSONObject header = new JSONObject();
+      header.put("data", column.toString());
+      header.put("title", column.toString().replaceAll("_", " "));
+      headers.add(header);
+    }
+    return headers;
   }
 
   private int executeAnchoreCommand(String cmd) throws AbortException {

@@ -11,4 +11,6 @@ public class Util {
   public enum GATE_ACTION {STOP, WARN, GO}
 
   public enum LOG_LEVEL {DEBUG, WARN, INFO, ERROR}
+
+  public enum GATE_SUMMARY_COLUMN {Repo_Tag, Stop_Actions, Warn_Actions, Go_Actions, Final_Action}
 }
