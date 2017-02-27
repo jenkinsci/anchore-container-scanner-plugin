@@ -3,6 +3,10 @@ package com.anchore.jenkins.plugins.anchore;
 
 import java.util.List;
 
+/**
+ * Holder for all Anchore configuration - includes global and project level attributes. A convenience class for capturing a snapshot of
+ * the config at the beginning of plugin execution and caching it for use during that specific execution
+ */
 public class BuildConfig {
 
   // Build configuration

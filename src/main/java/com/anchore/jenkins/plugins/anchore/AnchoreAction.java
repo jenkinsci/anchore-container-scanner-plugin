@@ -2,16 +2,21 @@ package com.anchore.jenkins.plugins.anchore;
 
 import com.google.common.base.Function;
 import com.google.common.collect.Maps;
-import hudson.model.AbstractBuild;
 import hudson.model.Action;
+import hudson.model.Run;
 import java.util.Map;
 import javax.annotation.Nullable;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
+/**
+ * Anchore plugin results for a given build are stored and subsequently retrieved from an instance of this class. Rendering/display of
+ * the results is defined in the appropriate index and summary jelly files. This Jenkins Action is associated with a build (and not the
+ * project which is one level up)
+ */
 public class AnchoreAction implements Action {
 
-  private AbstractBuild<?, ?> build;
+  private Run<?, ?> build;
   private String gateStatus;
   private String gateOutputUrl;
   private Map<String, String> queryOutputUrls;
@@ -24,7 +29,7 @@ public class AnchoreAction implements Action {
   private Map<String, String> queries;
 
 
-  public AnchoreAction(AbstractBuild<?, ?> build, String gateStatus, final String jenkinsOutputDirName, String gateReport,
+  public AnchoreAction(Run<?, ?> build, String gateStatus, final String jenkinsOutputDirName, String gateReport,
       Map<String, String> queryReports, JSONObject gateSummary) {
     this.build = build;
     this.gateStatus = gateStatus;
@@ -54,7 +59,7 @@ public class AnchoreAction implements Action {
     return "anchore-results";
   }
 
-  public AbstractBuild<?, ?> getBuild() {
+  public Run<?, ?> getBuild() {
     return this.build;
   }
 

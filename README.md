@@ -27,7 +27,18 @@ To install the plugin manually:
 
 3) under 'Manage Jenkins' -> 'Configure System', locate the 'Anchore' section and be sure to select 'Enable Anchore Scanning' radio box, and save
 
-4) create a new jenkins job (or configure an exiting job) and you can now add an 'Anchore Container Image Scanner' build step
+4) to use the plugin
+
+   a) create a new jenkins job (or configure an exiting job) and you can now add an 'Anchore Container Image Scanner' build step or
+  
+   b) invoke anchore container scanner plugin in a pipeline script. Following is a sample code snippet. For more options refer to 'Pipeline Syntax' -> 'Step Reference' 
+   ```
+   node {
+     def imageLine = '6cba161501c8' + ' ' + env.WORKSPACE + '/DockerFile'
+     writeFile file: 'anchore_images', text: imageLine
+     anchore name: 'anchore_images', inputQueries: [[query: 'list-packages all'], [query: 'list-files all'], [query: 'cve-scan all'], [query: 'show-pkg-diffs base']]
+   }
+   ```
 
 For more information, please visit the anchore plugin wiki at https://wiki.jenkins-ci.org/display/JENKINS/Anchore+Container+Image+Scanner+Plugin or https://www.anchore.com
 

@@ -7,9 +7,8 @@ import hudson.AbortException;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.PluginWrapper;
-import hudson.model.AbstractBuild;
-import hudson.model.BuildListener;
-import hudson.model.Node;
+import hudson.model.Run;
+import hudson.model.TaskListener;
 import hudson.tasks.ArtifactArchiver;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -30,9 +29,9 @@ import net.sf.json.JSONObject;
 
 /**
  * A helper class to ensure concurrent jobs don't step on each other's toes. Anchore plugin instantiates a new instance of this class
- * for each individual job i.e. invocation of perform(). This is separate from the Jenkins Databound Constructor. Global and project
- * configuration at the time of execution is loaded into worker instance via its constructor. That specific worker instance is
- * responsible for the bulk of the plugin operations for a given job.
+ * for each individual job i.e. invocation of perform(). Global and project configuration at the time of execution is loaded into
+ * worker instance via its constructor. That specific worker instance is responsible for the bulk of the plugin operations for a given
+ * job.
  */
 public class BuildWorker {
 
@@ -46,9 +45,10 @@ public class BuildWorker {
   private static final String JSON_FILE_EXTENSION = ".json";
 
   // Private members
-  AbstractBuild build;
+  Run<?, ?> build;
+  FilePath workspace;
   Launcher launcher;
-  BuildListener listener;
+  TaskListener listener;
   BuildConfig config;
 
 
@@ -71,15 +71,21 @@ public class BuildWorker {
   private String anchoreScriptsDirName;
   private List<String> anchoreInputImages;
 
-  public BuildWorker(AbstractBuild build, Launcher launcher, BuildListener listener, BuildConfig config) throws AbortException {
+  public BuildWorker(Run<?, ?> build, FilePath workspace, Launcher launcher, TaskListener listener, BuildConfig config)
+      throws AbortException {
     try {
+      // Initialize build
+      this.build = build;
+
+      // Initialize workspace reference
+      this.workspace = workspace;
 
       // Verify and initialize build listener
       if (null != listener) {
         this.listener = listener;
       } else {
-        LOG.warning("Anchore Container Image Scanner plugin cannot initialize Jenkins build listener");
-        throw new AbortException("Cannot initialize Jenkins build listener. Aborting build step");
+        LOG.warning("Anchore Container Image Scanner plugin cannot initialize Jenkins task listener");
+        throw new AbortException("Cannot initialize Jenkins task listener. Aborting build step");
       }
 
       // Verify and initialize configuration
@@ -97,20 +103,18 @@ public class BuildWorker {
 
       // Verify and initialize Jenkins launcher for executing processes
       // TODO is this necessary? Can't we use the launcher reference that was passed in
-      Node jenkinsNode = build.getBuiltOn();
-      if (null != jenkinsNode) {
-        this.launcher = jenkinsNode.createLauncher(listener);
-        if (null == this.launcher) {
-          console.logError("Cannot initialize Jenkins process executor");
-          throw new AbortException("Cannot initialize Jenkins process executor. Aborting build step");
-        }
-      } else {
-        console.logError("Cannot access Jenkins node running the build");
-        throw new AbortException("Cannot access Jenkins node running the build. Aborting build step");
-      }
-
-      // Initialize build
-      this.build = build;
+      this.launcher = workspace.createLauncher(listener);
+      //      Node jenkinsNode = build.getBuiltOn();
+      //      if (null != jenkinsNode) {
+      //        this.launcher = jenkinsNode.createLauncher(listener);
+      //        if (null == this.launcher) {
+      //          console.logError("Cannot initialize Jenkins process executor");
+      //          throw new AbortException("Cannot initialize Jenkins process executor. Aborting build step");
+      //        }
+      //      } else {
+      //        console.logError("Cannot access Jenkins node running the build");
+      //        throw new AbortException("Cannot access Jenkins node running the build. Aborting build step");
+      //      }
 
       // Initialize analyzed flag to false to indicate that analysis step has not run
       this.analyzed = false;
@@ -131,16 +135,14 @@ public class BuildWorker {
     } catch (Exception e) {
       try {
         if (console != null) {
-          console.logError("Failed to initialize worker for plugin execution, check logs for corrective action");
+          console.logError("Failed to initialize worker for plugin execution", e);
         }
         cleanJenkinsWorkspaceQuietly();
         cleanAnchoreWorkspaceQuietly();
+      } catch (Exception innere) {
+
       } finally {
-        if (e instanceof AbortException) {
-          throw e;
-        } else {
-          throw new AbortException("Failed to initialize worker for plugin execution, check the logs for corrective action");
-        }
+        throw new AbortException("Failed to initialize worker for plugin execution, check logs for corrective action");
       }
     }
   }
@@ -170,7 +172,7 @@ public class BuildWorker {
       try {
         console.logInfo("Running Anchore Gates");
 
-        FilePath jenkinsOutputDirFP = new FilePath(build.getWorkspace(), jenkinsOutputDirName);
+        FilePath jenkinsOutputDirFP = new FilePath(workspace, jenkinsOutputDirName);
         FilePath jenkinsGatesOutputFP = new FilePath(jenkinsOutputDirFP, gateOutputFileName);
         String cmd = "--json gate --imagefile " + anchoreImageFileName;
 
@@ -303,7 +305,7 @@ public class BuildWorker {
 
               console.logInfo("Running Anchore Query: " + query);
               String queryOutputFileName = QUERY_OUTPUT_PREFIX + (++key) + JSON_FILE_EXTENSION;
-              FilePath jenkinsOutputDirFP = new FilePath(build.getWorkspace(), jenkinsOutputDirName);
+              FilePath jenkinsOutputDirFP = new FilePath(workspace, jenkinsOutputDirName);
               FilePath jenkinsQueryOutputFP = new FilePath(jenkinsOutputDirFP, queryOutputFileName);
 
               try {
@@ -350,14 +352,14 @@ public class BuildWorker {
     try {
       // store anchore output json files using jenkins archiver (for remote storage as well)
       console.logInfo("Archiving results");
-      FilePath buildWorkspaceFP = build.getWorkspace();
-      if (null != buildWorkspaceFP) {
-        ArtifactArchiver artifactArchiver = new ArtifactArchiver(jenkinsOutputDirName + "/");
-        artifactArchiver.perform(build, buildWorkspaceFP, launcher, listener);
-      } else {
-        console.logError("Unable to archive results due to an invalid reference to Jenkins build workspace");
-        throw new AbortException("Unable to archive results due to an invalid reference to Jenkins build workspace");
-      }
+      //      FilePath buildWorkspaceFP = build.getWorkspace();
+      //      if (null != buildWorkspaceFP) {
+      ArtifactArchiver artifactArchiver = new ArtifactArchiver(jenkinsOutputDirName + "/");
+      artifactArchiver.perform(build, workspace, launcher, listener);
+      //      } else {
+      //        console.logError("Unable to archive results due to an invalid reference to Jenkins build workspace");
+      //        throw new AbortException("Unable to archive results due to an invalid reference to Jenkins build workspace");
+      //      }
 
       // add the link in jenkins UI for anchore results
       console.logDebug("Setting up build results");
@@ -368,8 +370,8 @@ public class BuildWorker {
       } else {
         build.addAction(new AnchoreAction(build, "", jenkinsOutputDirName, gateOutputFileName, queryOutputMap, gateSummary));
       }
-    } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
-      throw e;
+      //    } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
+      //      throw e;
     } catch (Exception e) { // caught unknown exception, log it and wrap it
       console.logError("Failed to setup build results due to an unexpected error", e);
       throw new AbortException(
@@ -464,15 +466,15 @@ public class BuildWorker {
     }
 
     try {
-      if (!new FilePath(build.getWorkspace(), config.getName()).exists()) {
-        console.logError("Cannot find image list file \"" + config.getName() + "\" under " + build.getWorkspace());
+      if (!new FilePath(workspace, config.getName()).exists()) {
+        console.logError("Cannot find image list file \"" + config.getName() + "\" under " + workspace);
         throw new AbortException("Cannot find image list file \'" + config.getName()
             + "\'. Please ensure that image list file is created prior to Anchore Container Image Scanner build step");
       }
     } catch (AbortException e) {
       throw e;
     } catch (Exception e) {
-      console.logWarn("Unable to access image list file \"" + config.getName() + "\" under " + build.getWorkspace(), e);
+      console.logWarn("Unable to access image list file \"" + config.getName() + "\" under " + workspace, e);
       throw new AbortException("Unable to access image list file " + config.getName()
           + ". Please ensure that image list file is created prior to Anchore Container Image Scanner build step");
     }
@@ -498,7 +500,7 @@ public class BuildWorker {
       }
 
       jenkinsOutputDirName = JENKINS_DIR_NAME_PREFIX + buildId;
-      FilePath jenkinsReportDir = new FilePath(build.getWorkspace(), jenkinsOutputDirName);
+      FilePath jenkinsReportDir = new FilePath(workspace, jenkinsOutputDirName);
 
       // Create output directories
       if (!jenkinsReportDir.exists()) {
@@ -546,9 +548,9 @@ public class BuildWorker {
       // - Create a staging file with adjusted paths
       console.logDebug("Staging image file in Jenkins workspace");
 
-      FilePath jenkinsOutputDirFP = new FilePath(build.getWorkspace(), jenkinsOutputDirName);
+      FilePath jenkinsOutputDirFP = new FilePath(workspace, jenkinsOutputDirName);
       FilePath jenkinsStagedImageFP = new FilePath(jenkinsOutputDirFP, "staged_images." + buildId);
-      FilePath inputImageFP = new FilePath(build.getWorkspace(), config.getName()); // Already checked in checkConfig()
+      FilePath inputImageFP = new FilePath(workspace, config.getName()); // Already checked in checkConfig()
 
       try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(jenkinsStagedImageFP.write(), StandardCharsets.UTF_8))) {
         try (BufferedReader br = new BufferedReader(new InputStreamReader(inputImageFP.read(), StandardCharsets.UTF_8))) {
@@ -628,8 +630,8 @@ public class BuildWorker {
       // Copy the user scripts directory from Jenkins workspace to Anchore container
       try {
         FilePath jenkinsScriptsDir;
-        if (!Strings.isNullOrEmpty(config.getUserScripts()) && (jenkinsScriptsDir = new FilePath(build.getWorkspace(),
-            config.getUserScripts())).exists()) {
+        if (!Strings.isNullOrEmpty(config.getUserScripts()) && (jenkinsScriptsDir = new FilePath(workspace, config.getUserScripts()))
+            .exists()) {
           anchoreScriptsDirName = anchoreWorkspaceDirName + "/anchorescripts/";
           console.logDebug("Copying user scripts from Jenkins workspace: " + jenkinsScriptsDir.getRemote() + ", to Anchore workspace: "
               + anchoreScriptsDirName);
@@ -655,8 +657,8 @@ public class BuildWorker {
       // Copy the policy file from Jenkins workspace to Anchore container
       try {
         FilePath jenkinsPolicyFile;
-        if (!Strings.isNullOrEmpty(config.getPolicyName()) && (jenkinsPolicyFile = new FilePath(build.getWorkspace(),
-            config.getPolicyName())).exists()) {
+        if (!Strings.isNullOrEmpty(config.getPolicyName()) && (jenkinsPolicyFile = new FilePath(workspace, config.getPolicyName()))
+            .exists()) {
           anchorePolicyFileName = anchoreWorkspaceDirName + "/policy";
           console.logDebug("Copying policy file from Jenkins workspace: " + jenkinsPolicyFile.getRemote() + ", to Anchore workspace: "
               + anchorePolicyFileName);
@@ -834,7 +836,7 @@ public class BuildWorker {
   }
 
   private void cleanJenkinsWorkspaceQuietly() throws IOException, InterruptedException {
-    FilePath jenkinsOutputDirFP = new FilePath(build.getWorkspace(), jenkinsOutputDirName);
+    FilePath jenkinsOutputDirFP = new FilePath(workspace, jenkinsOutputDirName);
     jenkinsOutputDirFP.deleteRecursive();
   }
 

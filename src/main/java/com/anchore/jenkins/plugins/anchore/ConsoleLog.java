@@ -5,6 +5,9 @@ import java.io.PrintStream;
 import java.util.Date;
 import java.util.logging.Logger;
 
+/**
+ * Logging mechanism for outputting messages to Jenkins build console
+ */
 public class ConsoleLog {
 
   private static final Logger LOG = Logger.getLogger(ConsoleLog.class.getName());
