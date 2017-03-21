@@ -1,12 +1,17 @@
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
-  
+<j:jelly xmlns:j="jelly:core"
+  xmlns:f="/lib/form">
+
   <f:entry title="Image list file" field="name">
     <f:textbox default="anchore_images"/>
   </f:entry>
 
   <f:entry title="Policy file" field="policyName">
     <f:textbox default="anchore_policy"/>
+  </f:entry>
+
+  <f:entry title="Global white list file" field="globalWhiteList">
+    <f:textbox default="anchore_global_whitelist"/>
   </f:entry>
 
   <f:entry title="User scripts directory" field="userScripts">
@@ -31,9 +36,12 @@
 
   <!-- doQuery is deprecated but using it here for upgrade purposes -->
   <f:nested>
-    <f:optionalBlock title="Enable Queries" name="queriesBlock" checked="${instance == null || instance.inputQueries != null || instance.doQuery}" help="/plugin/anchore-container-scanner/help/help-queriesBlock.html">
+    <f:optionalBlock title="Enable Queries" name="queriesBlock"
+      checked="${instance == null || instance.inputQueries != null || instance.doQuery}"
+      help="/plugin/anchore-container-scanner/help/help-queriesBlock.html">
       <f:entry title="Anchore Query List" field="inputQueries">
-        <f:repeatableProperty field="inputQueries" noAddButton="true" default="${(instance != null &amp;&amp; instance.doQuery) ? descriptor.getQueries(instance.query1, instance.query2, instance.query3, instance.query4) : descriptor.getDefaultQueries()}"/>
+        <f:repeatableProperty field="inputQueries" noAddButton="true"
+          default="${(instance != null &amp;&amp; instance.doQuery) ? descriptor.getQueries(instance.query1, instance.query2, instance.query3, instance.query4) : descriptor.getDefaultQueries()}"/>
       </f:entry>
     </f:optionalBlock>
   </f:nested>

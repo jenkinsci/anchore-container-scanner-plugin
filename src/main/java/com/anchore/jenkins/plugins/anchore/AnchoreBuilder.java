@@ -51,6 +51,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   // Job/build configuration
   private String name;
   private String policyName;
+  private String globalWhiteList;
   private String userScripts;
   private boolean bailOnFail = true;
   private boolean bailOnWarn = false;
@@ -77,6 +78,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
   public String getPolicyName() {
     return (policyName);
+  }
+
+  public String getGlobalWhiteList() {
+    return globalWhiteList;
   }
 
   public String getUserScripts() {
@@ -126,6 +131,11 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   @DataBoundSetter
   public void setPolicyName(String policyName) {
     this.policyName = policyName;
+  }
+
+  @DataBoundSetter
+  public void setGlobalWhiteList(String globalWhiteList) {
+    this.globalWhiteList = globalWhiteList;
   }
 
   @DataBoundSetter
@@ -187,9 +197,9 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     try {
       // Instantiate a new build worker
       worker = new BuildWorker(run, workspace, launcher, listener,
-          new BuildConfig(name, policyName, userScripts, bailOnFail, bailOnWarn, bailOnPluginFail, doCleanup, inputQueries,
-              globalConfig.getDebug(), globalConfig.getEnabled(), globalConfig.getContainerImageId(), globalConfig.getContainerId(),
-              globalConfig.getLocalVol(), globalConfig.getModulesVol(), globalConfig.getUseSudo()));
+          new BuildConfig(name, policyName, globalWhiteList, userScripts, bailOnFail, bailOnWarn, bailOnPluginFail, doCleanup,
+              inputQueries, globalConfig.getDebug(), globalConfig.getEnabled(), globalConfig.getContainerImageId(),
+              globalConfig.getContainerId(), globalConfig.getLocalVol(), globalConfig.getModulesVol(), globalConfig.getUseSudo()));
 
 
        /* Run analysis */

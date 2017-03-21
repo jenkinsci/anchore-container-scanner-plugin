@@ -12,6 +12,7 @@ public class BuildConfig {
   // Build configuration
   private String name;
   private String policyName;
+  private String globalWhiteList;
   private String userScripts;
   private boolean bailOnFail;
   private boolean bailOnWarn;
@@ -28,11 +29,12 @@ public class BuildConfig {
   private String modulesVol;
   private boolean useSudo;
 
-  public BuildConfig(String name, String policyName, String userScripts, boolean bailOnFail, boolean bailOnWarn,
-      boolean bailOnPluginFail, boolean doCleanup, List<AnchoreQuery> inputQueries, boolean debug, boolean enabled,
+  public BuildConfig(String name, String policyName, String globalWhiteList, String userScripts, boolean bailOnFail,
+      boolean bailOnWarn, boolean bailOnPluginFail, boolean doCleanup, List<AnchoreQuery> inputQueries, boolean debug, boolean enabled,
       String containerImageId, String containerId, String localVol, String modulesVol, boolean useSudo) {
     this.name = name;
     this.policyName = policyName;
+    this.globalWhiteList = globalWhiteList;
     this.userScripts = userScripts;
     this.bailOnFail = bailOnFail;
     this.bailOnWarn = bailOnWarn;
@@ -54,6 +56,10 @@ public class BuildConfig {
 
   public String getPolicyName() {
     return policyName;
+  }
+
+  public String getGlobalWhiteList() {
+    return globalWhiteList;
   }
 
   public String getUserScripts() {
@@ -119,6 +125,7 @@ public class BuildConfig {
 
     consoleLog.logInfo("[build] name: " + name);
     consoleLog.logInfo("[build] policyName: " + policyName);
+    consoleLog.logInfo("[build] globalWhiteList: " + globalWhiteList);
     consoleLog.logInfo("[build] userScripts: " + userScripts);
     consoleLog.logInfo("[build] bailOnFail: " + bailOnFail);
     consoleLog.logInfo("[build] bailOnWarn: " + bailOnWarn);

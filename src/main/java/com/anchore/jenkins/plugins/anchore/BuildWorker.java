@@ -68,6 +68,7 @@ public class BuildWorker {
   private String anchoreWorkspaceDirName;
   private String anchoreImageFileName; //TODO rename
   private String anchorePolicyFileName;
+  private String anchoreGlobalWhiteListFileName;
   private String anchoreScriptsDirName;
   private List<String> anchoreInputImages;
 
@@ -174,10 +175,14 @@ public class BuildWorker {
 
         FilePath jenkinsOutputDirFP = new FilePath(workspace, jenkinsOutputDirName);
         FilePath jenkinsGatesOutputFP = new FilePath(jenkinsOutputDirFP, gateOutputFileName);
-        String cmd = "--json gate --imagefile " + anchoreImageFileName;
+        String cmd = "--json gate --imagefile " + anchoreImageFileName + " --show-triggerids";
 
         if (!Strings.isNullOrEmpty(anchorePolicyFileName)) {
           cmd += " --policy " + anchorePolicyFileName;
+        }
+
+        if (!Strings.isNullOrEmpty(anchoreGlobalWhiteListFileName)) {
+          cmd += " --global-whitelist " + anchoreGlobalWhiteListFileName + " --show-whitelisted";
         }
 
         try {
@@ -204,19 +209,18 @@ public class BuildWorker {
           console.logDebug("Parsing and summarizing gate output in " + jenkinsGatesOutputFP.getRemote());
           if (jenkinsGatesOutputFP.exists() && jenkinsGatesOutputFP.length() > 0) {
             JSONObject gatesJson = JSONObject.fromObject(jenkinsGatesOutputFP.readToString());
-            // Populate once and reuse
-            int numColumns = 0, repoTagIndex = -1, gateNameIndex = -1, gateActionIndex = -1;
-
             if (gatesJson != null) {
               JSONArray summaryRows = new JSONArray();
+              // Populate once and reuse
+              int numColumns = 0, repoTagIndex = -1, gateNameIndex = -1, gateActionIndex = -1, whitelistedIndex = -1;
+
               for (Object imageKey : gatesJson.keySet()) {
                 JSONObject content = gatesJson.getJSONObject((String) imageKey);
                 if (null != content) {
                   JSONObject result = content.getJSONObject("result");
                   if (null != result) {
-
                     // populate data from header element once, most likely for the first image
-                    if (numColumns <= 0 || repoTagIndex < 0 || gateNameIndex < 0 || gateActionIndex < 0) {
+                    if (numColumns <= 0 || repoTagIndex < 0 || gateNameIndex < 0 || gateActionIndex < 0 || whitelistedIndex < 0) {
                       JSONArray header = result.getJSONArray("header");
                       if (null != header) {
                         numColumns = header.size();
@@ -232,7 +236,8 @@ public class BuildWorker {
                             case "Gate_Action":
                               gateActionIndex = i;
                               break;
-                            default:
+                            case "Whitelisted":
+                              whitelistedIndex = i;
                               break;
                           }
                         }
@@ -253,7 +258,7 @@ public class BuildWorker {
 
                     JSONArray rows = result.getJSONArray("rows");
                     if (null != rows) {
-                      int stop = 0, warn = 0, go = 0;
+                      int stop = 0, warn = 0, go = 0, stop_wl = 0, warn_wl = 0, go_wl = 0;
                       String repoTag = null;
 
                       for (int i = 0; i < rows.size(); i++) {
@@ -266,12 +271,20 @@ public class BuildWorker {
                             switch (row.getString(gateActionIndex)) {
                               case "STOP":
                                 stop++;
+                                stop_wl =
+                                    (whitelistedIndex != -1 && !row.getString(whitelistedIndex).equalsIgnoreCase("none")) ? ++stop_wl
+                                        : stop_wl;
                                 break;
                               case "WARN":
                                 warn++;
+                                warn_wl =
+                                    (whitelistedIndex != -1 && !row.getString(whitelistedIndex).equalsIgnoreCase("none")) ? ++warn_wl
+                                        : warn_wl;
                                 break;
                               case "GO":
                                 go++;
+                                go_wl = (whitelistedIndex != -1 && !row.getString(whitelistedIndex).equalsIgnoreCase("none")) ? ++go_wl
+                                    : go_wl;
                                 break;
                               default:
                                 break;
@@ -283,14 +296,23 @@ public class BuildWorker {
                         }
                       }
 
-                      JSONObject summaryRow = new JSONObject();
-                      summaryRow.put(GATE_SUMMARY_COLUMN.Repo_Tag.toString(), repoTag);
-                      summaryRow.put(GATE_SUMMARY_COLUMN.Stop_Actions.toString(), stop);
-                      summaryRow.put(GATE_SUMMARY_COLUMN.Warn_Actions.toString(), warn);
-                      summaryRow.put(GATE_SUMMARY_COLUMN.Go_Actions.toString(), go);
-                      summaryRow.put(GATE_SUMMARY_COLUMN.Final_Action.toString(), result.getString("final_action"));
-                      summaryRows.add(summaryRow);
+                      if (!Strings.isNullOrEmpty(repoTag)) {
+                        console.logInfo(
+                            "Gate summary for " + repoTag + " - stop: " + (stop - stop_wl) + " (+" + stop_wl + " whitelisted), warn: "
+                                + (warn - warn_wl) + " (+" + warn_wl + " whitelisted), go: " + (go - go_wl) + " (+" + go_wl
+                                + " whitelisted), final: " + result.getString("final_action"));
 
+                        JSONObject summaryRow = new JSONObject();
+                        summaryRow.put(GATE_SUMMARY_COLUMN.Repo_Tag.toString(), repoTag);
+                        summaryRow.put(GATE_SUMMARY_COLUMN.Stop_Actions.toString(), (stop - stop_wl));
+                        summaryRow.put(GATE_SUMMARY_COLUMN.Warn_Actions.toString(), (warn - warn_wl));
+                        summaryRow.put(GATE_SUMMARY_COLUMN.Go_Actions.toString(), (go - go_wl));
+                        summaryRow.put(GATE_SUMMARY_COLUMN.Final_Action.toString(), result.getString("final_action"));
+                        summaryRows.add(summaryRow);
+                      } else {
+                        console.logWarn("Repo_Tag element not found in gate output, skipping summary computation for " + imageKey);
+                        continue;
+                      }
                     } else { // rows object not found
                       console.logWarn("\'rows\' element not found in gate output, skipping summary computation for " + imageKey);
                       continue;
@@ -726,6 +748,30 @@ public class BuildWorker {
       } catch (IOException | InterruptedException e) {
         console.logWarn("Failed to resolve user policy, using default Anchore policy");
       }
+
+      // Copy the global whitelist file from Jenkins workspace to Anchore container
+      try {
+        FilePath jenkinsGlobalWhitelistFile;
+        if (!Strings.isNullOrEmpty(config.getGlobalWhiteList()) && (jenkinsGlobalWhitelistFile = new FilePath(workspace,
+            config.getGlobalWhiteList())).exists()) {
+          anchoreGlobalWhiteListFileName = anchoreWorkspaceDirName + "/globalwhitelist";
+          console.logDebug("Copying global whitelist file from Jenkins workspace: " + jenkinsGlobalWhitelistFile.getRemote()
+              + ", to Anchore workspace: " + anchoreGlobalWhiteListFileName);
+
+          rc = executeCommand("docker cp " + jenkinsGlobalWhitelistFile.getRemote() + " " + config.getContainerId() + ":"
+              + anchoreGlobalWhiteListFileName);
+          if (rc != 0) {
+            // TODO check with Dan if we should abort here
+            console.logWarn("Failed to global whitelist file from Jenkins workspace: " + jenkinsGlobalWhitelistFile.getRemote()
+                + ", to Anchore workspace: " + anchoreGlobalWhiteListFileName + ". Using default Anchore global whitelist");
+            anchoreGlobalWhiteListFileName = null; // reset it so it doesn't get used later
+          }
+        } else {
+          console.logInfo("Global whitelist file either not specified or does not exist, using default Anchore global whitelist");
+        }
+      } catch (IOException | InterruptedException e) {
+        console.logWarn("Failed to resolve global whitelist, using default Anchore global whitelist");
+      }
     } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
       throw e;
     } catch (Exception e) { // caught unknown exception, console.log it and wrap it
@@ -804,7 +850,7 @@ public class BuildWorker {
     } else {
       console.logError("Anchore Container Image ID not found");
       throw new AbortException(
-          "Please configure \"Anchore Container Image ID\" under Manage Jenkins->Configure System->Anchore Configuration and retry.");
+          "Please configure \"Anchore Container Image ID\" under Manage Jenkins->Configure System->Anchore Configuration and retry");
     }
   }
 
