@@ -8,9 +8,9 @@
         <j:when test="${!empty(it.gateOutputUrl)}">
 
           <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css"/>
-          <link rel="stylesheet" type="text/css" href="/plugin/anchore-container-scanner/css/dataTables.bootstrap.min.css"/>
+          <link rel="stylesheet" type="text/css" href="${resURL}/plugin/anchore-container-scanner/css/dataTables.bootstrap.min.css"/>
 
-          <script type="text/javascript" src="/plugin/anchore-container-scanner/js/jquery.min.js"></script>
+          <script type="text/javascript" src="${resURL}/plugin/anchore-container-scanner/js/jquery.min.js"></script>
           <!-- To prevent conflicts with Jenkins prototype.js. Otherwise tabs go missing after moving to the next tab -->
           <script>
             jQuery.noConflict(); <!-- To prevent overwriting $ function -->
@@ -30,9 +30,9 @@
             disablePrototypeJS('hide', pluginsToDisable);
           </script>
           <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
-          <script type="text/javascript" src="/plugin/anchore-container-scanner/js/jquery.dataTables.min.js"></script>
-          <script type="text/javascript" src="/plugin/anchore-container-scanner/js/dataTables.bootstrap.min.js"></script>
-          <script type="text/javascript" src="/plugin/anchore-container-scanner/js/renderOutput.js"></script>
+          <script type="text/javascript" src="${resURL}/plugin/anchore-container-scanner/js/jquery.dataTables.min.js"></script>
+          <script type="text/javascript" src="${resURL}/plugin/anchore-container-scanner/js/dataTables.bootstrap.min.js"></script>
+          <script type="text/javascript" src="${resURL}/plugin/anchore-container-scanner/js/renderOutput.js"></script>
 
           <div>
 
