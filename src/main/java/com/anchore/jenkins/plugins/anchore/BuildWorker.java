@@ -204,6 +204,9 @@ public class BuildWorker {
           console.logDebug("Parsing and summarizing gate output in " + jenkinsGatesOutputFP.getRemote());
           if (jenkinsGatesOutputFP.exists() && jenkinsGatesOutputFP.length() > 0) {
             JSONObject gatesJson = JSONObject.fromObject(jenkinsGatesOutputFP.readToString());
+            // Populate once and reuse
+            int numColumns = 0, repoTagIndex = -1, gateNameIndex = -1, gateActionIndex = -1;
+
             if (gatesJson != null) {
               JSONArray summaryRows = new JSONArray();
               for (Object imageKey : gatesJson.keySet()) {
@@ -211,6 +214,43 @@ public class BuildWorker {
                 if (null != content) {
                   JSONObject result = content.getJSONObject("result");
                   if (null != result) {
+
+                    // populate data from header element once, most likely for the first image
+                    if (numColumns <= 0 || repoTagIndex < 0 || gateNameIndex < 0 || gateActionIndex < 0) {
+                      JSONArray header = result.getJSONArray("header");
+                      if (null != header) {
+                        numColumns = header.size();
+                        console.logDebug("Found " + numColumns + " column titles in gate output");
+                        for (int i = 0; i < header.size(); i++) {
+                          switch (header.getString(i)) {
+                            case "Repo_Tag":
+                              repoTagIndex = i;
+                              break;
+                            case "Gate":
+                              gateNameIndex = i;
+                              break;
+                            case "Gate_Action":
+                              gateActionIndex = i;
+                              break;
+                            default:
+                              break;
+                          }
+                        }
+                      } else {
+                        console.logWarn("\'header\' element not found in gate output, skipping summary computation for " + imageKey);
+                        continue;
+                      }
+                    } else {
+                      // indices have been populated, reuse it
+                    }
+
+                    if (numColumns <= 0 || repoTagIndex < 0 || gateNameIndex < 0 || gateActionIndex < 0) {
+                      console.logWarn(
+                          "Either \'header\' element has no columns or column indices (for Repo_Tag, Gate, Gate_Action) not "
+                              + "initialized, skipping summary computation for " + imageKey);
+                      continue;
+                    }
+
                     JSONArray rows = result.getJSONArray("rows");
                     if (null != rows) {
                       int stop = 0, warn = 0, go = 0;
@@ -218,23 +258,28 @@ public class BuildWorker {
 
                       for (int i = 0; i < rows.size(); i++) {
                         JSONArray row = rows.getJSONArray(i);
-                        if (row.size() == 6 && !row.getString(2).equals("FINAL")) {
+                        if (row.size() == numColumns) {
                           if (Strings.isNullOrEmpty(repoTag)) {
-                            repoTag = row.getString(1);
+                            repoTag = row.getString(repoTagIndex);
                           }
-                          switch (row.getString(5)) {
-                            case "STOP":
-                              stop++;
-                              break;
-                            case "WARN":
-                              warn++;
-                              break;
-                            case "GO":
-                              go++;
-                              break;
-                            default:
-                              break;
+                          if (!row.getString(gateNameIndex).equals("FINAL")) {
+                            switch (row.getString(gateActionIndex)) {
+                              case "STOP":
+                                stop++;
+                                break;
+                              case "WARN":
+                                warn++;
+                                break;
+                              case "GO":
+                                go++;
+                                break;
+                              default:
+                                break;
+                            }
                           }
+                        } else {
+                          console.logWarn("Expected " + numColumns + " elements but got " + row.size() + ", skipping row " + row
+                              + " in summary computation for " + imageKey);
                         }
                       }
 
@@ -247,15 +292,15 @@ public class BuildWorker {
                       summaryRows.add(summaryRow);
 
                     } else { // rows object not found
-                      console.logWarn("\'rows\' element not found in gate output for " + imageKey + ", moving on");
+                      console.logWarn("\'rows\' element not found in gate output, skipping summary computation for " + imageKey);
                       continue;
                     }
                   } else { // result object not found, log and move on
-                    console.logWarn("\'result\' element not found in gate output for " + imageKey + ", moving on");
+                    console.logWarn("\'result\' element not found in gate output, skipping summary computation for " + imageKey);
                     continue;
                   }
                 } else { // no content found for a given image id, log and move on
-                  console.logWarn("No mapped object found in gate output for " + imageKey + " in gate output, moving on");
+                  console.logWarn("No mapped object found in gate output, skipping summary computation for " + imageKey);
                   continue;
                 }
               }
