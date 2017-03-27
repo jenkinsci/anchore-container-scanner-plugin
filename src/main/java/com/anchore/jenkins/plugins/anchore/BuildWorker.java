@@ -239,6 +239,8 @@ public class BuildWorker {
                             case "Whitelisted":
                               whitelistedIndex = i;
                               break;
+                            default:
+                              break;
                           }
                         }
                       } else {
