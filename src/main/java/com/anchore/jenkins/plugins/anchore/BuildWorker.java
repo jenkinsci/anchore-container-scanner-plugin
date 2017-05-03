@@ -69,6 +69,7 @@ public class BuildWorker {
   private String anchoreImageFileName; //TODO rename
   private String anchorePolicyFileName;
   private String anchoreGlobalWhiteListFileName;
+  private String anchoreBundleFileName;
   private String anchoreScriptsDirName;
   private List<String> anchoreInputImages;
 
@@ -168,6 +169,40 @@ public class BuildWorker {
     }
   }
 
+  public void doAnchoreioLogin() throws AbortException {
+
+      try {
+	  String cmd = "docker exec " + config.getContainerId() + " /bin/bash -c \"export ANCHOREPASS=$ANCHOREPASS && anchore login --user " + config.getAnchoreioUser() + "\"";
+	  int rc = executeCommand(cmd, "ANCHOREPASS="+config.getAnchoreioPass());
+	  if (rc != 0) {
+	      console.logWarn("Failed to log in to anchore.io using specified credentials");
+	      throw new AbortException("Failed to log in to anchore.io using specified credentials");
+	  }
+      } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
+	  throw e;
+      } catch (Exception e) {
+	  console.logWarn("Failed to log in to anchore.io using specified credentials");
+	  throw new AbortException("Failed to log in to anchore.io using specified credentials");
+      }
+  }
+
+  public void doAnchoreioBundleSync() throws AbortException {
+
+      try {
+	  String cmd = "--json policybundle sync";
+	  int rc = executeAnchoreCommand(cmd);
+	  if (rc != 0) {
+	      console.logWarn("Failed to sync your policy bundle from anchore.io");
+	      throw new AbortException("Failed to sync your policy bundle from anchore.io");
+	  }
+      } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
+	  throw e;
+      } catch (Exception e) {
+	  console.logWarn("Failed to sync your policy bundle from anchore.io");
+	  throw new AbortException("Failed to sync your policy bundle from anchore.io");
+      }
+  }
+
   public GATE_ACTION runGates() throws AbortException {
     if (analyzed) {
       try {
@@ -175,15 +210,38 @@ public class BuildWorker {
 
         FilePath jenkinsOutputDirFP = new FilePath(workspace, jenkinsOutputDirName);
         FilePath jenkinsGatesOutputFP = new FilePath(jenkinsOutputDirFP, gateOutputFileName);
-        String cmd = "--json gate --imagefile " + anchoreImageFileName + " --show-triggerids";
+        String cmd = "--json gate --imagefile " + anchoreImageFileName + " --show-triggerids --show-whitelisted";
 
-        if (!Strings.isNullOrEmpty(anchorePolicyFileName)) {
-          cmd += " --policy " + anchorePolicyFileName;
-        }
+	String evalMode = config.getPolicyEvalMethod();
+	if (Strings.isNullOrEmpty(evalMode)) {
+	    evalMode = "plainfile";
+	}
 
-        if (!Strings.isNullOrEmpty(anchoreGlobalWhiteListFileName)) {
-          cmd += " --global-whitelist " + anchoreGlobalWhiteListFileName + " --show-whitelisted";
-        }
+	if (evalMode.equals("autosync")) {
+	    if (!Strings.isNullOrEmpty(config.getAnchoreioUser()) && !Strings.isNullOrEmpty(config.getAnchoreioPass())) {
+		try {
+		    doAnchoreioLogin();
+		    doAnchoreioBundleSync();
+		    cmd += " --run-bundle --resultsonly";
+		} catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
+		    console.logWarn("Unable to log in/sync bundle");
+		    throw e;
+		}
+	    }
+	} else if (evalMode.equals("bundlefile")) {
+	    cmd += " --run-bundle --resultsonly";
+	    if (!Strings.isNullOrEmpty(anchoreBundleFileName)) {
+		cmd += " --bundlefile " + anchoreBundleFileName;
+	    }
+	} else {
+	    if (!Strings.isNullOrEmpty(anchorePolicyFileName)) {
+		cmd += " --policy " + anchorePolicyFileName;
+	    }
+
+	    if (!Strings.isNullOrEmpty(anchoreGlobalWhiteListFileName)) {
+		cmd += " --global-whitelist " + anchoreGlobalWhiteListFileName;
+	    }
+	}
 
         try {
           int rc = executeAnchoreCommand(cmd, jenkinsGatesOutputFP.write());
@@ -725,6 +783,34 @@ public class BuildWorker {
 
       // Copy the policy file from Jenkins workspace to Anchore container
       try {
+        FilePath jenkinsBundleFile;
+        if (!Strings.isNullOrEmpty(config.getBundleFileOverride()) && (jenkinsBundleFile = new FilePath(workspace, config.getBundleFileOverride()))
+            .exists()) {
+          anchoreBundleFileName = anchoreWorkspaceDirName + "/bundle.json";
+          console.logDebug("Copying bundle file from Jenkins workspace: " + jenkinsBundleFile.getRemote() + ", to Anchore workspace: "
+              + anchoreBundleFileName);
+
+          rc = executeCommand(
+              "docker cp " + jenkinsBundleFile.getRemote() + " " + config.getContainerId() + ":" + anchoreBundleFileName);
+          if (rc != 0) {
+            // TODO check with Dan if we should abort here
+            console.logWarn(
+                "Failed to copy bundle file from Jenkins workspace: " + jenkinsBundleFile.getRemote() + ", to Anchore workspace: "
+                    + anchoreBundleFileName + ". Using default Anchore policy");
+            anchoreBundleFileName = null; // reset it so it doesn't get used later
+            // throw new AbortException(
+            //    "Failed to copy policy file from Jenkins workspace: " + jenkinsPolicyFile.getRemote() + ", to Anchore workspace: "
+            //        + anchorePolicyFileName);
+          }
+        } else {
+          console.logInfo("Bundle file either not specified or does not exist, using default Anchore policy");
+        }
+      } catch (IOException | InterruptedException e) {
+        console.logWarn("Failed to resolve user bundle, using default Anchore policy");
+      }
+
+      // Copy the policy file from Jenkins workspace to Anchore container
+      try {
         FilePath jenkinsPolicyFile;
         if (!Strings.isNullOrEmpty(config.getPolicyName()) && (jenkinsPolicyFile = new FilePath(workspace, config.getPolicyName()))
             .exists()) {
@@ -867,18 +953,18 @@ public class BuildWorker {
     return headers;
   }
 
-  private int executeAnchoreCommand(String cmd) throws AbortException {
-    return executeAnchoreCommand(cmd, config.getDebug() ? console.getLogger() : null, console.getLogger());
+  private int executeAnchoreCommand(String cmd, String... envOverrides) throws AbortException {
+    return executeAnchoreCommand(cmd, config.getDebug() ? console.getLogger() : null, console.getLogger(), envOverrides);
   }
 
-  private int executeAnchoreCommand(String cmd, OutputStream out) throws AbortException {
-    return executeAnchoreCommand(cmd, out, console.getLogger());
+  private int executeAnchoreCommand(String cmd, OutputStream out, String... envOverrides) throws AbortException {
+    return executeAnchoreCommand(cmd, out, console.getLogger(), envOverrides);
   }
 
   /**
    * Helper for executing Anchore CLI. Abstracts docker and debug options out for the caller
    */
-  private int executeAnchoreCommand(String cmd, OutputStream out, OutputStream error) throws AbortException {
+  private int executeAnchoreCommand(String cmd, OutputStream out, OutputStream error, String... envOverrides) throws AbortException {
     String dockerCmd = "docker exec " + config.getContainerId() + " " + ANCHORE_BINARY;
 
     if (config.getDebug()) {
@@ -891,16 +977,16 @@ public class BuildWorker {
 
     dockerCmd += " " + cmd;
 
-    return executeCommand(dockerCmd, out, error);
+    return executeCommand(dockerCmd, out, error, envOverrides);
   }
 
-  private int executeCommand(String cmd) throws AbortException {
-    // log stdout to console only if debug is turned on
-    // always log stderr to console
-    return executeCommand(cmd, config.getDebug() ? console.getLogger() : null, console.getLogger());
+  private int executeCommand(String cmd, String... envOverrides) throws AbortException {
+      // log stdout to console only if debug is turned on
+      // always log stderr to console
+      return executeCommand(cmd, config.getDebug() ? console.getLogger() : null, console.getLogger(), envOverrides);
   }
 
-  private int executeCommand(String cmd, OutputStream out, OutputStream error) throws AbortException {
+  private int executeCommand(String cmd, OutputStream out, OutputStream error, String... envOverrides) throws AbortException {
     int rc;
 
     if (config.getUseSudo()) {
@@ -908,6 +994,8 @@ public class BuildWorker {
     }
 
     Launcher.ProcStarter ps = launcher.launch();
+
+    ps.envs(envOverrides);
     ps.cmdAsSingleString(cmd);
     ps.stdin(null);
     if (null != out) {
@@ -919,6 +1007,7 @@ public class BuildWorker {
 
     try {
       console.logDebug("Executing \"" + cmd + "\"");
+      //ps.quiet(true);
       rc = ps.join();
       console.logDebug("Execution of \"" + cmd + "\" returned " + rc);
       return rc;

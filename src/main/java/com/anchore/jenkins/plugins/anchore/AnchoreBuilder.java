@@ -52,11 +52,16 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   private String name;
   private String policyName;
   private String globalWhiteList;
+  private String anchoreioUser;
+  private String anchoreioPass;
   private String userScripts;
   private boolean bailOnFail = true;
   private boolean bailOnWarn = false;
   private boolean bailOnPluginFail = true;
   private boolean doCleanup = false;
+  private boolean useCachedBundle = true;
+  private String policyEvalMethod;
+  private String bundleFileOverride;
   private List<AnchoreQuery> inputQueries;
 
   // Keeping these around for upgrade
@@ -84,6 +89,14 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     return globalWhiteList;
   }
 
+  public String getAnchoreioUser() {
+    return anchoreioUser;
+  }
+
+  public String getAnchoreioPass() {
+    return anchoreioPass;
+  }
+
   public String getUserScripts() {
     return (userScripts);
   }
@@ -102,6 +115,18 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
   public boolean getDoCleanup() {
     return (doCleanup);
+  }
+
+  public boolean getUseCachedBundle() {
+    return (useCachedBundle);
+  }
+
+  public String getPolicyEvalMethod() {
+    return (policyEvalMethod);
+  }
+
+  public String getBundleFileOverride() {
+    return (bundleFileOverride);
   }
 
   public List<AnchoreQuery> getInputQueries() {
@@ -139,6 +164,16 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   }
 
   @DataBoundSetter
+  public void setAnchoreioUser(String anchoreioUser) {
+    this.anchoreioUser = anchoreioUser;
+  }
+
+  @DataBoundSetter
+  public void setAnchoreioPass(String anchoreioPass) {
+    this.anchoreioPass = anchoreioPass;
+  }
+
+  @DataBoundSetter
   public void setUserScripts(String userScripts) {
     this.userScripts = userScripts;
   }
@@ -161,6 +196,21 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   @DataBoundSetter
   public void setDoCleanup(boolean doCleanup) {
     this.doCleanup = doCleanup;
+  }
+
+  @DataBoundSetter
+  public void setUseCachedBundle(boolean useCachedBundle) {
+    this.useCachedBundle = useCachedBundle;
+  }
+
+  @DataBoundSetter
+  public void setPolicyEvalMethod(String policyEvalMethod) {
+    this.policyEvalMethod = policyEvalMethod;
+  }
+
+  @DataBoundSetter
+  public void setBundleFileOverride(String bundleFileOverride) {
+    this.bundleFileOverride = bundleFileOverride;
   }
 
   // Convenience method for easily passing queries, invoked only by Jenkins Pipelines
@@ -197,14 +247,13 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     try {
       // Instantiate a new build worker
       worker = new BuildWorker(run, workspace, launcher, listener,
-          new BuildConfig(name, policyName, globalWhiteList, userScripts, bailOnFail, bailOnWarn, bailOnPluginFail, doCleanup,
-              inputQueries, globalConfig.getDebug(), globalConfig.getEnabled(), globalConfig.getContainerImageId(),
-              globalConfig.getContainerId(), globalConfig.getLocalVol(), globalConfig.getModulesVol(), globalConfig.getUseSudo()));
-
+			       new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, bailOnFail, bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride,
+					       inputQueries, globalConfig.getDebug(), globalConfig.getEnabled(), globalConfig.getContainerImageId(),
+					       globalConfig.getContainerId(), globalConfig.getLocalVol(), globalConfig.getModulesVol(), globalConfig.getUseSudo()));
+      
 
        /* Run analysis */
       worker.runAnalyzer();
-
 
       /* Run gates */
       GATE_ACTION finalAction = worker.runGates();

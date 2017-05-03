@@ -13,11 +13,16 @@ public class BuildConfig {
   private String name;
   private String policyName;
   private String globalWhiteList;
+  private String anchoreioUser;
+  private String anchoreioPass;
   private String userScripts;
   private boolean bailOnFail;
   private boolean bailOnWarn;
   private boolean bailOnPluginFail;
   private boolean doCleanup;
+  private boolean useCachedBundle;
+  private String policyEvalMethod;
+  private String bundleFileOverride;
   private List<AnchoreQuery> inputQueries;
 
   // Global configuration
@@ -29,17 +34,22 @@ public class BuildConfig {
   private String modulesVol;
   private boolean useSudo;
 
-  public BuildConfig(String name, String policyName, String globalWhiteList, String userScripts, boolean bailOnFail,
-      boolean bailOnWarn, boolean bailOnPluginFail, boolean doCleanup, List<AnchoreQuery> inputQueries, boolean debug, boolean enabled,
-      String containerImageId, String containerId, String localVol, String modulesVol, boolean useSudo) {
+    public BuildConfig(String name, String policyName, String globalWhiteList, String anchoreioUser, String anchoreioPass, String userScripts, boolean bailOnFail,
+		       boolean bailOnWarn, boolean bailOnPluginFail, boolean doCleanup, boolean useCachedBundle, String policyEvalMethod, String bundleFileOverride, List<AnchoreQuery> inputQueries, boolean debug, boolean enabled,
+		       String containerImageId, String containerId, String localVol, String modulesVol, boolean useSudo) {
     this.name = name;
     this.policyName = policyName;
     this.globalWhiteList = globalWhiteList;
+    this.anchoreioUser = anchoreioUser;
+    this.anchoreioPass = anchoreioPass;
     this.userScripts = userScripts;
     this.bailOnFail = bailOnFail;
     this.bailOnWarn = bailOnWarn;
     this.bailOnPluginFail = bailOnPluginFail;
     this.doCleanup = doCleanup;
+    this.useCachedBundle = useCachedBundle;
+    this.policyEvalMethod = policyEvalMethod;
+    this.bundleFileOverride = bundleFileOverride;
     this.inputQueries = inputQueries;
     this.debug = debug;
     this.enabled = enabled;
@@ -62,6 +72,14 @@ public class BuildConfig {
     return globalWhiteList;
   }
 
+  public String getAnchoreioUser() {
+    return anchoreioUser;
+  }
+
+  public String getAnchoreioPass() {
+    return anchoreioPass;
+  }
+
   public String getUserScripts() {
     return userScripts;
   }
@@ -80,6 +98,18 @@ public class BuildConfig {
 
   public boolean getDoCleanup() {
     return doCleanup;
+  }
+
+  public boolean getUseCachedBundle() {
+    return useCachedBundle;
+  }
+
+  public String getPolicyEvalMethod() {
+    return policyEvalMethod;
+  }
+
+  public String getBundleFileOverride() {
+    return bundleFileOverride;
   }
 
   public List<AnchoreQuery> getInputQueries() {
@@ -126,11 +156,16 @@ public class BuildConfig {
     consoleLog.logInfo("[build] name: " + name);
     consoleLog.logInfo("[build] policyName: " + policyName);
     consoleLog.logInfo("[build] globalWhiteList: " + globalWhiteList);
+    consoleLog.logInfo("[build] anchoreioUser: " + anchoreioUser);
+    consoleLog.logInfo("[build] anchoreioPass: " + "****");
     consoleLog.logInfo("[build] userScripts: " + userScripts);
     consoleLog.logInfo("[build] bailOnFail: " + bailOnFail);
     consoleLog.logInfo("[build] bailOnWarn: " + bailOnWarn);
     consoleLog.logInfo("[build] bailOnPluginFail: " + bailOnPluginFail);
     consoleLog.logInfo("[build] doCleanup: " + doCleanup);
+    consoleLog.logInfo("[build] useCachedBundle: " + useCachedBundle);
+    consoleLog.logInfo("[build] policyEvalMethod: " + policyEvalMethod);
+    consoleLog.logInfo("[build] bundleFileOverride: " + bundleFileOverride);
     if (null != inputQueries && !inputQueries.isEmpty()) {
       for (AnchoreQuery anchoreQuery : inputQueries) {
         consoleLog.logInfo("[build] query: " + anchoreQuery.getQuery());
