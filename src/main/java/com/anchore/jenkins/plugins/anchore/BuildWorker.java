@@ -224,8 +224,11 @@ public class BuildWorker {
 		    doAnchoreioBundleSync();
 		    cmd += " --run-bundle --resultsonly";
 		} catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
-		    console.logWarn("Unable to log in/sync bundle");
-		    throw e;
+		    // only fail if getUseCacheBundle is unchecked
+		    if (!config.getUseCachedBundle()) {
+			console.logWarn("Unable to log in/sync bundle");
+			throw e;
+		    }
 		}
 	    }
 	} else if (evalMode.equals("bundlefile")) {
