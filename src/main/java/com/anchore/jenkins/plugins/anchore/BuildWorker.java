@@ -169,7 +169,7 @@ public class BuildWorker {
     }
   }
 
-  public void doAnchoreioLogin() throws AbortException {
+  private void doAnchoreioLogin() throws AbortException {
 
       try {
 	  String cmd = "docker exec " + config.getContainerId() + " /bin/bash -c \"export ANCHOREPASS=$ANCHOREPASS && anchore login --user " + config.getAnchoreioUser() + "\"";
@@ -186,7 +186,7 @@ public class BuildWorker {
       }
   }
 
-  public void doAnchoreioBundleSync() throws AbortException {
+  private void doAnchoreioBundleSync() throws AbortException {
 
       try {
 	  String cmd = "--json policybundle sync";
