@@ -15,17 +15,33 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.logging.Logger;
 import javax.annotation.Nonnull;
 import jenkins.tasks.SimpleBuildStep;
 import net.sf.json.JSONObject;
+import net.sf.json.JSONArray;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
+
+import org.apache.commons.httpclient.*;
+import org.apache.commons.httpclient.methods.*;
+import org.apache.commons.httpclient.auth.AuthScope;
+import org.apache.commons.httpclient.params.HttpMethodParams;
+import org.apache.commons.codec.binary.Base64;
 
 /**
  * <p>Anchore Plugin enables Jenkins users to scan container images, generate analysis, evaluate gate policy, and execute customizable
@@ -55,6 +71,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   private String anchoreioUser;
   private String anchoreioPass;
   private String userScripts;
+  private String drogueRetries;
   private boolean bailOnFail = true;
   private boolean bailOnWarn = false;
   private boolean bailOnPluginFail = true;
@@ -99,6 +116,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
   public String getUserScripts() {
     return (userScripts);
+  }
+
+  public String getDrogueRetries() {
+    return (drogueRetries);
   }
 
   public boolean getBailOnFail() {
@@ -179,6 +200,11 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   }
 
   @DataBoundSetter
+  public void setDrogueRetries(String drogueRetries) {
+    this.drogueRetries = drogueRetries;
+  }
+
+  @DataBoundSetter
   public void setBailOnFail(boolean bailOnFail) {
     this.bailOnFail = bailOnFail;
   }
@@ -244,77 +270,79 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     DescriptorImpl globalConfig = getDescriptor();
     ConsoleLog console = new ConsoleLog("AnchorePlugin", listener.getLogger(), globalConfig.getDebug());
 
+    GATE_ACTION finalAction;
+
     try {
-      // Instantiate a new build worker
-      worker = new BuildWorker(run, workspace, launcher, listener,
-			       new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, bailOnFail, bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride,
-					       inputQueries, globalConfig.getDebug(), globalConfig.getEnabled(), globalConfig.getContainerImageId(),
-					       globalConfig.getContainerId(), globalConfig.getLocalVol(), globalConfig.getModulesVol(), globalConfig.getUseSudo()));
-      
 
-       /* Run analysis */
-      worker.runAnalyzer();
+	if (false) {
 
-      /* Run gates */
-      GATE_ACTION finalAction = worker.runGates();
+	} else {
+	    // Instantiate a new build worker
+	    worker = new BuildWorker(run, workspace, launcher, listener, new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, drogueRetries, bailOnFail, bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride, inputQueries, globalConfig.getDebug(), globalConfig.getEnabled(), globalConfig.getDroguemode(), globalConfig.getDrogueurl(), globalConfig.getDrogueuser(), globalConfig.getDroguepass(), globalConfig.getContainerImageId(), globalConfig.getContainerId(), globalConfig.getLocalVol(), globalConfig.getModulesVol(), globalConfig.getUseSudo()));
+	    
+	    
+	    /* Run analysis */
+	    worker.runAnalyzer();
+	    
+	    /* Run gates */
+	    finalAction = worker.runGates();
+	    
+	    if (!globalConfig.getDroguemode()) {
+		/* Run queries and continue even if it fails */
+		try {
+		    worker.runQueries();
+		} catch (Exception e) {
+		console.logWarn("Recording failure to execute Anchore queries and moving on with plugin operation", e);
+		}
+		
+	    }
+	    /* Setup reports */
+	    worker.setupBuildReports();
 
-
-      /* Run queries and continue even if it fails */
-      try {
-        worker.runQueries();
-      } catch (Exception e) {
-        console.logWarn("Recording failure to execute Anchore queries and moving on with plugin operation", e);
-      }
-
-
-      /* Setup reports */
-      worker.setupBuildReports();
-
-
-      /* Evaluate result of build step based on gate action */
-      if (null != finalAction) {
-        if ((bailOnFail && GATE_ACTION.STOP.equals(finalAction)) || (bailOnWarn && GATE_ACTION.WARN.equals(finalAction))) {
-          console.logWarn("Failing Anchore Container Image Scanner Plugin build step due to final gate result " + finalAction);
-          failedByGate = true;
-          throw new AbortException(
-              "Failing Anchore Container Image Scanner Plugin build step due to final gate result " + finalAction);
-        } else {
-          console.logInfo("Marking Anchore Container Image Scanner build step as successful, final gate result " + finalAction);
-        }
-      } else {
-        console.logInfo("Marking Anchore Container Image Scanner build step as successful, no final gate result");
-      }
-
-
+	}	    
+	/* Evaluate result of build step based on gate action */
+	if (null != finalAction) {
+	    if ((bailOnFail && GATE_ACTION.STOP.equals(finalAction)) || (bailOnWarn && GATE_ACTION.WARN.equals(finalAction))) {
+		console.logWarn("Failing Anchore Container Image Scanner Plugin build step due to final gate result " + finalAction);
+		failedByGate = true;
+		throw new AbortException(
+					 "Failing Anchore Container Image Scanner Plugin build step due to final gate result " + finalAction);
+	    } else {
+		console.logInfo("Marking Anchore Container Image Scanner build step as successful, final gate result " + finalAction);
+	    }
+	} else {
+	    console.logInfo("Marking Anchore Container Image Scanner build step as successful, no final gate result");
+	}
+	    
     } catch (Exception e) {
-      if (failedByGate) {
-        throw e;
-      } else if (bailOnPluginFail) {
-        console.logError("Failing Anchore Container Image Scanner Plugin build step due to errors in plugin execution", e);
-        if (e instanceof AbortException) {
-          throw e;
-        } else {
-          throw new AbortException("Failing Anchore Container Image Scanner Plugin build step due to errors in plugin execution");
-        }
-      } else {
-        console.logWarn("Marking Anchore Container Image Scanner build step as successful despite errors in plugin execution");
-      }
+	if (failedByGate) {
+	    throw e;
+	} else if (bailOnPluginFail) {
+	    console.logError("Failing Anchore Container Image Scanner Plugin build step due to errors in plugin execution", e);
+	    if (e instanceof AbortException) {
+		throw e;
+	    } else {
+		throw new AbortException("Failing Anchore Container Image Scanner Plugin build step due to errors in plugin execution");
+	    }
+	} else {
+	    console.logWarn("Marking Anchore Container Image Scanner build step as successful despite errors in plugin execution");
+	}
     } finally {
-      // Wrap cleanup in try catch block to ensure this finally block does not throw an exception
-      if (null != worker) {
-        try {
-          worker.cleanup();
-        } catch (Exception e) {
-          console.logDebug("Failed to cleanup after the plugin, ignoring the errors", e);
-        }
-      }
-      console.logInfo("Completed Anchore Container Image Scanner build step");
-      LOG.warning(
-          "Completed Anchore Container Image Scanner build step, project: " + run.getParent().getDisplayName() + ", job: " + run
-              .getNumber());
+	// Wrap cleanup in try catch block to ensure this finally block does not throw an exception
+	if (null != worker) {
+	    try {
+		worker.cleanup();
+	    } catch (Exception e) {
+		console.logDebug("Failed to cleanup after the plugin, ignoring the errors", e);
+	    }
+	}
+	console.logInfo("Completed Anchore Container Image Scanner build step");
+	LOG.warning(
+		    "Completed Anchore Container Image Scanner build step, project: " + run.getParent().getDisplayName() + ", job: " + run
+		    .getNumber());
     }
   }
-
+    
   @Override
   public DescriptorImpl getDescriptor() {
     return (DescriptorImpl) super.getDescriptor();
@@ -328,6 +356,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
     private boolean debug;
     private boolean enabled;
+    private boolean droguemode;
+    private String drogueurl;
+    private String drogueuser;
+    private String droguepass;
     private String containerImageId;
     private String containerId;
     private String localVol;
@@ -344,6 +376,22 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
     public boolean getEnabled() {
       return enabled;
+    }
+
+    public boolean getDroguemode() {
+      return droguemode;
+    }
+
+    public String getDrogueurl() {
+      return drogueurl;
+    }
+
+    public String getDrogueuser() {
+      return drogueuser;
+    }
+
+    public String getDroguepass() {
+      return droguepass;
     }
 
     public boolean getUseSudo() {
@@ -409,6 +457,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
       debug = formData.getBoolean("debug");
       enabled = formData.getBoolean("enabled");
+      droguemode = formData.getBoolean("droguemode");
+      drogueurl = formData.getString("drogueurl");
+      drogueuser = formData.getString("drogueuser");
+      droguepass = formData.getString("droguepass");
       useSudo = formData.getBoolean("useSudo");
       containerImageId = formData.getString("containerImageId");
       containerId = formData.getString("containerId");

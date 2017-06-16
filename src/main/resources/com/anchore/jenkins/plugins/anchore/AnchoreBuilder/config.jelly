@@ -1,78 +1,93 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core"
-  xmlns:f="/lib/form">
+	 xmlns:f="/lib/form">
 
   <f:section title="Anchore Build Options">
+
     <f:entry title="Image list file" field="name">
       <f:textbox default="anchore_images"/>
     </f:entry>
 
-    <f:entry title="User scripts directory" field="userScripts">
-      <f:textbox default="anchore_user_scripts"/>
-    </f:entry>
+    <j:if test="${!descriptor.droguemode}">
+      <f:entry title="User scripts directory" field="userScripts">
+    	<f:textbox default="anchore_user_scripts"/>
+      </f:entry>
+    </j:if>
 
     <f:entry title="Fail build on policy check STOP result" field="bailOnFail">
       <f:checkbox name="bailOnFail" checked="${instance.bailOnFail}" default="${true}"/>
     </f:entry>
 
-    <f:entry title="Fail build on policy check WARN result" field="bailOnWarn">
-      <f:checkbox name="bailOnWarn" checked="${instance.bailOnWarn}" default="${false}"/>
-    </f:entry>
+    <j:if test="${!descriptor.droguemode}">
+      <f:entry title="Fail build on policy check WARN result" field="bailOnWarn">
+	<f:checkbox name="bailOnWarn" checked="${instance.bailOnWarn}" default="${false}"/>
+      </f:entry>
+    </j:if>
 
     <f:entry title="Fail build on critical plugin error" field="bailOnPluginFail">
       <f:checkbox name="bailOnPluginFail" checked="${instance.bailOnPluginFail}" default="${true}"/>
     </f:entry>
 
-    <f:entry title="Delete analyzed images from AnchoreDB" field="doCleanup">
-      <f:checkbox name="doCleanup" checked="${instance.doCleanup}" default="${false}"/>
-    </f:entry>
+    <j:if test="${!descriptor.droguemode}">
+      <f:entry title="Delete analyzed images from AnchoreDB" field="doCleanup">
+	<f:checkbox name="doCleanup" checked="${instance.doCleanup}" default="${false}"/>
+      </f:entry>
+    </j:if>
+
+    <j:if test="${descriptor.droguemode}">
+      <f:entry title="Drogue operation retries" field="drogueRetries">
+    	<f:textbox default="300"/>
+      </f:entry>
+    </j:if>
+
   </f:section>
 
-  <f:section title="Anchore Queries">
-    <!-- doQuery is deprecated but using it here for upgrade purposes -->
-    <f:nested>
-      <f:optionalBlock title="Enable Queries" name="queriesBlock"
-        checked="${instance == null || instance.inputQueries != null || instance.doQuery}"
-        help="/plugin/anchore-container-scanner/help/help-queriesBlock.html">
-        <f:entry title="Anchore Query List" field="inputQueries">
-          <f:repeatableProperty field="inputQueries" noAddButton="true"
-            default="${(instance != null &amp;&amp; instance.doQuery) ? descriptor.getQueries(instance.query1, instance.query2, instance.query3, instance.query4) : descriptor.getDefaultQueries()}"/>
-        </f:entry>
-      </f:optionalBlock>
-    </f:nested>
-  </f:section>
+  <j:if test="${!descriptor.droguemode}">
+    <f:section title="Anchore Queries">
+      <!-- doQuery is deprecated but using it here for upgrade purposes -->
+      <f:nested>
+	<f:optionalBlock title="Enable Queries" name="queriesBlock"
+			 checked="${instance == null || instance.inputQueries != null || instance.doQuery}"
+			 help="/plugin/anchore-container-scanner/help/help-queriesBlock.html">
+          <f:entry title="Anchore Query List" field="inputQueries">
+            <f:repeatableProperty field="inputQueries" noAddButton="true"
+				  default="${(instance != null &amp;&amp; instance.doQuery) ? descriptor.getQueries(instance.query1, instance.query2, instance.query3, instance.query4) : descriptor.getDefaultQueries()}"/>
+          </f:entry>
+	</f:optionalBlock>
+      </f:nested>
+    </f:section>
 
-  <f:section title="Policy Evaluation Method">
+    <f:section title="Policy Evaluation Method">
       <f:radioBlock name="policyEvalMethod" value="autosync" title="Automatic Bundle Sync" checked="${instance.policyEvalMethod == 'autosync'}" inline="true" help="/plugin/anchore-container-scanner/help/help-policyEvalMethod.html">
-              <f:entry title="Anchore.io username" field="anchoreioUser">
-	          <f:textbox />
-	      </f:entry>
-	      <f:entry title="Anchore.io password" field="anchoreioPass">
-	          <f:password />
-	      </f:entry>      
-	      <f:entry title="Use cached bundle if login fails" field="useCachedBundle">
-	          <f:checkbox name="useCachedBundle" checked="${instance.useCachedBundle}" default="${true}"/>
-	      </f:entry>
+        <f:entry title="Anchore.io username" field="anchoreioUser">
+	  <f:textbox />
+	</f:entry>
+	<f:entry title="Anchore.io password" field="anchoreioPass">
+	  <f:password />
+	</f:entry>      
+	<f:entry title="Use cached bundle if login fails" field="useCachedBundle">
+	  <f:checkbox name="useCachedBundle" checked="${instance.useCachedBundle}" default="${true}"/>
+	</f:entry>
       </f:radioBlock>
 
       <f:radioBlock name="policyEvalMethod" value="bundlefile" title="Bundle File Override" checked="${instance.policyEvalMethod == 'bundlefile'}" inline="true" help="/plugin/anchore-container-scanner/help/help-policyEvalMethod.html">
-              <f:entry title="Bundle File" field="bundleFileOverride">
-	          <f:textbox default="anchore_policy_bundle.json"/>
-	      </f:entry>
-	      
+        <f:entry title="Bundle File" field="bundleFileOverride">
+	  <f:textbox default="anchore_policy_bundle.json"/>
+	</f:entry>
+	
       </f:radioBlock>
 
       <f:radioBlock name="policyEvalMethod" value="plainfile" title="Policy/Whitelist Override" checked="${instance == null || instance.policyEvalMethod == null || instance.policyEvalMethod == 'plainfile'}" inline="true" help="/plugin/anchore-container-scanner/help/help-policyEvalMethod.html">
-	        <f:entry title="Policy file" field="policyName">
-		    <f:textbox default="anchore_policy"/>
-		</f:entry>
+	<f:entry title="Policy file" field="policyName">
+	  <f:textbox default="anchore_policy"/>
+	</f:entry>
 
-		<f:entry title="Global white list file" field="globalWhiteList">
-		    <f:textbox default="anchore_global_whitelist"/>
-		</f:entry>
+	<f:entry title="Global white list file" field="globalWhiteList">
+	  <f:textbox default="anchore_global_whitelist"/>
+	</f:entry>
 
       </f:radioBlock>
 
-  </f:section>
-
+    </f:section>
+  </j:if>
 </j:jelly>

@@ -22,11 +22,16 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
-
+import org.apache.commons.httpclient.*;
+import org.apache.commons.httpclient.methods.*;
+import org.apache.commons.httpclient.auth.AuthScope;
+import org.apache.commons.httpclient.params.HttpMethodParams;
+import org.apache.commons.codec.binary.Base64;
 /**
  * A helper class to ensure concurrent jobs don't step on each other's toes. Anchore plugin instantiates a new instance of this class
  * for each individual job i.e. invocation of perform(). Global and project configuration at the time of execution is loaded into
@@ -60,6 +65,8 @@ public class BuildWorker {
   private String buildId;
   private String jenkinsOutputDirName;
   private Map<String, String> queryOutputMap; // TODO rename
+  private Map<String, String> input_image_dfile = new HashMap<String, String>();
+  private Map<String, String> input_image_anchoreId = new HashMap<String, String>();
   private String gateOutputFileName;
   private GATE_ACTION finalAction;
   private JSONObject gateSummary;
@@ -150,6 +157,94 @@ public class BuildWorker {
   }
 
   public void runAnalyzer() throws AbortException {
+      if (config.getDroguemode()) {
+	  runAnalyzerDrogue();
+      } else {
+	  runAnalyzerLocal();
+      }
+  }
+
+  private void runAnalyzerDrogue() throws AbortException {
+      String anchoreId = null;
+      String username = config.getDrogueuser();
+      String password = config.getDroguepass();
+
+      Credentials defaultcreds = new UsernamePasswordCredentials(username, password);
+      try {
+	  console.logInfo("Running analysis (droguemode)");
+	  for (Map.Entry<String, String> entry : input_image_dfile.entrySet()) {
+	      String tag = entry.getKey();
+	      String dfile = entry.getValue();
+	      
+	      // add the image
+	      if (true) {
+		  String theurl = config.getDrogueurl().replaceAll("/+$", "") + "/images";
+		  HttpClient client = new HttpClient(new SimpleHttpConnectionManager(true));
+		  PostMethod method = new PostMethod(theurl);
+		  
+		  try {
+		      console.logInfo("Starting request cycle: " + tag + " : " + dfile + " : " + theurl);
+		  
+		      client.getState().setCredentials(AuthScope.ANY, defaultcreds);
+		      method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
+		      method.getParams().setParameter("http.connection.timeout", 10000);
+		      method.getParams().setParameter("http.socket.timeout", 10000);
+		  
+		      JSONObject jsonBody = new JSONObject();
+		      jsonBody.put("tag", tag);
+		  
+		      if (null != dfile) {
+			  jsonBody.put("dockerfile", dfile);
+		      }
+		  
+		      String body = jsonBody.toString();
+		      console.logInfo("requesting image add payload: " + body);
+		  
+		      method.setRequestBody(body);
+		  
+		      int statusCode = 0;
+		      try {
+			  statusCode = client.executeMethod(method);
+		      } catch (Exception e) {
+			  throw e;
+		      }
+		  
+		      if (statusCode != HttpStatus.SC_OK) {
+			  console.logError("Image add POST failed: " + theurl + " : " + method.getStatusLine());
+			  console.logError("Message from server: " + new String(method.getResponseBody()));
+			  throw new AbortException("Anchore drogue image add failed, check output above for details");
+		      } else {
+
+			  // Read the response body.
+			  byte[] responseBody = method.getResponseBody();
+			  
+			  JSONArray respJson = JSONArray.fromObject(new String(responseBody));
+			  anchoreId = JSONObject.fromObject(respJson.get(0)).getString("anchoreId"); 
+			  console.logInfo("got anchoreId from service: " + anchoreId);
+			  input_image_anchoreId.put(tag, anchoreId);
+
+		      }
+		  } catch (AbortException e) {
+		      throw e;
+		  } catch (Exception e) {
+		      throw e;
+		  } finally {
+		      console.logDebug("releasing connection");
+		      method.releaseConnection();
+		  }
+	      }
+	  }
+	  analyzed = true;
+      } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
+	  throw e;
+      } catch (Exception e) { // caught unknown exception, log it and wrap its
+	  console.logError("Failed to run Anchore analyzer due to an unexpected error", e);
+	  throw new AbortException(
+				   "Failed to run Anchore analyzer due to an unexpected error. Please refer to above logs for more information");
+      }
+  }
+
+  private void runAnalyzerLocal() throws AbortException {
     try {
       console.logInfo("Running Anchore Analyzer");
 
@@ -204,67 +299,149 @@ public class BuildWorker {
   }
 
   public GATE_ACTION runGates() throws AbortException {
-    if (analyzed) {
-      try {
-        console.logInfo("Running Anchore Gates");
+      if (config.getDroguemode()) {
+	  return(runGatesDrogue());
+      } else {
+	  return(runGatesLocal());
+      }
+  }
 
-        FilePath jenkinsOutputDirFP = new FilePath(workspace, jenkinsOutputDirName);
-        FilePath jenkinsGatesOutputFP = new FilePath(jenkinsOutputDirFP, gateOutputFileName);
-        String cmd = "--json gate --imagefile " + anchoreImageFileName + " --show-triggerids --show-whitelisted";
+  private GATE_ACTION runGatesDrogue() throws AbortException {
+      String username = config.getDrogueuser();
+      String password = config.getDroguepass();
+      Credentials defaultcreds = new UsernamePasswordCredentials(username, password);
+      FilePath jenkinsOutputDirFP = new FilePath(workspace, jenkinsOutputDirName);
+      FilePath jenkinsGatesOutputFP = new FilePath(jenkinsOutputDirFP, gateOutputFileName);
 
-	String evalMode = config.getPolicyEvalMethod();
-	if (Strings.isNullOrEmpty(evalMode)) {
-	    evalMode = "plainfile";
-	}
+      finalAction = Util.GATE_ACTION.GO;
+      if (analyzed) {
+	  try {
+	      JSONObject gate_results = new JSONObject();
 
-	if (evalMode.equals("autosync")) {
-	    if (!Strings.isNullOrEmpty(config.getAnchoreioUser()) && !Strings.isNullOrEmpty(config.getAnchoreioPass())) {
-		try {
-		    doAnchoreioLogin();
-		    doAnchoreioBundleSync();
-		    cmd += " --run-bundle --resultsonly";
-		} catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
-		    // only fail if getUseCacheBundle is unchecked
-		    if (!config.getUseCachedBundle()) {
-			console.logWarn("Unable to log in/sync bundle");
-			throw e;
-		    }
-		}
-	    }
-	} else if (evalMode.equals("bundlefile")) {
-	    cmd += " --run-bundle --resultsonly";
-	    if (!Strings.isNullOrEmpty(anchoreBundleFileName)) {
-		cmd += " --bundlefile " + anchoreBundleFileName;
-	    }
-	} else {
-	    if (!Strings.isNullOrEmpty(anchorePolicyFileName)) {
-		cmd += " --policy " + anchorePolicyFileName;
-	    }
+	      for (Map.Entry<String, String> entry : input_image_anchoreId.entrySet()) {
+		  String tag = entry.getKey();
+		  String anchoreId = entry.getValue();
 
-	    if (!Strings.isNullOrEmpty(anchoreGlobalWhiteListFileName)) {
-		cmd += " --global-whitelist " + anchoreGlobalWhiteListFileName;
-	    }
-	}
+		  Boolean anchore_eval_status = false;
+		  Boolean anchore_eval_success = false;
 
-        try {
-          int rc = executeAnchoreCommand(cmd, jenkinsGatesOutputFP.write());
-          switch (rc) {
-            case 0:
-              finalAction = Util.GATE_ACTION.GO;
-              break;
-            case 2:
-              finalAction = Util.GATE_ACTION.WARN;
-              break;
-            default:
-              finalAction = Util.GATE_ACTION.STOP;
-          }
+		  String theurl = config.getDrogueurl().replaceAll("/+$", "") + "/images/" + anchoreId + "/check?tag=" + tag + "&detail=true";
+		  
+		  int tryCount = 0;
+		  int maxCount = Integer.parseInt(config.getDrogueRetries());
+		  Boolean done = false;
 
-          console.logDebug("Anchore gate execution completed successfully, final action: " + finalAction);
-        } catch (IOException | InterruptedException e) {
-          console.logWarn("Failed to write gates output to " + jenkinsGatesOutputFP.getRemote(), e);
-          throw new AbortException("Failed to write gates output to " + jenkinsGatesOutputFP.getRemote());
-        }
+		  while(!done && tryCount < maxCount) {
+		      HttpClient client = new HttpClient(new SimpleHttpConnectionManager(true));
+		      GetMethod method = new GetMethod(theurl);
+		      
+		      try {
+			  client.getState().setCredentials(AuthScope.ANY, defaultcreds);
+			  method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
+			  method.getParams().setParameter("http.connection.timeout", 10000);
+			  method.getParams().setParameter("http.socket.timeout", 10000);
+		      
+			  console.logInfo("EVAL URL: " + theurl);
+			  int statusCode = 0;
+			  try {
+			      statusCode = client.executeMethod(method);
+			  } catch (Exception e) {
+			      console.logError("Client exception: ", e);
+			  }
+		      
+			  if (statusCode != HttpStatus.SC_OK) {
+			      console.logError("Eval GET failed: " + theurl + ": " + method.getStatusLine());
+			      console.logError("Message from server: " + new String(method.getResponseBody()));
+			      console.logInfo("no eval yet, retrying...("+tryCount+"/"+maxCount+")");
+			      Thread.sleep(1000);
+			  } else {
 
+			      // Read the response body.
+			      byte[] responseBody = method.getResponseBody();
+			  
+			      JSONArray respJson = JSONArray.fromObject(new String(responseBody));
+			      JSONObject tag_eval_obj = JSONObject.fromObject(JSONArray.fromObject(JSONArray.fromObject(JSONObject.fromObject(JSONObject.fromObject(respJson.get(0)).getJSONObject(anchoreId)))).get(0));
+			      JSONArray tag_evals = null;
+			      for (Object key: tag_eval_obj.keySet()) {
+				  tag_evals = tag_eval_obj.getJSONArray( (String) key );
+				  break;
+			      }
+			      //JSONArray tag_evals = JSONObject.fromObject(JSONArray.fromObject(JSONArray.fromObject(JSONObject.fromObject(JSONObject.fromObject(respJson.get(0)).getJSONObject(anchoreId)))).get(0)).getJSONArray(tag);
+			      if (null == tag_evals) {
+				  throw new AbortException("Got response from drogue, but no tag eval records are in the response");
+			      }
+			      if (tag_evals.size() < 1) {
+				  // try again until we get an eval
+				  console.logInfo("no eval yet, retrying...("+tryCount+"/"+maxCount+")");
+				  Thread.sleep(1000);
+			      } else {
+				  // String eval_status = JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0)).getJSONArray(tag).get(0)).getString("status");
+				  String eval_status = JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0))).getString("status");
+				  JSONObject gate_result = JSONObject.fromObject(JSONObject.fromObject(JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0)).getJSONObject("detail")).getJSONObject("result")).getJSONObject("results"));
+
+				  console.logInfo("gate result: " + gate_result.toString());
+				  for (Object key: gate_result.keySet()) {
+				      gate_results.put((String)key, gate_result.getJSONObject((String)key));
+				  }
+				  console.logInfo("parsed eval result: " + eval_status);
+			      
+				  // we actually got a real result
+				  anchore_eval_success = true;
+				  // this is the only way this gets flipped to true
+				  if (eval_status.equals("pass")) {
+				      anchore_eval_status = true;
+				  }
+				  done = true;
+			      }
+			  }
+			  tryCount++;
+		      
+		      } catch (AbortException e) {
+			  throw e;
+		      } catch (Exception e) {
+			  throw e;
+		      } finally {
+			  console.logDebug("releasing connection");
+			  method.releaseConnection();
+		      }
+		  }
+
+		  if (!done) {
+		      throw new AbortException("Timed out waiting for eval from drogue");
+		  } else {
+		      // only set to stop if an eval is successful and is reporting fail
+		      if (!anchore_eval_status) {
+			  finalAction = Util.GATE_ACTION.STOP;
+		      }
+		  }
+	      }
+	      
+
+	      try {
+		  try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(jenkinsGatesOutputFP.write(), StandardCharsets.UTF_8))) {
+			  bw.write(gate_results.toString());
+		      }
+	      } catch (IOException | InterruptedException e) {
+		  console.logWarn("Failed to write gates output to " + jenkinsGatesOutputFP.getRemote(), e);
+		  throw new AbortException("Failed to write gates output to " + jenkinsGatesOutputFP.getRemote());
+	      }
+
+	      generateGatesSummary(jenkinsGatesOutputFP);
+
+	      return (finalAction);
+	  } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
+	      throw e;
+	  } catch (Exception e) { // caught unknown exception, log it and wrap it
+	      console.logError("Failed to run Anchore gates due to an unexpected error", e);
+	      throw new AbortException("Failed to run Anchore gates due to an unexpected error. Please refer to above logs for more information");
+	  }
+      } else {
+	  console.logError("Analysis step has not been executed (or may have failed in a prior attempt). Rerun analyzer before gates");
+	  throw new AbortException("Analysis step has not been executed (or may have failed in a prior attempt). Rerun analyzer before gates");
+      }
+  }
+
+  private void generateGatesSummary(FilePath jenkinsGatesOutputFP) throws AbortException {
         // Parse gate output and generate summary json
         try {
           console.logDebug("Parsing and summarizing gate output in " + jenkinsGatesOutputFP.getRemote());
@@ -403,11 +580,76 @@ public class BuildWorker {
             throw new AbortException("Gate output file not found or empty: " + jenkinsGatesOutputFP.getRemote());
           }
         } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
-          throw e;
+	  throw e;
         } catch (Exception e) {
           console.logError("Failed to generate gate output summary", e);
           throw new AbortException("Failed to generate gate output summary");
         }
+  }
+
+  private GATE_ACTION runGatesLocal() throws AbortException {
+    if (analyzed) {
+      try {
+        console.logInfo("Running Anchore Gates");
+
+        FilePath jenkinsOutputDirFP = new FilePath(workspace, jenkinsOutputDirName);
+        FilePath jenkinsGatesOutputFP = new FilePath(jenkinsOutputDirFP, gateOutputFileName);
+        String cmd = "--json gate --imagefile " + anchoreImageFileName + " --show-triggerids --show-whitelisted";
+
+	String evalMode = config.getPolicyEvalMethod();
+	if (Strings.isNullOrEmpty(evalMode)) {
+	    evalMode = "plainfile";
+	}
+
+	if (evalMode.equals("autosync")) {
+	    if (!Strings.isNullOrEmpty(config.getAnchoreioUser()) && !Strings.isNullOrEmpty(config.getAnchoreioPass())) {
+		try {
+		    doAnchoreioLogin();
+		    doAnchoreioBundleSync();
+		    cmd += " --run-bundle --resultsonly";
+		} catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
+		    // only fail if getUseCacheBundle is unchecked
+		    if (!config.getUseCachedBundle()) {
+			console.logWarn("Unable to log in/sync bundle");
+			throw e;
+		    }
+		}
+	    }
+	} else if (evalMode.equals("bundlefile")) {
+	    cmd += " --run-bundle --resultsonly";
+	    if (!Strings.isNullOrEmpty(anchoreBundleFileName)) {
+		cmd += " --bundlefile " + anchoreBundleFileName;
+	    }
+	} else {
+	    if (!Strings.isNullOrEmpty(anchorePolicyFileName)) {
+		cmd += " --policy " + anchorePolicyFileName;
+	    }
+
+	    if (!Strings.isNullOrEmpty(anchoreGlobalWhiteListFileName)) {
+		cmd += " --global-whitelist " + anchoreGlobalWhiteListFileName;
+	    }
+	}
+
+        try {
+          int rc = executeAnchoreCommand(cmd, jenkinsGatesOutputFP.write());
+          switch (rc) {
+            case 0:
+              finalAction = Util.GATE_ACTION.GO;
+              break;
+            case 2:
+              finalAction = Util.GATE_ACTION.WARN;
+              break;
+            default:
+              finalAction = Util.GATE_ACTION.STOP;
+          }
+
+          console.logDebug("Anchore gate execution completed successfully, final action: " + finalAction);
+        } catch (IOException | InterruptedException e) {
+          console.logWarn("Failed to write gates output to " + jenkinsGatesOutputFP.getRemote(), e);
+          throw new AbortException("Failed to write gates output to " + jenkinsGatesOutputFP.getRemote());
+        }
+
+	generateGatesSummary(jenkinsGatesOutputFP);
 
         return finalAction;
       } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
@@ -609,11 +851,17 @@ public class BuildWorker {
           + ". Please ensure that image list file is created prior to Anchore Container Image Scanner build step");
     }
 
-    if (Strings.isNullOrEmpty(config.getContainerId())) {
-      console.logError("Anchore Container ID not found");
-      throw new AbortException(
-          "Please configure \"Anchore Container ID\" under Manage Jenkins->Configure System->Anchore Configuration and retry. If the"
-              + " container is not running, the plugin will launch it");
+    if (config.getDroguemode()) {
+	// no droguemode specific checks 
+    } else {
+    
+	if (Strings.isNullOrEmpty(config.getContainerId())) {
+	    console.logError("Anchore Container ID not found");
+	    throw new AbortException(
+				     "Please configure \"Anchore Container ID\" under Manage Jenkins->Configure System->Anchore Configuration and retry. If the"
+				     + " container is not running, the plugin will launch it");
+	}
+
     }
 
     // TODO docker and image checks necessary here? check with Dan
@@ -650,6 +898,67 @@ public class BuildWorker {
   }
 
   private void initializeAnchoreWorkspace() throws AbortException {
+      
+      if (config.getDroguemode()) {
+	  initializeAnchoreWorkspaceDrogue();
+      } else {
+	  initializeAnchoreWorkspaceLocal();
+      }
+  }
+
+  private void initializeAnchoreWorkspaceDrogue() throws AbortException {
+      try {
+	  console.logDebug("Initializing Anchore workspace (droguemode)");
+
+	  // get the input and store it in tag/dockerfile map
+	  FilePath inputImageFP = new FilePath(workspace, config.getName()); // Already checked in checkConfig()
+	  try (BufferedReader br = new BufferedReader(new InputStreamReader(inputImageFP.read(), StandardCharsets.UTF_8))) {
+		  String line;
+		  int count = 0;
+		  while ((line = br.readLine()) != null) {
+		      String imgId = null;
+		      String jenkinsDFile = null;
+		      String dfilecontents = null;
+		      Iterable<String> iterable = Util.IMAGE_LIST_SPLITTER.split(line);
+		      Iterator<String> partIterator;
+		      
+		      if (null != iterable && null != (partIterator = iterable.iterator()) && partIterator.hasNext()) {
+			  imgId = partIterator.next();
+			  
+			  if (partIterator.hasNext()) {
+			      jenkinsDFile = partIterator.next();
+			      
+			      StringBuilder b = new StringBuilder();
+			      FilePath myfp = new FilePath(workspace, jenkinsDFile);
+			      try (BufferedReader mybr = new BufferedReader(new InputStreamReader(myfp.read(), StandardCharsets.UTF_8))) {
+				      String myline;
+				      while((myline = mybr.readLine()) != null) {
+					  b.append(myline+'\n');
+				      }
+				  }
+			      console.logInfo("DCONTENTS: " + b.toString());
+			      byte[] encodedBytes = Base64.encodeBase64(b.toString().getBytes());
+			      dfilecontents = new String(encodedBytes);
+			      
+			  }
+		      }
+		      if (null != imgId) {
+			  console.logInfo("IMGID: " + imgId);
+			  console.logInfo("DFILE: " + dfilecontents);
+			  input_image_dfile.put(imgId, dfilecontents);
+		      }
+		  }
+	      }
+      } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
+	  throw e;
+      } catch (Exception e) { // caught unknown exception, console.log it and wrap it
+	  console.logError("Failed to initialize Anchore workspace due to an unexpected error", e);
+	  throw new AbortException("Failed to initialize Anchore workspace due to an unexpected error. Please refer to above logs for more information");
+      }
+  }
+  
+
+  private void initializeAnchoreWorkspaceLocal() throws AbortException {
     try {
       console.logDebug("Initializing Anchore workspace");
 
@@ -729,7 +1038,7 @@ public class BuildWorker {
                   + "optional");
             }
           }
-        }
+	}
       }
 
       if (anchoreInputImages.isEmpty()) {

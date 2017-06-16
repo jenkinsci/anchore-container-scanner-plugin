@@ -2,35 +2,58 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
 
   <f:section title="Anchore Configuration">
-  
+    
     <f:entry title="Enable Anchore Scanning" field="enabled">
       <f:checkbox name="enabled" checked="${descriptor.enabled}" default="${true}"/>
-    </f:entry>
-
-    <f:entry title="Anchore Container Image (ID/repo:tag)" field="containerImageId">
-      <f:textbox name="containerImageId" default="anchore/jenkins:latest"/>
-    </f:entry>
-
-    <f:entry title="Anchore Container (ID/Name)" field="containerId">
-      <f:textbox name="containerId" default="jenkins_anchore"/>
-    </f:entry>
-
-    <f:entry title="Local Anchore Data Volume" field="localVol">
-      <f:textbox name="localVol" default=""/>
-    </f:entry>
-
-    <f:entry title="Local Anchore Module Package Volume" field="modulesVol">
-      <f:textbox name="modulesVol" default=""/>
-    </f:entry>
-
-    <f:entry title="Use sudo" field="useSudo">
-      <f:checkbox name="useSudo" checked="${descriptor.useSudo}" default="${false}"/>
     </f:entry>
 
     <f:entry title="Enable Debugging" field="debug">
       <f:checkbox name="debug" checked="${descriptor.debug}" default="${false}"/>
     </f:entry>
     
+    <f:section title="Anchore Plugin Mode">
+      <f:radioBlock name="droguemode" value="${true}" title="Drogue Mode" checked="${descriptor.droguemode}" inline="true">
+
+	<f:entry title="Drogue URL" field="drogueurl">
+	  <f:textbox name="drogueurl" default="http://192.168.1.3/v1"/>
+	</f:entry>
+
+	<f:entry title="Drogue Username" field="drogueuser">
+	  <f:textbox name="drogueuser" default=""/>
+	</f:entry>
+
+	<f:entry title="Drogue Password" field="droguepass">
+	  <f:password name="droguepass"/>
+	</f:entry>      
+
+      </f:radioBlock>
+
+      <f:radioBlock name="droguemode" value="${false}" title="Local Anchore Scanner Mode" checked="${descriptor == null || descriptor.droguemode == null || !descriptor.droguemode}" inline="true">
+
+	<f:entry title="Anchore Container Image (ID/repo:tag)" field="containerImageId">
+	  <f:textbox name="containerImageId" default="anchore/jenkins:latest"/>
+	</f:entry>
+
+	<f:entry title="Anchore Container (ID/Name)" field="containerId">
+	  <f:textbox name="containerId" default="jenkins_anchore"/>
+	</f:entry>
+
+	<f:entry title="Local Anchore Data Volume" field="localVol">
+	  <f:textbox name="localVol" default=""/>
+	</f:entry>
+
+	<f:entry title="Local Anchore Module Package Volume" field="modulesVol">
+	  <f:textbox name="modulesVol" default=""/>
+	</f:entry>
+	
+	<f:entry title="Use sudo" field="useSudo">
+	  <f:checkbox name="useSudo" checked="${descriptor.useSudo}" default="${false}"/>
+	</f:entry>
+
+      </f:radioBlock>
+
+    </f:section>
+
   </f:section>
 
 </j:jelly>
