@@ -218,12 +218,14 @@ public class BuildWorker {
 	}
 
 	if (evalMode.equals("autosync")) {
+	    cmd += " --run-bundle --resultsonly";
+
+	    // try the login/bundle sync, only error out if usecachedbundle is not selected
 	    if (!Strings.isNullOrEmpty(config.getAnchoreioUser()) && !Strings.isNullOrEmpty(config.getAnchoreioPass())) {
 		try {
 		    doAnchoreioLogin();
 		    doAnchoreioBundleSync();
-		    cmd += " --run-bundle --resultsonly";
-		} catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
+		} catch (AbortException e) { // probably caught one of the thrown exceptions
 		    // only fail if getUseCacheBundle is unchecked
 		    if (!config.getUseCachedBundle()) {
 			console.logWarn("Unable to log in/sync bundle");
@@ -231,8 +233,11 @@ public class BuildWorker {
 		    }
 		}
 	    }
+
+
 	} else if (evalMode.equals("bundlefile")) {
 	    cmd += " --run-bundle --resultsonly";
+
 	    if (!Strings.isNullOrEmpty(anchoreBundleFileName)) {
 		cmd += " --bundlefile " + anchoreBundleFileName;
 	    }
