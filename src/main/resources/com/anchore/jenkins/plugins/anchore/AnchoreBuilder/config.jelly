@@ -8,7 +8,7 @@
       <f:textbox default="anchore_images"/>
     </f:entry>
 
-    <j:if test="${!descriptor.droguemode}">
+    <j:if test="${descriptor.isMode('anchorelocal')}">
       <f:entry title="User scripts directory" field="userScripts">
     	<f:textbox default="anchore_user_scripts"/>
       </f:entry>
@@ -18,7 +18,7 @@
       <f:checkbox name="bailOnFail" checked="${instance.bailOnFail}" default="${true}"/>
     </f:entry>
 
-    <j:if test="${!descriptor.droguemode}">
+    <j:if test="${descriptor.isMode('anchorelocal')}">
       <f:entry title="Fail build on policy check WARN result" field="bailOnWarn">
 	<f:checkbox name="bailOnWarn" checked="${instance.bailOnWarn}" default="${false}"/>
       </f:entry>
@@ -28,21 +28,21 @@
       <f:checkbox name="bailOnPluginFail" checked="${instance.bailOnPluginFail}" default="${true}"/>
     </f:entry>
 
-    <j:if test="${!descriptor.droguemode}">
+    <j:if test="${descriptor.isMode('anchorelocal')}">
       <f:entry title="Delete analyzed images from AnchoreDB" field="doCleanup">
 	<f:checkbox name="doCleanup" checked="${instance.doCleanup}" default="${false}"/>
       </f:entry>
     </j:if>
 
-    <j:if test="${descriptor.droguemode}">
-      <f:entry title="Drogue operation retries" field="drogueRetries">
+    <j:if test="${descriptor.isMode('anchoreengine')}">
+      <f:entry title="AnchoreEngine operation retries" field="engineRetries">
     	<f:textbox default="300"/>
       </f:entry>
     </j:if>
 
   </f:section>
 
-  <j:if test="${!descriptor.droguemode}">
+  <j:if test="${descriptor.isMode('anchorelocal')}">
     <f:section title="Anchore Queries">
       <!-- doQuery is deprecated but using it here for upgrade purposes -->
       <f:nested>

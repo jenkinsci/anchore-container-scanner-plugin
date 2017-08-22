@@ -71,7 +71,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   private String anchoreioUser;
   private String anchoreioPass;
   private String userScripts;
-  private String drogueRetries;
+  private String engineRetries;
   private boolean bailOnFail = true;
   private boolean bailOnWarn = false;
   private boolean bailOnPluginFail = true;
@@ -118,8 +118,8 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     return (userScripts);
   }
 
-  public String getDrogueRetries() {
-    return (drogueRetries);
+  public String getEngineRetries() {
+    return (engineRetries);
   }
 
   public boolean getBailOnFail() {
@@ -200,8 +200,8 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   }
 
   @DataBoundSetter
-  public void setDrogueRetries(String drogueRetries) {
-    this.drogueRetries = drogueRetries;
+  public void setEngineRetries(String engineRetries) {
+    this.engineRetries = engineRetries;
   }
 
   @DataBoundSetter
@@ -278,7 +278,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
 	} else {
 	    // Instantiate a new build worker
-	    worker = new BuildWorker(run, workspace, launcher, listener, new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, drogueRetries, bailOnFail, bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride, inputQueries, globalConfig.getDebug(), globalConfig.getEnabled(), globalConfig.getDroguemode(), globalConfig.getDrogueurl(), globalConfig.getDrogueuser(), globalConfig.getDroguepass(), globalConfig.getContainerImageId(), globalConfig.getContainerId(), globalConfig.getLocalVol(), globalConfig.getModulesVol(), globalConfig.getUseSudo()));
+	    worker = new BuildWorker(run, workspace, launcher, listener, new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, engineRetries, bailOnFail, bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride, inputQueries, globalConfig.getDebug(), globalConfig.getEnabled(), globalConfig.getEnginemode(), globalConfig.getEngineurl(), globalConfig.getEngineuser(), globalConfig.getEnginepass(), globalConfig.getContainerImageId(), globalConfig.getContainerId(), globalConfig.getLocalVol(), globalConfig.getModulesVol(), globalConfig.getUseSudo()));
 	    
 	    
 	    /* Run analysis */
@@ -287,7 +287,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 	    /* Run gates */
 	    finalAction = worker.runGates();
 	    
-	    if (!globalConfig.getDroguemode()) {
+	    if (globalConfig.getEnginemode().equals("anchorelocal")) {
 		/* Run queries and continue even if it fails */
 		try {
 		    worker.runQueries();
@@ -356,10 +356,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
     private boolean debug;
     private boolean enabled;
-    private boolean droguemode;
-    private String drogueurl;
-    private String drogueuser;
-    private String droguepass;
+    private String enginemode;
+    private String engineurl;
+    private String engineuser;
+    private String enginepass;
     private String containerImageId;
     private String containerId;
     private String localVol;
@@ -378,20 +378,31 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       return enabled;
     }
 
-    public boolean getDroguemode() {
-      return droguemode;
+    public String getEnginemode() {
+      return enginemode;
     }
 
-    public String getDrogueurl() {
-      return drogueurl;
+    public boolean isMode(String inmode) {
+	if (enginemode == null && inmode.equals("anchorelocal")) {
+	    return(true);
+	}
+	if (enginemode.equals(inmode)) {
+	    return(true);
+	}
+
+	return(false);
     }
 
-    public String getDrogueuser() {
-      return drogueuser;
+    public String getEngineurl() {
+      return engineurl;
     }
 
-    public String getDroguepass() {
-      return droguepass;
+    public String getEngineuser() {
+      return engineuser;
+    }
+
+    public String getEnginepass() {
+      return enginepass;
     }
 
     public boolean getUseSudo() {
@@ -457,10 +468,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
       debug = formData.getBoolean("debug");
       enabled = formData.getBoolean("enabled");
-      droguemode = formData.getBoolean("droguemode");
-      drogueurl = formData.getString("drogueurl");
-      drogueuser = formData.getString("drogueuser");
-      droguepass = formData.getString("droguepass");
+      enginemode = formData.getString("enginemode");
+      engineurl = formData.getString("engineurl");
+      engineuser = formData.getString("engineuser");
+      enginepass = formData.getString("enginepass");
       useSudo = formData.getBoolean("useSudo");
       containerImageId = formData.getString("containerImageId");
       containerId = formData.getString("containerId");

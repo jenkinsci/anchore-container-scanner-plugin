@@ -12,23 +12,25 @@
     </f:entry>
     
     <f:section title="Anchore Plugin Mode">
-      <f:radioBlock name="droguemode" value="${true}" title="Drogue Mode" checked="${descriptor.droguemode}" inline="true">
+      <!-- <f:radioBlock name="enginemode" value="${true}" title="Engine Mode" checked="${descriptor.enginemode}" inline="true"> -->
+      <f:radioBlock name="enginemode" value="anchoreengine" title="Engine Mode" checked="${descriptor.isMode('anchoreengine')}" inline="true">
 
-	<f:entry title="Drogue URL" field="drogueurl">
-	  <f:textbox name="drogueurl" default="http://192.168.1.3/v1"/>
+	<f:entry title="Engine URL" field="engineurl">
+	  <f:textbox name="engineurl" default="http://192.168.1.3/v1"/>
 	</f:entry>
 
-	<f:entry title="Drogue Username" field="drogueuser">
-	  <f:textbox name="drogueuser" default=""/>
+	<f:entry title="Engine Username" field="engineuser">
+	  <f:textbox name="engineuser" default=""/>
 	</f:entry>
 
-	<f:entry title="Drogue Password" field="droguepass">
-	  <f:password name="droguepass"/>
+	<f:entry title="Engine Password" field="enginepass">
+	  <f:password name="enginepass"/>
 	</f:entry>      
 
       </f:radioBlock>
 
-      <f:radioBlock name="droguemode" value="${false}" title="Local Anchore Scanner Mode" checked="${descriptor == null || descriptor.droguemode == null || !descriptor.droguemode}" inline="true">
+    <!-- <f:radioBlock name="enginemode" value="${false}" title="Local Anchore Scanner Mode" checked="${!descriptior.enginemode}" inline="true"> -->
+    <f:radioBlock name="enginemode" value="anchorelocal" title="Local Anchore Scanner Mode" checked="${descriptor.isMode('anchorelocal')}" inline="true">
 
 	<f:entry title="Anchore Container Image (ID/repo:tag)" field="containerImageId">
 	  <f:textbox name="containerImageId" default="anchore/jenkins:latest"/>

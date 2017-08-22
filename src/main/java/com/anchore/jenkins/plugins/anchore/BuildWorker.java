@@ -32,6 +32,13 @@ import org.apache.commons.httpclient.methods.*;
 import org.apache.commons.httpclient.auth.AuthScope;
 import org.apache.commons.httpclient.params.HttpMethodParams;
 import org.apache.commons.codec.binary.Base64;
+
+//import javax.net.ssl.*;
+//import javax.net.ssl.SSLContext;
+//import org.apache.commons.httpclient.contrib.ssl.*;
+//import org.apache.commons.httpclient.contrib.*;
+//import org.apache.commons.httpclient.ssl.TrustStrategy;
+
 /**
  * A helper class to ensure concurrent jobs don't step on each other's toes. Anchore plugin instantiates a new instance of this class
  * for each individual job i.e. invocation of perform(). Global and project configuration at the time of execution is loaded into
@@ -157,28 +164,41 @@ public class BuildWorker {
   }
 
   public void runAnalyzer() throws AbortException {
-      if (config.getDroguemode()) {
-	  runAnalyzerDrogue();
+      if (config.getEnginemode().equals("anchoreengine")) {
+	  runAnalyzerEngine();
       } else {
 	  runAnalyzerLocal();
       }
   }
 
-  private void runAnalyzerDrogue() throws AbortException {
+  private void runAnalyzerEngine() throws AbortException {
       String anchoreId = null;
-      String username = config.getDrogueuser();
-      String password = config.getDroguepass();
+      String username = config.getEngineuser();
+      String password = config.getEnginepass();
 
       Credentials defaultcreds = new UsernamePasswordCredentials(username, password);
       try {
-	  console.logInfo("Running analysis (droguemode)");
+	  console.logInfo("Running analysis (enginemode)");
 	  for (Map.Entry<String, String> entry : input_image_dfile.entrySet()) {
 	      String tag = entry.getKey();
 	      String dfile = entry.getValue();
 	      
 	      // add the image
 	      if (true) {
-		  String theurl = config.getDrogueurl().replaceAll("/+$", "") + "/images";
+		  String theurl = config.getEngineurl().replaceAll("/+$", "") + "/images";
+
+		  /*
+		    SSLContextBuilder builder = new SSLContextBuilder();
+		  builder.loadTrustMaterial(null, new TrustStrategy() {
+			  @Override
+			  public boolean isTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+			      return true;
+			  }
+		      });
+		  SSLConnectionSocketFactory sslSF = new SSLConnectionSocketFactory(builder.build(), SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+		  HttpClient client = HttpClients.custom().setSSLSocketFactory(sslSF).build();
+		  */
+
 		  HttpClient client = new HttpClient(new SimpleHttpConnectionManager(true));
 		  PostMethod method = new PostMethod(theurl);
 		  
@@ -200,6 +220,7 @@ public class BuildWorker {
 		      String body = jsonBody.toString();
 		      console.logInfo("requesting image add payload: " + body);
 		  
+		      method.setRequestHeader("Content-Type", "application/json");
 		      method.setRequestBody(body);
 		  
 		      int statusCode = 0;
@@ -212,7 +233,7 @@ public class BuildWorker {
 		      if (statusCode != HttpStatus.SC_OK) {
 			  console.logError("Image add POST failed: " + theurl + " : " + method.getStatusLine());
 			  console.logError("Message from server: " + new String(method.getResponseBody()));
-			  throw new AbortException("Anchore drogue image add failed, check output above for details");
+			  throw new AbortException("Anchore engine image add failed, check output above for details");
 		      } else {
 
 			  // Read the response body.
@@ -299,16 +320,16 @@ public class BuildWorker {
   }
 
   public GATE_ACTION runGates() throws AbortException {
-      if (config.getDroguemode()) {
-	  return(runGatesDrogue());
+      if (config.getEnginemode().equals("anchoreengine")) {
+	  return(runGatesEngine());
       } else {
 	  return(runGatesLocal());
       }
   }
 
-  private GATE_ACTION runGatesDrogue() throws AbortException {
-      String username = config.getDrogueuser();
-      String password = config.getDroguepass();
+  private GATE_ACTION runGatesEngine() throws AbortException {
+      String username = config.getEngineuser();
+      String password = config.getEnginepass();
       Credentials defaultcreds = new UsernamePasswordCredentials(username, password);
       FilePath jenkinsOutputDirFP = new FilePath(workspace, jenkinsOutputDirName);
       FilePath jenkinsGatesOutputFP = new FilePath(jenkinsOutputDirFP, gateOutputFileName);
@@ -325,10 +346,10 @@ public class BuildWorker {
 		  Boolean anchore_eval_status = false;
 		  Boolean anchore_eval_success = false;
 
-		  String theurl = config.getDrogueurl().replaceAll("/+$", "") + "/images/" + anchoreId + "/check?tag=" + tag + "&detail=true";
+		  String theurl = config.getEngineurl().replaceAll("/+$", "") + "/images/" + anchoreId + "/check?tag=" + tag + "&detail=true";
 		  
 		  int tryCount = 0;
-		  int maxCount = Integer.parseInt(config.getDrogueRetries());
+		  int maxCount = Integer.parseInt(config.getEngineRetries());
 		  Boolean done = false;
 
 		  while(!done && tryCount < maxCount) {
@@ -368,7 +389,7 @@ public class BuildWorker {
 			      }
 			      //JSONArray tag_evals = JSONObject.fromObject(JSONArray.fromObject(JSONArray.fromObject(JSONObject.fromObject(JSONObject.fromObject(respJson.get(0)).getJSONObject(anchoreId)))).get(0)).getJSONArray(tag);
 			      if (null == tag_evals) {
-				  throw new AbortException("Got response from drogue, but no tag eval records are in the response");
+				  throw new AbortException("Got response from engine, but no tag eval records are in the response");
 			      }
 			      if (tag_evals.size() < 1) {
 				  // try again until we get an eval
@@ -407,7 +428,7 @@ public class BuildWorker {
 		  }
 
 		  if (!done) {
-		      throw new AbortException("Timed out waiting for eval from drogue");
+		      throw new AbortException("Timed out waiting for eval from engine");
 		  } else {
 		      // only set to stop if an eval is successful and is reporting fail
 		      if (!anchore_eval_status) {
@@ -854,8 +875,8 @@ public class BuildWorker {
           + ". Please ensure that image list file is created prior to Anchore Container Image Scanner build step");
     }
 
-    if (config.getDroguemode()) {
-	// no droguemode specific checks 
+    if (config.getEnginemode().equals("anchoreengine")) {
+	// no enginemode specific checks 
     } else {
     
 	if (Strings.isNullOrEmpty(config.getContainerId())) {
@@ -902,16 +923,16 @@ public class BuildWorker {
 
   private void initializeAnchoreWorkspace() throws AbortException {
       
-      if (config.getDroguemode()) {
-	  initializeAnchoreWorkspaceDrogue();
+      if (config.getEnginemode().equals("anchoreengine")) {
+	  initializeAnchoreWorkspaceEngine();
       } else {
 	  initializeAnchoreWorkspaceLocal();
       }
   }
 
-  private void initializeAnchoreWorkspaceDrogue() throws AbortException {
+  private void initializeAnchoreWorkspaceEngine() throws AbortException {
       try {
-	  console.logDebug("Initializing Anchore workspace (droguemode)");
+	  console.logDebug("Initializing Anchore workspace (enginemode)");
 
 	  // get the input and store it in tag/dockerfile map
 	  FilePath inputImageFP = new FilePath(workspace, config.getName()); // Already checked in checkConfig()
