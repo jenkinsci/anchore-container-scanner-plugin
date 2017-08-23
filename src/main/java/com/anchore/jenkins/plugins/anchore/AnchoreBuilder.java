@@ -37,12 +37,36 @@ import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
+/*
 import org.apache.commons.httpclient.*;
 import org.apache.commons.httpclient.methods.*;
 import org.apache.commons.httpclient.auth.AuthScope;
 import org.apache.commons.httpclient.params.HttpMethodParams;
 import org.apache.commons.codec.binary.Base64;
+*/
+/*
+import org.apache.http.HttpEntity;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.util.EntityUtils;
+import org.apache.http.conn.ssl.*;
 
+import org.apache.http.auth.*;
+import org.apache.http.client.*;
+import org.apache.http.client.protocol.*;
+import org.apache.http.impl.client.*;
+
+import java.security.cert.X509Certificate;
+import java.security.cert.*;
+
+import javax.net.ssl.SSLContext;
+*/
 /**
  * <p>Anchore Plugin enables Jenkins users to scan container images, generate analysis, evaluate gate policy, and execute customizable
  * queries. The plugin can be used in a freestyle project as a build step or invoked from a pipeline script</p>

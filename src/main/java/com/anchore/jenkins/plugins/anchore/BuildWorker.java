@@ -27,10 +27,13 @@ import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
+
+/*
 import org.apache.commons.httpclient.*;
 import org.apache.commons.httpclient.methods.*;
 import org.apache.commons.httpclient.auth.AuthScope;
 import org.apache.commons.httpclient.params.HttpMethodParams;
+*/
 import org.apache.commons.codec.binary.Base64;
 
 //import javax.net.ssl.*;
@@ -38,6 +41,29 @@ import org.apache.commons.codec.binary.Base64;
 //import org.apache.commons.httpclient.contrib.ssl.*;
 //import org.apache.commons.httpclient.contrib.*;
 //import org.apache.commons.httpclient.ssl.TrustStrategy;
+
+import org.apache.http.HttpEntity;
+import org.apache.http.NameValuePair;
+import org.apache.http.entity.*;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.util.EntityUtils;
+import org.apache.http.conn.ssl.*;
+
+import org.apache.http.auth.*;
+import org.apache.http.client.*;
+import org.apache.http.client.protocol.*;
+import org.apache.http.impl.client.*;
+
+import java.security.cert.X509Certificate;
+import java.security.cert.*;
+
+import javax.net.ssl.SSLContext;
 
 /**
  * A helper class to ensure concurrent jobs don't step on each other's toes. Anchore plugin instantiates a new instance of this class
@@ -171,12 +197,35 @@ public class BuildWorker {
       }
   }
 
+  private static CloseableHttpClient makeHttpClient(boolean verify) {
+      CloseableHttpClient httpclient=null;
+      if (verify) {
+	  httpclient = HttpClients.createDefault();
+      } else {
+	  //SSLContextBuilder builder;                                                                                                                                       
+	  //SSLConnectionSocketFactory sslsf=null;                                                                                                                           
+	  try {
+	      SSLContextBuilder builder = new SSLContextBuilder();
+	      builder.loadTrustMaterial(null, new TrustSelfSignedStrategy());
+	      SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(builder.build(), SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+	      httpclient = HttpClients.custom().setSSLSocketFactory(sslsf).build();
+	  } catch (Exception e) {
+	      System.out.println(e);
+	  }
+      }
+      return(httpclient);
+  }
+
   private void runAnalyzerEngine() throws AbortException {
       String anchoreId = null;
       String username = config.getEngineuser();
       String password = config.getEnginepass();
 
-      Credentials defaultcreds = new UsernamePasswordCredentials(username, password);
+      CredentialsProvider credsProvider = new BasicCredentialsProvider();
+      credsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
+      HttpClientContext context = HttpClientContext.create();
+      context.setCredentialsProvider(credsProvider);
+
       try {
 	  console.logInfo("Running analysis (enginemode)");
 	  for (Map.Entry<String, String> entry : input_image_dfile.entrySet()) {
@@ -187,28 +236,19 @@ public class BuildWorker {
 	      if (true) {
 		  String theurl = config.getEngineurl().replaceAll("/+$", "") + "/images";
 
-		  /*
-		    SSLContextBuilder builder = new SSLContextBuilder();
-		  builder.loadTrustMaterial(null, new TrustStrategy() {
-			  @Override
-			  public boolean isTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-			      return true;
-			  }
-		      });
-		  SSLConnectionSocketFactory sslSF = new SSLConnectionSocketFactory(builder.build(), SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
-		  HttpClient client = HttpClients.custom().setSSLSocketFactory(sslSF).build();
-		  */
+		  CloseableHttpClient httpclient = makeHttpClient(false);
+		  HttpPost httppost = new HttpPost(theurl);
 
-		  HttpClient client = new HttpClient(new SimpleHttpConnectionManager(true));
-		  PostMethod method = new PostMethod(theurl);
+		  //HttpClient client = new HttpClient(new SimpleHttpConnectionManager(true));
+		  //PostMethod method = new PostMethod(theurl);
 		  
 		  try {
 		      console.logInfo("Starting request cycle: " + tag + " : " + dfile + " : " + theurl);
 		  
-		      client.getState().setCredentials(AuthScope.ANY, defaultcreds);
-		      method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
-		      method.getParams().setParameter("http.connection.timeout", 10000);
-		      method.getParams().setParameter("http.socket.timeout", 10000);
+		      //client.getState().setCredentials(AuthScope.ANY, defaultcreds);
+		      //method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
+		      //method.getParams().setParameter("http.connection.timeout", 10000);
+		      //method.getParams().setParameter("http.socket.timeout", 10000);
 		  
 		      JSONObject jsonBody = new JSONObject();
 		      jsonBody.put("tag", tag);
@@ -220,38 +260,47 @@ public class BuildWorker {
 		      String body = jsonBody.toString();
 		      console.logInfo("requesting image add payload: " + body);
 		  
-		      method.setRequestHeader("Content-Type", "application/json");
-		      method.setRequestBody(body);
+		      httppost.addHeader("Content-Type", "application/json");
+		      httppost.setEntity(new StringEntity(body));
+
+		      //method.setRequestHeader("Content-Type", "application/json");
+		      //method.setRequestBody(body);
 		  
 		      int statusCode = 0;
+		      CloseableHttpResponse response = null;
 		      try {
-			  statusCode = client.executeMethod(method);
+			  //statusCode = client.executeMethod(method);
+			  response = httpclient.execute(httppost, context);
+			  statusCode = response.getStatusLine().getStatusCode();
+			  if (statusCode != 200) {
+			      console.logError("Image add POST failed: " + theurl + " : " + response.getStatusLine());
+			      console.logError("Message from server: " + new String(EntityUtils.toString(response.getEntity())));
+			      throw new AbortException("Anchore engine image add failed, check output above for details");
+			  } else {
+			      // Read the response body.
+			      String responseBody = EntityUtils.toString(response.getEntity());
+			      // TODO EntityUtils.consume(entity2);
+			      JSONArray respJson = JSONArray.fromObject(new String(responseBody));
+			      anchoreId = JSONObject.fromObject(respJson.get(0)).getString("anchoreId"); 
+			      console.logInfo("got anchoreId from service: " + anchoreId);
+			      input_image_anchoreId.put(tag, anchoreId);
+			  }
+		      } catch (AbortException e) {
+			  throw e;
 		      } catch (Exception e) {
 			  throw e;
+		      } finally {
+			  response.close();
 		      }
-		  
-		      if (statusCode != HttpStatus.SC_OK) {
-			  console.logError("Image add POST failed: " + theurl + " : " + method.getStatusLine());
-			  console.logError("Message from server: " + new String(method.getResponseBody()));
-			  throw new AbortException("Anchore engine image add failed, check output above for details");
-		      } else {
 
-			  // Read the response body.
-			  byte[] responseBody = method.getResponseBody();
-			  
-			  JSONArray respJson = JSONArray.fromObject(new String(responseBody));
-			  anchoreId = JSONObject.fromObject(respJson.get(0)).getString("anchoreId"); 
-			  console.logInfo("got anchoreId from service: " + anchoreId);
-			  input_image_anchoreId.put(tag, anchoreId);
-
-		      }
 		  } catch (AbortException e) {
 		      throw e;
 		  } catch (Exception e) {
 		      throw e;
 		  } finally {
 		      console.logDebug("releasing connection");
-		      method.releaseConnection();
+		      //method.releaseConnection();
+		      httpclient.close();
 		  }
 	      }
 	  }
@@ -330,7 +379,13 @@ public class BuildWorker {
   private GATE_ACTION runGatesEngine() throws AbortException {
       String username = config.getEngineuser();
       String password = config.getEnginepass();
-      Credentials defaultcreds = new UsernamePasswordCredentials(username, password);
+
+      CredentialsProvider credsProvider = new BasicCredentialsProvider();
+      credsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
+      HttpClientContext context = HttpClientContext.create();
+      context.setCredentialsProvider(credsProvider);
+
+      //Credentials defaultcreds = new UsernamePasswordCredentials(username, password);
       FilePath jenkinsOutputDirFP = new FilePath(workspace, jenkinsOutputDirName);
       FilePath jenkinsGatesOutputFP = new FilePath(jenkinsOutputDirFP, gateOutputFileName);
 
@@ -353,67 +408,79 @@ public class BuildWorker {
 		  Boolean done = false;
 
 		  while(!done && tryCount < maxCount) {
-		      HttpClient client = new HttpClient(new SimpleHttpConnectionManager(true));
-		      GetMethod method = new GetMethod(theurl);
+		      CloseableHttpClient httpclient = makeHttpClient(false);
+		      HttpGet httpget = new HttpGet(theurl);
+		      //HttpClient client = new HttpClient(new SimpleHttpConnectionManager(true));
+		      //GetMethod method = new GetMethod(theurl);
 		      
 		      try {
-			  client.getState().setCredentials(AuthScope.ANY, defaultcreds);
-			  method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
-			  method.getParams().setParameter("http.connection.timeout", 10000);
-			  method.getParams().setParameter("http.socket.timeout", 10000);
-		      
+
+			  //client.getState().setCredentials(AuthScope.ANY, defaultcreds);
+			  //method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
+			  //method.getParams().setParameter("http.connection.timeout", 10000);
+			  //method.getParams().setParameter("http.socket.timeout", 10000);
+
+			  httpget.addHeader("Content-Type", "application/json");
+
 			  console.logInfo("EVAL URL: " + theurl);
 			  int statusCode = 0;
+			  CloseableHttpResponse response = null;
 			  try {
-			      statusCode = client.executeMethod(method);
-			  } catch (Exception e) {
-			      console.logError("Client exception: ", e);
-			  }
-		      
-			  if (statusCode != HttpStatus.SC_OK) {
-			      console.logError("Eval GET failed: " + theurl + ": " + method.getStatusLine());
-			      console.logError("Message from server: " + new String(method.getResponseBody()));
-			      console.logInfo("no eval yet, retrying...("+tryCount+"/"+maxCount+")");
-			      Thread.sleep(1000);
-			  } else {
+			      //statusCode = client.executeMethod(method);
+			      response = httpclient.execute(httpget, context);
+			      statusCode = response.getStatusLine().getStatusCode();
 
-			      // Read the response body.
-			      byte[] responseBody = method.getResponseBody();
-			  
-			      JSONArray respJson = JSONArray.fromObject(new String(responseBody));
-			      JSONObject tag_eval_obj = JSONObject.fromObject(JSONArray.fromObject(JSONArray.fromObject(JSONObject.fromObject(JSONObject.fromObject(respJson.get(0)).getJSONObject(anchoreId)))).get(0));
-			      JSONArray tag_evals = null;
-			      for (Object key: tag_eval_obj.keySet()) {
-				  tag_evals = tag_eval_obj.getJSONArray( (String) key );
-				  break;
-			      }
-			      //JSONArray tag_evals = JSONObject.fromObject(JSONArray.fromObject(JSONArray.fromObject(JSONObject.fromObject(JSONObject.fromObject(respJson.get(0)).getJSONObject(anchoreId)))).get(0)).getJSONArray(tag);
-			      if (null == tag_evals) {
-				  throw new AbortException("Got response from engine, but no tag eval records are in the response");
-			      }
-			      if (tag_evals.size() < 1) {
-				  // try again until we get an eval
+			      if (statusCode != 200) {
+				  console.logError("Eval GET failed: " + theurl + " : " + response.getStatusLine());
+				  console.logError("Message from server: " + new String(EntityUtils.toString(response.getEntity())));
 				  console.logInfo("no eval yet, retrying...("+tryCount+"/"+maxCount+")");
 				  Thread.sleep(1000);
 			      } else {
-				  // String eval_status = JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0)).getJSONArray(tag).get(0)).getString("status");
-				  String eval_status = JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0))).getString("status");
-				  JSONObject gate_result = JSONObject.fromObject(JSONObject.fromObject(JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0)).getJSONObject("detail")).getJSONObject("result")).getJSONObject("results"));
-
-				  console.logInfo("gate result: " + gate_result.toString());
-				  for (Object key: gate_result.keySet()) {
-				      gate_results.put((String)key, gate_result.getJSONObject((String)key));
+				  
+				  // Read the response body.
+				  String responseBody = EntityUtils.toString(response.getEntity());
+				  // TODO EntityUtils.consume(entity2);
+				  JSONArray respJson = JSONArray.fromObject(new String(responseBody));
+				  JSONObject tag_eval_obj = JSONObject.fromObject(JSONArray.fromObject(JSONArray.fromObject(JSONObject.fromObject(JSONObject.fromObject(respJson.get(0)).getJSONObject(anchoreId)))).get(0));
+				  JSONArray tag_evals = null;
+				  for (Object key: tag_eval_obj.keySet()) {
+				      tag_evals = tag_eval_obj.getJSONArray( (String) key );
+				      break;
 				  }
-				  console.logInfo("parsed eval result: " + eval_status);
-			      
-				  // we actually got a real result
-				  anchore_eval_success = true;
-				  // this is the only way this gets flipped to true
-				  if (eval_status.equals("pass")) {
-				      anchore_eval_status = true;
+				  //JSONArray tag_evals = JSONObject.fromObject(JSONArray.fromObject(JSONArray.fromObject(JSONObject.fromObject(JSONObject.fromObject(respJson.get(0)).getJSONObject(anchoreId)))).get(0)).getJSONArray(tag);
+				  if (null == tag_evals) {
+				      throw new AbortException("Got response from engine, but no tag eval records are in the response");
 				  }
-				  done = true;
+				  if (tag_evals.size() < 1) {
+				      // try again until we get an eval
+				      console.logInfo("no eval yet, retrying...("+tryCount+"/"+maxCount+")");
+				      Thread.sleep(1000);
+				  } else {
+				      // String eval_status = JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0)).getJSONArray(tag).get(0)).getString("status");
+				      String eval_status = JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0))).getString("status");
+				      JSONObject gate_result = JSONObject.fromObject(JSONObject.fromObject(JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0)).getJSONObject("detail")).getJSONObject("result")).getJSONObject("results"));
+				      
+				      console.logInfo("gate result: " + gate_result.toString());
+				      for (Object key: gate_result.keySet()) {
+					  gate_results.put((String)key, gate_result.getJSONObject((String)key));
+				      }
+				      console.logInfo("parsed eval result: " + eval_status);
+				      
+				      // we actually got a real result
+				      anchore_eval_success = true;
+				      // this is the only way this gets flipped to true
+				      if (eval_status.equals("pass")) {
+					  anchore_eval_status = true;
+				      }
+				      done = true;
+				  }
 			      }
+			  } catch (AbortException e) {
+			      throw e;
+			  } catch (Exception e) {
+			      console.logError("Client exception: ", e);
+			  } finally {
+			      response.close();
 			  }
 			  tryCount++;
 		      
@@ -423,7 +490,8 @@ public class BuildWorker {
 			  throw e;
 		      } finally {
 			  console.logDebug("releasing connection");
-			  method.releaseConnection();
+			  //method.releaseConnection();
+			  httpclient.close();
 		      }
 		  }
 
@@ -460,6 +528,7 @@ public class BuildWorker {
 	  console.logError("Analysis step has not been executed (or may have failed in a prior attempt). Rerun analyzer before gates");
 	  throw new AbortException("Analysis step has not been executed (or may have failed in a prior attempt). Rerun analyzer before gates");
       }
+
   }
 
   private void generateGatesSummary(FilePath jenkinsGatesOutputFP) throws AbortException {
