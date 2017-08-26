@@ -220,6 +220,7 @@ public class BuildWorker {
       String anchoreId = null;
       String username = config.getEngineuser();
       String password = config.getEnginepass();
+      boolean sslverify = config.getEngineverify();
 
       CredentialsProvider credsProvider = new BasicCredentialsProvider();
       credsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
@@ -236,19 +237,10 @@ public class BuildWorker {
 	      if (true) {
 		  String theurl = config.getEngineurl().replaceAll("/+$", "") + "/images";
 
-		  CloseableHttpClient httpclient = makeHttpClient(false);
+		  CloseableHttpClient httpclient = makeHttpClient(sslverify);
 		  HttpPost httppost = new HttpPost(theurl);
-
-		  //HttpClient client = new HttpClient(new SimpleHttpConnectionManager(true));
-		  //PostMethod method = new PostMethod(theurl);
-		  
 		  try {
 		      console.logInfo("Starting request cycle: " + tag + " : " + dfile + " : " + theurl);
-		  
-		      //client.getState().setCredentials(AuthScope.ANY, defaultcreds);
-		      //method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
-		      //method.getParams().setParameter("http.connection.timeout", 10000);
-		      //method.getParams().setParameter("http.socket.timeout", 10000);
 		  
 		      JSONObject jsonBody = new JSONObject();
 		      jsonBody.put("tag", tag);
@@ -263,14 +255,10 @@ public class BuildWorker {
 		      httppost.addHeader("Content-Type", "application/json");
 		      httppost.setEntity(new StringEntity(body));
 
-		      //method.setRequestHeader("Content-Type", "application/json");
-		      //method.setRequestBody(body);
-		  
 		      int statusCode = 0;
 		      CloseableHttpResponse response = null;
+		      response = httpclient.execute(httppost, context);
 		      try {
-			  //statusCode = client.executeMethod(method);
-			  response = httpclient.execute(httppost, context);
 			  statusCode = response.getStatusLine().getStatusCode();
 			  if (statusCode != 200) {
 			      console.logError("Image add POST failed: " + theurl + " : " + response.getStatusLine());
@@ -379,6 +367,7 @@ public class BuildWorker {
   private GATE_ACTION runGatesEngine() throws AbortException {
       String username = config.getEngineuser();
       String password = config.getEnginepass();
+      boolean sslverify = config.getEngineverify();
 
       CredentialsProvider credsProvider = new BasicCredentialsProvider();
       credsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
@@ -408,26 +397,18 @@ public class BuildWorker {
 		  Boolean done = false;
 
 		  while(!done && tryCount < maxCount) {
-		      CloseableHttpClient httpclient = makeHttpClient(false);
+		      CloseableHttpClient httpclient = makeHttpClient(sslverify);
 		      HttpGet httpget = new HttpGet(theurl);
-		      //HttpClient client = new HttpClient(new SimpleHttpConnectionManager(true));
-		      //GetMethod method = new GetMethod(theurl);
 		      
 		      try {
-
-			  //client.getState().setCredentials(AuthScope.ANY, defaultcreds);
-			  //method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
-			  //method.getParams().setParameter("http.connection.timeout", 10000);
-			  //method.getParams().setParameter("http.socket.timeout", 10000);
-
 			  httpget.addHeader("Content-Type", "application/json");
 
 			  console.logInfo("EVAL URL: " + theurl);
 			  int statusCode = 0;
 			  CloseableHttpResponse response = null;
+			  response = httpclient.execute(httpget, context);
 			  try {
 			      //statusCode = client.executeMethod(method);
-			      response = httpclient.execute(httpget, context);
 			      statusCode = response.getStatusLine().getStatusCode();
 
 			      if (statusCode != 200) {
@@ -458,11 +439,15 @@ public class BuildWorker {
 				  } else {
 				      // String eval_status = JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0)).getJSONArray(tag).get(0)).getString("status");
 				      String eval_status = JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0))).getString("status");
-				      JSONObject gate_result = JSONObject.fromObject(JSONObject.fromObject(JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0)).getJSONObject("detail")).getJSONObject("result")).getJSONObject("results"));
+				      JSONObject gate_result = JSONObject.fromObject(JSONObject.fromObject(JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0)).getJSONObject("detail")).getJSONObject("result")).getJSONObject("result"));
 				      
 				      console.logInfo("gate result: " + gate_result.toString());
 				      for (Object key: gate_result.keySet()) {
-					  gate_results.put((String)key, gate_result.getJSONObject((String)key));
+					  try {
+					      gate_results.put((String)key, gate_result.getJSONObject((String)key));
+					  } catch (Exception e) {
+					      console.logError("could not parse result key into gate result");
+					  }
 				      }
 				      console.logInfo("parsed eval result: " + eval_status);
 				      

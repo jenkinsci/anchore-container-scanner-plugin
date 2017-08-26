@@ -33,6 +33,7 @@ public class BuildConfig {
   private String engineurl;
   private String engineuser;
   private String enginepass;
+  private boolean engineverify;
   private String containerImageId;
   private String containerId;
   private String localVol;
@@ -40,7 +41,7 @@ public class BuildConfig {
   private boolean useSudo;
 
     public BuildConfig(String name, String policyName, String globalWhiteList, String anchoreioUser, String anchoreioPass, String userScripts, String engineRetries, boolean bailOnFail,
-		       boolean bailOnWarn, boolean bailOnPluginFail, boolean doCleanup, boolean useCachedBundle, String policyEvalMethod, String bundleFileOverride, List<AnchoreQuery> inputQueries, boolean debug, boolean enabled, String enginemode, String engineurl, String engineuser, String enginepass,
+		       boolean bailOnWarn, boolean bailOnPluginFail, boolean doCleanup, boolean useCachedBundle, String policyEvalMethod, String bundleFileOverride, List<AnchoreQuery> inputQueries, boolean debug, boolean enabled, String enginemode, String engineurl, String engineuser, String enginepass, boolean engineverify,
 		       String containerImageId, String containerId, String localVol, String modulesVol, boolean useSudo) {
     this.name = name;
     this.policyName = policyName;
@@ -63,6 +64,7 @@ public class BuildConfig {
     this.engineurl = engineurl;
     this.engineuser = engineuser;
     this.enginepass = enginepass;
+    this.engineverify = engineverify;
     this.containerImageId = containerImageId;
     this.containerId = containerId;
     this.localVol = localVol;
@@ -165,6 +167,10 @@ public class BuildConfig {
     return enginepass;
   }
 
+  public boolean getEngineverify() {
+    return engineverify;
+  }
+
   public String getContainerImageId() {
     return containerImageId;
   }
@@ -191,6 +197,7 @@ public class BuildConfig {
     consoleLog.logInfo("[global] engineurl: " + engineurl);
     consoleLog.logInfo("[global] engineuser: " + engineuser);
     consoleLog.logInfo("[global] enginepass: " + "****");
+    consoleLog.logInfo("[global] engineverify: " + String.valueOf(engineverify));
     consoleLog.logInfo("[global] debug: " + String.valueOf(debug));
     consoleLog.logInfo("[global] useSudo: " + String.valueOf(useSudo));
     consoleLog.logInfo("[global] containerImageId: " + containerImageId);

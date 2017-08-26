@@ -302,7 +302,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
 	} else {
 	    // Instantiate a new build worker
-	    worker = new BuildWorker(run, workspace, launcher, listener, new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, engineRetries, bailOnFail, bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride, inputQueries, globalConfig.getDebug(), globalConfig.getEnabled(), globalConfig.getEnginemode(), globalConfig.getEngineurl(), globalConfig.getEngineuser(), globalConfig.getEnginepass(), globalConfig.getContainerImageId(), globalConfig.getContainerId(), globalConfig.getLocalVol(), globalConfig.getModulesVol(), globalConfig.getUseSudo()));
+	    worker = new BuildWorker(run, workspace, launcher, listener, new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, engineRetries, bailOnFail, bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride, inputQueries, globalConfig.getDebug(), globalConfig.getEnabled(), globalConfig.getEnginemode(), globalConfig.getEngineurl(), globalConfig.getEngineuser(), globalConfig.getEnginepass(), globalConfig.getEngineverify(), globalConfig.getContainerImageId(), globalConfig.getContainerId(), globalConfig.getLocalVol(), globalConfig.getModulesVol(), globalConfig.getUseSudo()));
 	    
 	    
 	    /* Run analysis */
@@ -384,6 +384,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     private String engineurl;
     private String engineuser;
     private String enginepass;
+    private boolean engineverify;
     private String containerImageId;
     private String containerId;
     private String localVol;
@@ -427,6 +428,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
     public String getEnginepass() {
       return enginepass;
+    }
+
+    public boolean getEngineverify() {
+      return engineverify;
     }
 
     public boolean getUseSudo() {
@@ -496,6 +501,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       engineurl = formData.getString("engineurl");
       engineuser = formData.getString("engineuser");
       enginepass = formData.getString("enginepass");
+      engineverify = formData.getBoolean("engineverify");
       useSudo = formData.getBoolean("useSudo");
       containerImageId = formData.getString("containerImageId");
       containerId = formData.getString("containerId");

@@ -27,6 +27,10 @@
 	  <f:password name="enginepass"/>
 	</f:entry>      
 
+        <f:entry title="Verify SSL" field="engineverify">
+          <f:checkbox name="engineverify" checked="${descriptor.engineverify}" default="${true}"/>
+        </f:entry>
+
       </f:radioBlock>
 
     <!-- <f:radioBlock name="enginemode" value="${false}" title="Local Anchore Scanner Mode" checked="${!descriptior.enginemode}" inline="true"> -->
