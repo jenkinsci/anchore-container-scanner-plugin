@@ -99,7 +99,7 @@ public class BuildWorker {
   private String jenkinsOutputDirName;
   private Map<String, String> queryOutputMap; // TODO rename
   private Map<String, String> input_image_dfile = new HashMap<String, String>();
-  private Map<String, String> input_image_anchoreId = new HashMap<String, String>();
+  private Map<String, String> input_image_imageDigest = new HashMap<String, String>();
   private String gateOutputFileName;
   private GATE_ACTION finalAction;
   private JSONObject gateSummary;
@@ -217,7 +217,7 @@ public class BuildWorker {
   }
 
   private void runAnalyzerEngine() throws AbortException {
-      String anchoreId = null;
+      String imageDigest = null;
       String username = config.getEngineuser();
       String password = config.getEnginepass();
       boolean sslverify = config.getEngineverify();
@@ -269,9 +269,9 @@ public class BuildWorker {
 			      String responseBody = EntityUtils.toString(response.getEntity());
 			      // TODO EntityUtils.consume(entity2);
 			      JSONArray respJson = JSONArray.fromObject(new String(responseBody));
-			      anchoreId = JSONObject.fromObject(respJson.get(0)).getString("anchoreId"); 
-			      console.logInfo("got anchoreId from service: " + anchoreId);
-			      input_image_anchoreId.put(tag, anchoreId);
+			      imageDigest = JSONObject.fromObject(respJson.get(0)).getString("imageDigest"); 
+			      console.logInfo("got imageDigest from service: " + imageDigest);
+			      input_image_imageDigest.put(tag, imageDigest);
 			  }
 		      } catch (AbortException e) {
 			  throw e;
@@ -383,14 +383,14 @@ public class BuildWorker {
 	  try {
 	      JSONObject gate_results = new JSONObject();
 
-	      for (Map.Entry<String, String> entry : input_image_anchoreId.entrySet()) {
+	      for (Map.Entry<String, String> entry : input_image_imageDigest.entrySet()) {
 		  String tag = entry.getKey();
-		  String anchoreId = entry.getValue();
+		  String imageDigest = entry.getValue();
 
 		  Boolean anchore_eval_status = false;
 		  Boolean anchore_eval_success = false;
 
-		  String theurl = config.getEngineurl().replaceAll("/+$", "") + "/images/" + anchoreId + "/check?tag=" + tag + "&detail=true";
+		  String theurl = config.getEngineurl().replaceAll("/+$", "") + "/images/" + imageDigest + "/check?tag=" + tag + "&detail=true";
 		  
 		  int tryCount = 0;
 		  int maxCount = Integer.parseInt(config.getEngineRetries());
@@ -422,13 +422,13 @@ public class BuildWorker {
 				  String responseBody = EntityUtils.toString(response.getEntity());
 				  // TODO EntityUtils.consume(entity2);
 				  JSONArray respJson = JSONArray.fromObject(new String(responseBody));
-				  JSONObject tag_eval_obj = JSONObject.fromObject(JSONArray.fromObject(JSONArray.fromObject(JSONObject.fromObject(JSONObject.fromObject(respJson.get(0)).getJSONObject(anchoreId)))).get(0));
+				  JSONObject tag_eval_obj = JSONObject.fromObject(JSONArray.fromObject(JSONArray.fromObject(JSONObject.fromObject(JSONObject.fromObject(respJson.get(0)).getJSONObject(imageDigest)))).get(0));
 				  JSONArray tag_evals = null;
 				  for (Object key: tag_eval_obj.keySet()) {
 				      tag_evals = tag_eval_obj.getJSONArray( (String) key );
 				      break;
 				  }
-				  //JSONArray tag_evals = JSONObject.fromObject(JSONArray.fromObject(JSONArray.fromObject(JSONObject.fromObject(JSONObject.fromObject(respJson.get(0)).getJSONObject(anchoreId)))).get(0)).getJSONArray(tag);
+				  //JSONArray tag_evals = JSONObject.fromObject(JSONArray.fromObject(JSONArray.fromObject(JSONObject.fromObject(JSONObject.fromObject(respJson.get(0)).getJSONObject(imageDigest)))).get(0)).getJSONArray(tag);
 				  if (null == tag_evals) {
 				      throw new AbortException("Got response from engine, but no tag eval records are in the response");
 				  }
