@@ -404,7 +404,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     }
 
     public String getEnginemode() {
-      return enginemode;
+	if (Strings.isNullOrEmpty(enginemode)) {
+	    enginemode = "anchorelocal";
+	}
+	return enginemode;
     }
 
     public boolean isMode(String inmode) {
