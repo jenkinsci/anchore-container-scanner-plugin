@@ -582,24 +582,19 @@ public class BuildWorker {
                           if (Strings.isNullOrEmpty(repoTag)) {
                             repoTag = row.getString(repoTagIndex);
                           }
-                          if (!row.getString(gateNameIndex).equals("FINAL")) {
-                            switch (row.getString(gateActionIndex)) {
-                              case "STOP":
+                          if (!row.getString(gateNameIndex).equalsIgnoreCase("FINAL")) {
+			    switch (row.getString(gateActionIndex).toLowerCase()) {
+                              case "stop":
                                 stop++;
-                                stop_wl =
-                                    (whitelistedIndex != -1 && !row.getString(whitelistedIndex).equalsIgnoreCase("none")) ? ++stop_wl
-                                        : stop_wl;
+                                stop_wl = (whitelistedIndex != -1 && !(row.getString(whitelistedIndex).equalsIgnoreCase("none") || row.getString(whitelistedIndex).equalsIgnoreCase("false"))) ? ++stop_wl : stop_wl;
                                 break;
-                              case "WARN":
+                              case "warn":
                                 warn++;
-                                warn_wl =
-                                    (whitelistedIndex != -1 && !row.getString(whitelistedIndex).equalsIgnoreCase("none")) ? ++warn_wl
-                                        : warn_wl;
+                                warn_wl = (whitelistedIndex != -1 && !(row.getString(whitelistedIndex).equalsIgnoreCase("none") || row.getString(whitelistedIndex).equalsIgnoreCase("false"))) ? ++warn_wl : warn_wl;
                                 break;
-                              case "GO":
+                              case "go":
                                 go++;
-                                go_wl = (whitelistedIndex != -1 && !row.getString(whitelistedIndex).equalsIgnoreCase("none")) ? ++go_wl
-                                    : go_wl;
+				go_wl = (whitelistedIndex != -1 && !(row.getString(whitelistedIndex).equalsIgnoreCase("none") || row.getString(whitelistedIndex).equalsIgnoreCase("false"))) ? ++go_wl : go_wl;
                                 break;
                               default:
                                 break;
@@ -625,7 +620,20 @@ public class BuildWorker {
                         summaryRow.put(GATE_SUMMARY_COLUMN.Final_Action.toString(), result.getString("final_action"));
                         summaryRows.add(summaryRow);
                       } else {
-                        console.logWarn("Repo_Tag element not found in gate output, skipping summary computation for " + imageKey);
+                        console.logInfo(
+                            "Gate summary for " + repoTag + " - stop: " + (stop - stop_wl) + " (+" + stop_wl + " whitelisted), warn: "
+                                + (warn - warn_wl) + " (+" + warn_wl + " whitelisted), go: " + (go - go_wl) + " (+" + go_wl
+                                + " whitelisted), final: " + result.getString("final_action"));
+			JSONObject summaryRow = new JSONObject();
+			summaryRow.put(GATE_SUMMARY_COLUMN.Repo_Tag.toString(), imageKey.toString());
+			summaryRow.put(GATE_SUMMARY_COLUMN.Stop_Actions.toString(), (stop - stop_wl));
+			summaryRow.put(GATE_SUMMARY_COLUMN.Warn_Actions.toString(), (warn - warn_wl));
+			summaryRow.put(GATE_SUMMARY_COLUMN.Go_Actions.toString(), (go - go_wl));
+			summaryRow.put(GATE_SUMMARY_COLUMN.Final_Action.toString(), result.getString("final_action"));
+			summaryRows.add(summaryRow);
+
+                        //console.logWarn("Repo_Tag element not found in gate output, skipping summary computation for " + imageKey);
+			console.logWarn("Repo_Tag element not found in gate output, using imageId: " + imageKey);
                         continue;
                       }
                     } else { // rows object not found
