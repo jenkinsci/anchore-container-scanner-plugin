@@ -16,7 +16,7 @@
       <f:radioBlock name="enginemode" value="anchoreengine" title="Engine Mode" checked="${descriptor.isMode('anchoreengine')}" inline="true">
 
 	<f:entry title="Engine URL" field="engineurl">
-	  <f:textbox name="engineurl" default="http://192.168.1.3/v1"/>
+	  <f:textbox name="engineurl" default="http://<your_anchore_engine_host_ip>:<your_anchore_engine_port>/v1"/>
 	</f:entry>
 
 	<f:entry title="Engine Username" field="engineuser">

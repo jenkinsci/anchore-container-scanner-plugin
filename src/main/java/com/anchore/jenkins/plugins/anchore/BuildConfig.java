@@ -2,6 +2,7 @@ package com.anchore.jenkins.plugins.anchore;
 
 
 import java.util.List;
+import com.google.common.base.Strings;
 
 /**
  * Holder for all Anchore configuration - includes global and project level attributes. A convenience class for capturing a snapshot of
@@ -70,6 +71,11 @@ public class BuildConfig {
     this.localVol = localVol;
     this.modulesVol = modulesVol;
     this.useSudo = useSudo;
+
+    if (Strings.isNullOrEmpty(this.enginemode)) {
+	this.enginemode = "anchorelocal";
+    }
+
   }
 
   public String getName() {
