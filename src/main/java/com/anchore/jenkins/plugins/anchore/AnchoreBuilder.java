@@ -411,11 +411,16 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     }
 
     public boolean isMode(String inmode) {
-	if (enginemode == null && inmode.equals("anchorelocal")) {
-	    return(true);
-	}
-	if (enginemode.equals(inmode)) {
-	    return(true);
+	if (null != inmode) {
+	    if (null != enginemode) {
+		if (enginemode.equals(inmode)) {
+		    return(true);
+		}
+	    } else {
+		if (inmode.equals("anchorelocal")) {
+		    return(true);
+		}
+	    }
 	}
 
 	return(false);

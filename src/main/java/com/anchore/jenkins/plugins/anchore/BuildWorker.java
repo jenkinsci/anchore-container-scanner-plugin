@@ -262,13 +262,14 @@ public class BuildWorker {
 			  statusCode = response.getStatusLine().getStatusCode();
 			  if (statusCode != 200) {
 			      console.logError("Image add POST failed: " + theurl + " : " + response.getStatusLine());
-			      console.logError("Message from server: " + new String(EntityUtils.toString(response.getEntity())));
+			      String serverMessage = EntityUtils.toString(response.getEntity());
+			      console.logError("Message from server: " + serverMessage);
 			      throw new AbortException("Anchore engine image add failed, check output above for details");
 			  } else {
 			      // Read the response body.
 			      String responseBody = EntityUtils.toString(response.getEntity());
 			      // TODO EntityUtils.consume(entity2);
-			      JSONArray respJson = JSONArray.fromObject(new String(responseBody));
+			      JSONArray respJson = JSONArray.fromObject(responseBody);
 			      imageDigest = JSONObject.fromObject(respJson.get(0)).getString("imageDigest"); 
 			      console.logInfo("got imageDigest from service: " + imageDigest);
 			      input_image_imageDigest.put(tag, imageDigest);
@@ -413,7 +414,8 @@ public class BuildWorker {
 
 			      if (statusCode != 200) {
 				  console.logError("Eval GET failed: " + theurl + " : " + response.getStatusLine());
-				  console.logError("Message from server: " + new String(EntityUtils.toString(response.getEntity())));
+				  String serverMessage = EntityUtils.toString(response.getEntity());
+				  console.logError("Message from server: " + serverMessage);
 				  console.logInfo("no eval yet, retrying...("+tryCount+"/"+maxCount+")");
 				  Thread.sleep(1000);
 			      } else {
@@ -421,7 +423,7 @@ public class BuildWorker {
 				  // Read the response body.
 				  String responseBody = EntityUtils.toString(response.getEntity());
 				  // TODO EntityUtils.consume(entity2);
-				  JSONArray respJson = JSONArray.fromObject(new String(responseBody));
+				  JSONArray respJson = JSONArray.fromObject(responseBody);
 				  JSONObject tag_eval_obj = JSONObject.fromObject(JSONArray.fromObject(JSONArray.fromObject(JSONObject.fromObject(JSONObject.fromObject(respJson.get(0)).getJSONObject(imageDigest)))).get(0));
 				  JSONArray tag_evals = null;
 				  for (Object key: tag_eval_obj.keySet()) {
@@ -1023,8 +1025,8 @@ public class BuildWorker {
 				      }
 				  }
 			      console.logInfo("DCONTENTS: " + b.toString());
-			      byte[] encodedBytes = Base64.encodeBase64(b.toString().getBytes());
-			      dfilecontents = new String(encodedBytes);
+			      byte[] encodedBytes = Base64.encodeBase64(b.toString().getBytes(StandardCharsets.UTF_8));
+			      dfilecontents = new String(encodedBytes, StandardCharsets.UTF_8);
 			      
 			  }
 		      }
