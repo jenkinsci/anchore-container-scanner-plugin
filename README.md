@@ -36,7 +36,7 @@ To install the plugin manually:
    node {
      def imageLine = '6cba161501c8' + ' ' + env.WORKSPACE + '/DockerFile'
      writeFile file: 'anchore_images', text: imageLine
-     anchore name: 'anchore_images', inputQueries: [[query: 'list-packages all'], [query: 'list-files all'], [query: 'cve-scan all'], [query: 'show-pkg-diffs base']]
+     anchore name: 'anchore_images', engineRetries: '300', inputQueries: [[query: 'list-packages all'], [query: 'list-files all'], [query: 'cve-scan all'], [query: 'show-pkg-diffs base']]
    }
    ```
 
