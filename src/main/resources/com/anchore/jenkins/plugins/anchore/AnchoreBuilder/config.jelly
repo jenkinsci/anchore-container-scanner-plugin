@@ -1,93 +1,91 @@
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core"
-	 xmlns:f="/lib/form">
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
 
   <f:section title="Anchore Build Options">
 
     <f:entry title="Image list file" field="name">
-      <f:textbox default="anchore_images"/>
+      <f:textbox default="${descriptor.DEFAULT_NAME}"/>
     </f:entry>
-
-    <j:if test="${descriptor.isMode('anchorelocal')}">
-      <f:entry title="User scripts directory" field="userScripts">
-    	<f:textbox default="anchore_user_scripts"/>
-      </f:entry>
-    </j:if>
 
     <f:entry title="Fail build on policy check STOP result" field="bailOnFail">
-      <f:checkbox name="bailOnFail" checked="${instance.bailOnFail}" default="${true}"/>
+      <f:checkbox name="bailOnFail" checked="${instance.bailOnFail}" default="${descriptor.DEFAULT_BAIL_ON_FAIL}"/>
     </f:entry>
-
-    <j:if test="${descriptor.isMode('anchorelocal')}">
-      <f:entry title="Fail build on policy check WARN result" field="bailOnWarn">
-	<f:checkbox name="bailOnWarn" checked="${instance.bailOnWarn}" default="${false}"/>
-      </f:entry>
-    </j:if>
 
     <f:entry title="Fail build on critical plugin error" field="bailOnPluginFail">
-      <f:checkbox name="bailOnPluginFail" checked="${instance.bailOnPluginFail}" default="${true}"/>
+      <f:checkbox name="bailOnPluginFail" checked="${instance.bailOnPluginFail}" default="${descriptor.DEFAULT_BAIL_ON_PLUGIN_FAIL}"/>
     </f:entry>
 
-    <j:if test="${descriptor.isMode('anchorelocal')}">
-      <f:entry title="Delete analyzed images from AnchoreDB" field="doCleanup">
-	<f:checkbox name="doCleanup" checked="${instance.doCleanup}" default="${false}"/>
-      </f:entry>
-    </j:if>
+    <j:choose>
+      <j:when test="${descriptor.isMode('anchoreengine')}">
+        <f:entry title="AnchoreEngine operation retries" field="engineRetries">
+          <f:textbox default="${descriptor.DEFAULT_ENGINE_RETRIES}"/>
+        </f:entry>
+      </j:when>
 
-    <j:if test="${descriptor.isMode('anchoreengine')}">
-      <f:entry title="AnchoreEngine operation retries" field="engineRetries">
-    	<f:textbox default="300"/>
-      </f:entry>
-    </j:if>
+      <j:when test="${descriptor.isMode('anchorelocal')}">
+        <f:entry title="User scripts directory" field="userScripts">
+          <f:textbox default="${descriptor.DEFAULT_USER_SCRIPTS}"/>
+        </f:entry>
+
+        <f:entry title="Fail build on policy check WARN result" field="bailOnWarn">
+          <f:checkbox name="bailOnWarn" checked="${instance.bailOnWarn}" default="${descriptor.DEFAULT_BAIL_ON_WARN}"/>
+        </f:entry>
+
+        <f:entry title="Delete analyzed images from AnchoreDB" field="doCleanup">
+          <f:checkbox name="doCleanup" checked="${instance.doCleanup}" default="${descriptor.DEFAULT_DO_CLEANUP}"/>
+        </f:entry>
+
+        <f:entry title="Anchore query list">
+          <f:repeatableProperty field="inputQueries" noAddButton="false" add="Add query"
+            default="${instance == null ? descriptor.DEFAULT_INPUT_QUERIES : null}">
+            <f:entry>
+              <div align="right">
+                <f:repeatableDeleteButton/>
+              </div>
+            </f:entry>
+          </f:repeatableProperty>
+        </f:entry>
+
+        <f:section title="Policy Evaluation Method">
+          <f:radioBlock name="policyEvalMethod" value="autosync" title="Automatic Bundle Sync"
+            checked="${instance != null &amp;&amp; instance.policyEvalMethod == 'autosync'}" inline="true"
+            help="/plugin/anchore-container-scanner/help/help-policyEvalMethod.html">
+            <f:entry title="Anchore.io username" field="anchoreioUser">
+              <f:textbox/>
+            </f:entry>
+            <f:entry title="Anchore.io password" field="anchoreioPass">
+              <f:password/>
+            </f:entry>
+            <f:entry title="Use cached bundle if login fails" field="useCachedBundle">
+              <f:checkbox name="useCachedBundle" checked="${instance.useCachedBundle}"
+                default="${descriptor.DEFAULT_USE_CACHED_BUNDLE}"/>
+            </f:entry>
+          </f:radioBlock>
+
+          <f:radioBlock name="policyEvalMethod" value="bundlefile" title="Bundle File Override"
+            checked="${instance != null &amp;&amp; instance.policyEvalMethod == 'bundlefile'}" inline="true"
+            help="/plugin/anchore-container-scanner/help/help-policyEvalMethod.html">
+            <f:entry title="Bundle File" field="bundleFileOverride">
+              <f:textbox default="${descriptor.DEFAULT_BUNDLE_FILE_OVERRIDE}"/>
+            </f:entry>
+          </f:radioBlock>
+
+          <f:radioBlock name="policyEvalMethod" value="plainfile" title="Policy/Whitelist Override"
+            checked="${instance == null || instance.policyEvalMethod == null || instance.policyEvalMethod == 'plainfile'}"
+            inline="true"
+            help="/plugin/anchore-container-scanner/help/help-policyEvalMethod.html">
+            <f:entry title="Policy file" field="policyName">
+              <f:textbox default="${descriptor.DEFAULT_POLICY_NAME}"/>
+            </f:entry>
+
+            <f:entry title="Global white list file" field="globalWhiteList">
+              <f:textbox default="${descriptor.DEFAULT_GLOBAL_WHITELIST}"/>
+            </f:entry>
+          </f:radioBlock>
+        </f:section>
+
+      </j:when>
+    </j:choose>
 
   </f:section>
-
-  <j:if test="${descriptor.isMode('anchorelocal')}">
-    <f:section title="Anchore Queries">
-      <!-- doQuery is deprecated but using it here for upgrade purposes -->
-      <f:nested>
-	<f:optionalBlock title="Enable Queries" name="queriesBlock"
-			 checked="${instance == null || instance.inputQueries != null || instance.doQuery}"
-			 help="/plugin/anchore-container-scanner/help/help-queriesBlock.html">
-          <f:entry title="Anchore Query List" field="inputQueries">
-            <f:repeatableProperty field="inputQueries" noAddButton="true"
-				  default="${(instance != null &amp;&amp; instance.doQuery) ? descriptor.getQueries(instance.query1, instance.query2, instance.query3, instance.query4) : descriptor.getDefaultQueries()}"/>
-          </f:entry>
-	</f:optionalBlock>
-      </f:nested>
-    </f:section>
-
-    <f:section title="Policy Evaluation Method">
-      <f:radioBlock name="policyEvalMethod" value="autosync" title="Automatic Bundle Sync" checked="${instance.policyEvalMethod == 'autosync'}" inline="true" help="/plugin/anchore-container-scanner/help/help-policyEvalMethod.html">
-        <f:entry title="Anchore.io username" field="anchoreioUser">
-	  <f:textbox />
-	</f:entry>
-	<f:entry title="Anchore.io password" field="anchoreioPass">
-	  <f:password />
-	</f:entry>      
-	<f:entry title="Use cached bundle if login fails" field="useCachedBundle">
-	  <f:checkbox name="useCachedBundle" checked="${instance.useCachedBundle}" default="${true}"/>
-	</f:entry>
-      </f:radioBlock>
-
-      <f:radioBlock name="policyEvalMethod" value="bundlefile" title="Bundle File Override" checked="${instance.policyEvalMethod == 'bundlefile'}" inline="true" help="/plugin/anchore-container-scanner/help/help-policyEvalMethod.html">
-        <f:entry title="Bundle File" field="bundleFileOverride">
-	  <f:textbox default="anchore_policy_bundle.json"/>
-	</f:entry>
-	
-      </f:radioBlock>
-
-      <f:radioBlock name="policyEvalMethod" value="plainfile" title="Policy/Whitelist Override" checked="${instance == null || instance.policyEvalMethod == null || instance.policyEvalMethod == 'plainfile'}" inline="true" help="/plugin/anchore-container-scanner/help/help-policyEvalMethod.html">
-	<f:entry title="Policy file" field="policyName">
-	  <f:textbox default="anchore_policy"/>
-	</f:entry>
-
-	<f:entry title="Global white list file" field="globalWhiteList">
-	  <f:textbox default="anchore_global_whitelist"/>
-	</f:entry>
-
-      </f:radioBlock>
-
-    </f:section>
-  </j:if>
 </j:jelly>

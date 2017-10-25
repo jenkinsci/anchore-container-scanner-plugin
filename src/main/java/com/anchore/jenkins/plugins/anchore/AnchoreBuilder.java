@@ -15,58 +15,17 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.HashMap;
 import java.util.logging.Logger;
 import javax.annotation.Nonnull;
 import jenkins.tasks.SimpleBuildStep;
 import net.sf.json.JSONObject;
-import net.sf.json.JSONArray;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
-/*
-import org.apache.commons.httpclient.*;
-import org.apache.commons.httpclient.methods.*;
-import org.apache.commons.httpclient.auth.AuthScope;
-import org.apache.commons.httpclient.params.HttpMethodParams;
-import org.apache.commons.codec.binary.Base64;
-*/
-/*
-import org.apache.http.HttpEntity;
-import org.apache.http.NameValuePair;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.util.EntityUtils;
-import org.apache.http.conn.ssl.*;
-
-import org.apache.http.auth.*;
-import org.apache.http.client.*;
-import org.apache.http.client.protocol.*;
-import org.apache.http.impl.client.*;
-
-import java.security.cert.X509Certificate;
-import java.security.cert.*;
-
-import javax.net.ssl.SSLContext;
-*/
 /**
  * <p>Anchore Plugin enables Jenkins users to scan container images, generate analysis, evaluate gate policy, and execute customizable
  * queries. The plugin can be used in a freestyle project as a build step or invoked from a pipeline script</p>
@@ -88,42 +47,30 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   //  Log handler for logging above INFO level events to jenkins log
   private static final Logger LOG = Logger.getLogger(AnchoreBuilder.class.getName());
 
-  // Job/build configuration
+  // Assigning the defaults here for pipeline builds
   private String name;
-  private String policyName;
-  private String globalWhiteList;
-  private String anchoreioUser;
-  private String anchoreioPass;
-  private String userScripts;
-  private String engineRetries;
-  private boolean bailOnFail = true;
-  private boolean bailOnWarn = false;
-  private boolean bailOnPluginFail = true;
-  private boolean doCleanup = false;
-  private boolean useCachedBundle = true;
-  private String policyEvalMethod;
-  private String bundleFileOverride;
+  private String policyName = DescriptorImpl.DEFAULT_POLICY_NAME;
+  private String globalWhiteList = DescriptorImpl.DEFAULT_GLOBAL_WHITELIST;
+  private String anchoreioUser = DescriptorImpl.DEFAULT_ANCHORE_IO_USER;
+  private String anchoreioPass = DescriptorImpl.DEFAULT_ANCHORE_IO_PASSWORD;
+  private String userScripts = DescriptorImpl.DEFAULT_USER_SCRIPTS;
+  private String engineRetries = DescriptorImpl.DEFAULT_ENGINE_RETRIES;
+  private boolean bailOnFail = DescriptorImpl.DEFAULT_BAIL_ON_FAIL;
+  private boolean bailOnWarn = DescriptorImpl.DEFAULT_BAIL_ON_WARN;
+  private boolean bailOnPluginFail = DescriptorImpl.DEFAULT_BAIL_ON_PLUGIN_FAIL;
+  private boolean doCleanup = DescriptorImpl.DEFAULT_DO_CLEANUP;
+  private boolean useCachedBundle = DescriptorImpl.DEFAULT_USE_CACHED_BUNDLE;
+  private String policyEvalMethod = DescriptorImpl.DEFAULT_POLICY_EVAL_METHOD;
+  private String bundleFileOverride = DescriptorImpl.DEFAULT_BUNDLE_FILE_OVERRIDE;
   private List<AnchoreQuery> inputQueries;
-
-  // Keeping these around for upgrade
-  @Deprecated
-  private boolean doQuery;
-  @Deprecated
-  private String query1;
-  @Deprecated
-  private String query2;
-  @Deprecated
-  private String query3;
-  @Deprecated
-  private String query4;
 
   // Getters are used by config.jelly
   public String getName() {
-    return (name);
+    return name;
   }
 
   public String getPolicyName() {
-    return (policyName);
+    return policyName;
   }
 
   public String getGlobalWhiteList() {
@@ -139,63 +86,43 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   }
 
   public String getUserScripts() {
-    return (userScripts);
+    return userScripts;
   }
 
   public String getEngineRetries() {
-    return (engineRetries);
+    return engineRetries;
   }
 
   public boolean getBailOnFail() {
-    return (bailOnFail);
+    return bailOnFail;
   }
 
   public boolean getBailOnWarn() {
-    return (bailOnWarn);
+    return bailOnWarn;
   }
 
   public boolean getBailOnPluginFail() {
-    return (bailOnPluginFail);
+    return bailOnPluginFail;
   }
 
   public boolean getDoCleanup() {
-    return (doCleanup);
+    return doCleanup;
   }
 
   public boolean getUseCachedBundle() {
-    return (useCachedBundle);
+    return useCachedBundle;
   }
 
   public String getPolicyEvalMethod() {
-    return (policyEvalMethod);
+    return policyEvalMethod;
   }
 
   public String getBundleFileOverride() {
-    return (bundleFileOverride);
+    return bundleFileOverride;
   }
 
   public List<AnchoreQuery> getInputQueries() {
     return inputQueries;
-  }
-
-  public boolean isDoQuery() {
-    return doQuery;
-  }
-
-  public String getQuery1() {
-    return query1;
-  }
-
-  public String getQuery2() {
-    return query2;
-  }
-
-  public String getQuery3() {
-    return query3;
-  }
-
-  public String getQuery4() {
-    return query4;
   }
 
   @DataBoundSetter
@@ -269,12 +196,6 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     this.inputQueries = inputQueries;
   }
 
-  @DataBoundSetter
-  public void setQueriesBlock(AnchoreQueriesBlock queriesBlock) {
-    if (null != queriesBlock) {
-      this.inputQueries = queriesBlock.getInputQueries();
-    }
-  }
 
   // Fields in config.jelly must match the parameter names in the "DataBoundConstructor" or "DataBoundSetter"
   @DataBoundConstructor
@@ -298,75 +219,78 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
     try {
 
-	if (false) {
+      // Instantiate a new build worker
+      worker = new BuildWorker(run, workspace, launcher, listener,
+          new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, engineRetries, bailOnFail,
+              bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride, inputQueries,
+              globalConfig.getDebug(), globalConfig.getEnabled(), globalConfig.getEnginemode(), globalConfig.getEngineurl(),
+              globalConfig.getEngineuser(), globalConfig.getEnginepass(), globalConfig.getEngineverify(),
+              globalConfig.getContainerImageId(), globalConfig.getContainerId(), globalConfig.getLocalVol(),
+              globalConfig.getModulesVol(), globalConfig.getUseSudo()));
 
-	} else {
-	    // Instantiate a new build worker
-	    worker = new BuildWorker(run, workspace, launcher, listener, new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, engineRetries, bailOnFail, bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride, inputQueries, globalConfig.getDebug(), globalConfig.getEnabled(), globalConfig.getEnginemode(), globalConfig.getEngineurl(), globalConfig.getEngineuser(), globalConfig.getEnginepass(), globalConfig.getEngineverify(), globalConfig.getContainerImageId(), globalConfig.getContainerId(), globalConfig.getLocalVol(), globalConfig.getModulesVol(), globalConfig.getUseSudo()));
-	    
-	    
-	    /* Run analysis */
-	    worker.runAnalyzer();
-	    
-	    /* Run gates */
-	    finalAction = worker.runGates();
-	    
-	    if (globalConfig.getEnginemode().equals("anchorelocal")) {
-		/* Run queries and continue even if it fails */
-		try {
-		    worker.runQueries();
-		} catch (Exception e) {
-		console.logWarn("Recording failure to execute Anchore queries and moving on with plugin operation", e);
-		}
-		
-	    }
-	    /* Setup reports */
-	    worker.setupBuildReports();
 
-	}	    
-	/* Evaluate result of build step based on gate action */
-	if (null != finalAction) {
-	    if ((bailOnFail && GATE_ACTION.STOP.equals(finalAction)) || (bailOnWarn && GATE_ACTION.WARN.equals(finalAction))) {
-		console.logWarn("Failing Anchore Container Image Scanner Plugin build step due to final gate result " + finalAction);
-		failedByGate = true;
-		throw new AbortException(
-					 "Failing Anchore Container Image Scanner Plugin build step due to final gate result " + finalAction);
-	    } else {
-		console.logInfo("Marking Anchore Container Image Scanner build step as successful, final gate result " + finalAction);
-	    }
-	} else {
-	    console.logInfo("Marking Anchore Container Image Scanner build step as successful, no final gate result");
-	}
-	    
+      /* Run analysis */
+      worker.runAnalyzer();
+
+      /* Run gates */
+      finalAction = worker.runGates();
+
+      /* Run queries and continue even if it fails */
+      if (globalConfig.getEnginemode().equals("anchorelocal")) {
+        try {
+          worker.runQueries();
+        } catch (Exception e) {
+          console.logWarn("Recording failure to execute Anchore queries and moving on with plugin operation", e);
+        }
+
+      }
+
+      /* Setup reports */
+      worker.setupBuildReports();
+
+      /* Evaluate result of build step based on gate action */
+      if (null != finalAction) {
+        if ((bailOnFail && GATE_ACTION.STOP.equals(finalAction)) || (bailOnWarn && GATE_ACTION.WARN.equals(finalAction))) {
+          console.logWarn("Failing Anchore Container Image Scanner Plugin build step due to final gate result " + finalAction);
+          failedByGate = true;
+          throw new AbortException(
+              "Failing Anchore Container Image Scanner Plugin build step due to final gate result " + finalAction);
+        } else {
+          console.logInfo("Marking Anchore Container Image Scanner build step as successful, final gate result " + finalAction);
+        }
+      } else {
+        console.logInfo("Marking Anchore Container Image Scanner build step as successful, no final gate result");
+      }
+
     } catch (Exception e) {
-	if (failedByGate) {
-	    throw e;
-	} else if (bailOnPluginFail) {
-	    console.logError("Failing Anchore Container Image Scanner Plugin build step due to errors in plugin execution", e);
-	    if (e instanceof AbortException) {
-		throw e;
-	    } else {
-		throw new AbortException("Failing Anchore Container Image Scanner Plugin build step due to errors in plugin execution");
-	    }
-	} else {
-	    console.logWarn("Marking Anchore Container Image Scanner build step as successful despite errors in plugin execution");
-	}
+      if (failedByGate) {
+        throw e;
+      } else if (bailOnPluginFail) {
+        console.logError("Failing Anchore Container Image Scanner Plugin build step due to errors in plugin execution", e);
+        if (e instanceof AbortException) {
+          throw e;
+        } else {
+          throw new AbortException("Failing Anchore Container Image Scanner Plugin build step due to errors in plugin execution");
+        }
+      } else {
+        console.logWarn("Marking Anchore Container Image Scanner build step as successful despite errors in plugin execution");
+      }
     } finally {
-	// Wrap cleanup in try catch block to ensure this finally block does not throw an exception
-	if (null != worker) {
-	    try {
-		worker.cleanup();
-	    } catch (Exception e) {
-		console.logDebug("Failed to cleanup after the plugin, ignoring the errors", e);
-	    }
-	}
-	console.logInfo("Completed Anchore Container Image Scanner build step");
-	LOG.warning(
-		    "Completed Anchore Container Image Scanner build step, project: " + run.getParent().getDisplayName() + ", job: " + run
-		    .getNumber());
+      // Wrap cleanup in try catch block to ensure this finally block does not throw an exception
+      if (null != worker) {
+        try {
+          worker.cleanup();
+        } catch (Exception e) {
+          console.logDebug("Failed to cleanup after the plugin, ignoring the errors", e);
+        }
+      }
+      console.logInfo("Completed Anchore Container Image Scanner build step");
+      LOG.warning(
+          "Completed Anchore Container Image Scanner build step, project: " + run.getParent().getDisplayName() + ", job: " + run
+              .getNumber());
     }
   }
-    
+
   @Override
   public DescriptorImpl getDescriptor() {
     return (DescriptorImpl) super.getDescriptor();
@@ -376,8 +300,26 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   @Extension // This indicates to Jenkins that this is an implementation of an extension point.
   public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
 
-    // Global configuration
+    // Default job level config that may be used both by config.jelly and an instance of AnchoreBuilder
+    public static final String DEFAULT_NAME = "anchore_images";
+    public static final String DEFAULT_POLICY_NAME = "anchore_policy";
+    public static final String DEFAULT_GLOBAL_WHITELIST = "anchore_global_whitelist";
+    public static final String DEFAULT_ANCHORE_IO_USER = "";
+    public static final String DEFAULT_ANCHORE_IO_PASSWORD = "";
+    public static final String DEFAULT_USER_SCRIPTS = "anchore_user_scripts";
+    public static final String DEFAULT_ENGINE_RETRIES = "300";
+    public static final boolean DEFAULT_BAIL_ON_FAIL = true;
+    public static final boolean DEFAULT_BAIL_ON_WARN = false;
+    public static final boolean DEFAULT_BAIL_ON_PLUGIN_FAIL = true;
+    public static final boolean DEFAULT_DO_CLEANUP = false;
+    public static final boolean DEFAULT_USE_CACHED_BUNDLE = true;
+    public static final String DEFAULT_POLICY_EVAL_METHOD = "plainfile";
+    public static final String DEFAULT_BUNDLE_FILE_OVERRIDE = "anchore_policy_bundle.json";
+    public static final List<AnchoreQuery> DEFAULT_INPUT_QUERIES = ImmutableList
+        .of(new AnchoreQuery("cve-scan all"), new AnchoreQuery("list-packages all"), new AnchoreQuery("list-files all"),
+            new AnchoreQuery("show-pkg-diffs base"));
 
+    // Global configuration
     private boolean debug;
     private boolean enabled;
     private String enginemode;
@@ -391,9 +333,53 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     private String modulesVol;
     private boolean useSudo;
 
-    private static final List<AnchoreQuery> DEFAULT_QUERIES = ImmutableList
-        .of(new AnchoreQuery("list-packages all"), new AnchoreQuery("list-files all"), new AnchoreQuery("cve-scan all"),
-            new AnchoreQuery("show-pkg-diffs base"));
+    public void setDebug(boolean debug) {
+      this.debug = debug;
+    }
+
+    public void setEnabled(boolean enabled) {
+      this.enabled = enabled;
+    }
+
+    public void setEnginemode(String enginemode) {
+      this.enginemode = enginemode;
+    }
+
+    public void setEngineurl(String engineurl) {
+      this.engineurl = engineurl;
+    }
+
+    public void setEngineuser(String engineuser) {
+      this.engineuser = engineuser;
+    }
+
+    public void setEnginepass(String enginepass) {
+      this.enginepass = enginepass;
+    }
+
+    public void setEngineverify(boolean engineverify) {
+      this.engineverify = engineverify;
+    }
+
+    public void setContainerImageId(String containerImageId) {
+      this.containerImageId = containerImageId;
+    }
+
+    public void setContainerId(String containerId) {
+      this.containerId = containerId;
+    }
+
+    public void setLocalVol(String localVol) {
+      this.localVol = localVol;
+    }
+
+    public void setModulesVol(String modulesVol) {
+      this.modulesVol = modulesVol;
+    }
+
+    public void setUseSudo(boolean useSudo) {
+      this.useSudo = useSudo;
+    }
 
     public boolean getDebug() {
       return debug;
@@ -404,26 +390,26 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     }
 
     public String getEnginemode() {
-	if (Strings.isNullOrEmpty(enginemode)) {
-	    enginemode = "anchorelocal";
-	}
-	return enginemode;
+      if (Strings.isNullOrEmpty(enginemode)) {
+        enginemode = "anchorelocal";
+      }
+      return enginemode;
     }
 
     public boolean isMode(String inmode) {
-	if (null != inmode) {
-	    if (null != enginemode) {
-		if (enginemode.equals(inmode)) {
-		    return(true);
-		}
-	    } else {
-		if (inmode.equals("anchorelocal")) {
-		    return(true);
-		}
-	    }
-	}
+      if (null != inmode) {
+        if (null != enginemode) {
+          if (enginemode.equals(inmode)) {
+            return (true);
+          }
+        } else {
+          if (inmode.equals("anchorelocal")) {
+            return (true);
+          }
+        }
+      }
 
-	return(false);
+      return (false);
     }
 
     public String getEngineurl() {
@@ -462,31 +448,6 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       return modulesVol;
     }
 
-    public List<AnchoreQuery> getDefaultQueries() {
-      return DEFAULT_QUERIES;
-    }
-
-    public List<AnchoreQuery> getQueries(String query1, String query2, String query3, String query4) {
-      List<AnchoreQuery> toBeReturned = new ArrayList<>();
-      if (!Strings.isNullOrEmpty(query1)) {
-        toBeReturned.add(new AnchoreQuery(query1));
-      }
-      if (!Strings.isNullOrEmpty(query2)) {
-        toBeReturned.add(new AnchoreQuery(query2));
-      }
-      if (!Strings.isNullOrEmpty(query3)) {
-        toBeReturned.add(new AnchoreQuery(query3));
-      }
-      if (!Strings.isNullOrEmpty(query4)) {
-        toBeReturned.add(new AnchoreQuery(query4));
-      }
-      if (toBeReturned.isEmpty()) {
-        return DEFAULT_QUERIES;
-      } else {
-        return toBeReturned;
-      }
-    }
-
     public DescriptorImpl() {
       load();
     }
@@ -503,21 +464,9 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
     @Override
     public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
-      debug = formData.getBoolean("debug");
-      enabled = formData.getBoolean("enabled");
-      enginemode = formData.getString("enginemode");
-      engineurl = formData.getString("engineurl");
-      engineuser = formData.getString("engineuser");
-      enginepass = formData.getString("enginepass");
-      engineverify = formData.getBoolean("engineverify");
-      useSudo = formData.getBoolean("useSudo");
-      containerImageId = formData.getString("containerImageId");
-      containerId = formData.getString("containerId");
-      localVol = formData.getString("localVol");
-      modulesVol = formData.getString("modulesVol");
-
+      req.bindJSON(this, formData); // Use stapler request to bind
       save();
-      return super.configure(req, formData);
+      return true;
     }
 
     /**
