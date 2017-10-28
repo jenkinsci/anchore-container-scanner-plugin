@@ -289,7 +289,7 @@ public class BuildWorker {
     try {
       console.logInfo("Running Anchore Analyzer");
 
-      int rc = executeAnchoreCommand("analyze --imagefile " + anchoreImageFileName);
+      int rc = executeAnchoreCommand("analyze --skipgates --imagefile " + anchoreImageFileName);
       if (rc != 0) {
         console.logError("Anchore analyzer failed with return code " + rc + ", check output above for details");
         throw new AbortException("Anchore analyzer failed, check output above for details");
