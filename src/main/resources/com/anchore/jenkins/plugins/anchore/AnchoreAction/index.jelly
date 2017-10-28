@@ -54,7 +54,7 @@
                   <style>#gates_summary_table_wrapper {float: left; width: 100%; margin-bottom: 50px;}</style>
                   <table id="gates_summary_table" class="table table-striped table-bordered dataTable no-footer" style="width: 100%;"></table>
                   <script type="text/javascript">
-                    buildTableFromObject("#gates_summary_table", ${it.gateSummary});
+                    buildPolicyEvalSummaryTable("#gates_summary_table", ${it.gateSummary});
                   </script>
                 </j:if>
 
@@ -63,7 +63,7 @@
                 <style>#gates_table_wrapper {float: left; width: 100%; margin-bottom: 50px;}</style>
                 <table id="gates_table" class="table table-striped table-bordered dataTable no-footer" style="width: 100%;"></table>
                 <script type="text/javascript">
-                  buildPolicyEvalTableFromAnchoreOutput("#gates_table", "${it.gateOutputUrl}");
+                  buildPolicyEvalTable("#gates_table", "${it.gateOutputUrl}");
                 </script>
               </div>
               <j:set var="counter" value="0"/>

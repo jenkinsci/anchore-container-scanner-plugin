@@ -21,22 +21,22 @@ Requirements:
 
 To install the plugin manually:
 
-1) compile the plugin by running 'mvn package' in the anchore-container-scanner-plugin source directory
+1) Compile the plugin by running 'mvn package' in the anchore-container-scanner-plugin source directory
 
-2) install the resulting 'target/anchore-container-scanner.hpi' plugin into jenkins, using the standard jenkins plugin upload procedure
+2) Install the resulting 'target/anchore-container-scanner.hpi' plugin into jenkins, using the standard jenkins plugin upload procedure
 
-3) under 'Manage Jenkins' -> 'Configure System', locate the 'Anchore' section and be sure to select 'Enable Anchore Scanning' radio box, and save
+3) Under 'Manage Jenkins' -> 'Configure System', locate the 'Anchore' section and be sure to select 'Enable Anchore Scanning' radio box, and save
 
-4) to use the plugin
+4) To use the plugin
 
-   a) create a new jenkins job (or configure an exiting job) and you can now add an 'Anchore Container Image Scanner' build step or
+   a) Create a new jenkins job (or configure an exiting job) and you can now add an 'Anchore Container Image Scanner' build step or
   
-   b) invoke anchore container scanner plugin in a pipeline script. Following is a sample code snippet. For more options refer to 'Pipeline Syntax' -> 'Step Reference' 
+   b) Invoke anchore container scanner plugin in a pipeline script. Following is a sample code snippet. For more options refer to Pipeline Syntax and try the Snippet Generator
    ```
    node {
-     def imageLine = '6cba161501c8' + ' ' + env.WORKSPACE + '/DockerFile'
+     def imageLine = 'debian:latest'
      writeFile file: 'anchore_images', text: imageLine
-     anchore name: 'anchore_images', inputQueries: [[query: 'list-packages all'], [query: 'list-files all'], [query: 'cve-scan all'], [query: 'show-pkg-diffs base']]
+     anchore name: 'anchore_images', inputQueries: [[query: 'cve-scan all'], [query: 'list-packages all'], [query: 'list-files all'], [query: 'show-pkg-diffs base']]
    }
    ```
 

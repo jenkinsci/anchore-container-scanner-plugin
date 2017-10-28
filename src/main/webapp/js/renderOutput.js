@@ -4,7 +4,31 @@ const actionLookup = {
   go: 2,
 };
 
-function buildPolicyEvalTableFromAnchoreOutput(tableId, outputFile) {
+function gateAction(source, type, val) {
+  var el = '<span>' + source + '</span>';
+  if ((typeof source === 'string') && source.trim().toLowerCase().match(/(stop|go|warn)/g)) {
+    switch (source.trim().toLowerCase()) {
+      case 'stop': {
+        el = '<span style="display:none;">' + actionLookup[source.toLowerCase()]
+            + '</span><span class="label label-danger">' + source.toUpperCase() + '</span>';
+        break;
+      }
+      case 'go': {
+        el = '<span style="display:none;">' + actionLookup[source.toLowerCase()]
+            + '</span><span class="label label-success">' + source.toUpperCase() + '</span>';
+        break;
+      }
+      case 'warn': {
+        el = '<span style = "display:none;">' + actionLookup[source.toLowerCase()]
+            + '</span><span class="label label-warning">' + source.toUpperCase() + '</span>';
+        break;
+      }
+    }
+  }
+  return el;
+}
+
+function buildPolicyEvalTable(tableId, outputFile) {
   jQuery.getJSON(outputFile, function (data) {
         var headers = [];
         var rows = [];
@@ -28,30 +52,7 @@ function buildPolicyEvalTableFromAnchoreOutput(tableId, outputFile) {
             columnDefs: [
               {
                 targets: 6,
-                render: function (source, type, val) {
-                  var el = '<span>' + source + '</span>';
-                  if ((typeof source === 'string') && source.trim().toLowerCase().match(/(stop|go|warn)/g)) {
-                    switch (source.trim().toLowerCase()) {
-                      case 'stop': {
-                        el = '<span style="display:none;">' + actionLookup[source.toLowerCase()]
-                            + '</span><span>' + source.toUpperCase() + '</span>';
-                        break;
-                      }
-                      case 'go': {
-                        el = '<span style="display:none;">' + actionLookup[source.toLowerCase()]
-                            + '</span><span>' + source.toUpperCase() + '</span>';
-                        break;
-                      }
-                      case 'warn': {
-                        el =
-                            '<span style = "display:none;">' + actionLookup[source.toLowerCase()]
-                            + '</span><span>' + source.toUpperCase() + '</span>';
-                        break;
-                      }
-                    }
-                  }
-                  return el;
-                },
+                render: gateAction
               }
             ]
           });
@@ -122,13 +123,37 @@ function buildTableFromAnchoreOutputWithUrls(tableId, outputFile, index) {
   });
 }
 
-function buildTableFromObject(tableId, tableObj) {
-
+function buildPolicyEvalSummaryTable(tableId, tableObj) {
   jQuery(document).ready(function () {
     jQuery(tableId).DataTable({
       retrieve: true,
       data: tableObj.rows,
-      columns: tableObj.header
+      columns: tableObj.header,
+      order: [[4, 'asc']],
+      columnDefs: [
+        {
+          targets: 1,
+          render: function (source, type, val) {
+            return '<span class="label label-danger">' + source + '</span>';
+          }
+        },
+        {
+          targets: 2,
+          render: function (source, type, val) {
+            return '<span class="label label-warning">' + source + '</span>';
+          }
+        },
+        {
+          targets: 3,
+          render: function (source, type, val) {
+            return '<span class="label label-success">' + source + '</span>';
+          }
+        },
+        {
+          targets: 4,
+          render: gateAction
+        }
+      ]
     });
   });
 }
