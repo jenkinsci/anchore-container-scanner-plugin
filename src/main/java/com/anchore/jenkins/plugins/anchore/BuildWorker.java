@@ -820,9 +820,9 @@ public class BuildWorker {
 
       if (finalAction != null) {
         build.addAction(
-            new AnchoreAction(build, finalAction.toString(), jenkinsOutputDirName, gateOutputFileName, queryOutputMap, gateSummary));
+			new AnchoreAction(build, finalAction.toString(), jenkinsOutputDirName, gateOutputFileName, queryOutputMap, gateSummary.toString()));
       } else {
-        build.addAction(new AnchoreAction(build, "", jenkinsOutputDirName, gateOutputFileName, queryOutputMap, gateSummary));
+	  build.addAction(new AnchoreAction(build, "", jenkinsOutputDirName, gateOutputFileName, queryOutputMap, gateSummary.toString()));
       }
       //    } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
       //      throw e;

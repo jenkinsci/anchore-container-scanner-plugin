@@ -1,10 +1,11 @@
 package com.anchore.jenkins.plugins.anchore;
 
 import com.google.common.base.Function;
-import com.google.common.collect.Maps;
+//import com.google.common.collect.Maps;
 import hudson.model.Action;
 import hudson.model.Run;
 import java.util.Map;
+import java.util.HashMap;
 import javax.annotation.Nullable;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
@@ -20,7 +21,7 @@ public class AnchoreAction implements Action {
   private String gateStatus;
   private String gateOutputUrl;
   private Map<String, String> queryOutputUrls;
-  private JSONObject gateSummary;
+  private String gateSummary;
 
   // For backwards compatibility
   @Deprecated
@@ -30,10 +31,21 @@ public class AnchoreAction implements Action {
 
 
   public AnchoreAction(Run<?, ?> build, String gateStatus, final String jenkinsOutputDirName, String gateReport,
-      Map<String, String> queryReports, JSONObject gateSummary) {
+      Map<String, String> queryReports, String gateSummary) {
     this.build = build;
     this.gateStatus = gateStatus;
     this.gateOutputUrl = "../artifact/" + jenkinsOutputDirName + "/" + gateReport;
+
+    this.queryOutputUrls = new HashMap<String, String>();
+    for (Map.Entry<String, String> entry : queryReports.entrySet()) {
+	String k = entry.getKey();
+	String v = entry.getValue();
+	String newv = "../artifact/" + jenkinsOutputDirName + "/" + v;
+	this.queryOutputUrls.put(k, newv);
+    }
+
+    // original maps conversion method
+    /*
     this.queryOutputUrls = Maps.transformValues(queryReports, new Function<String, String>() {
 
       @Override
@@ -41,6 +53,7 @@ public class AnchoreAction implements Action {
         return "../artifact/" + jenkinsOutputDirName + "/" + queryOutput;
       }
     });
+    */
     this.gateSummary = gateSummary;
   }
 
@@ -76,7 +89,8 @@ public class AnchoreAction implements Action {
   }
 
   public JSONObject getGateSummary() {
-    return gateSummary;
+      JSONObject ret = JSONObject.fromObject(gateSummary);
+      return ret;
   }
 
   public String getGateReportUrl() {
