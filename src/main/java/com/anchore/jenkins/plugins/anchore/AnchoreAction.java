@@ -1,12 +1,9 @@
 package com.anchore.jenkins.plugins.anchore;
 
-import com.google.common.base.Function;
-//import com.google.common.collect.Maps;
 import hudson.model.Action;
 import hudson.model.Run;
 import java.util.Map;
 import java.util.HashMap;
-import javax.annotation.Nullable;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
@@ -38,10 +35,10 @@ public class AnchoreAction implements Action {
 
     this.queryOutputUrls = new HashMap<String, String>();
     for (Map.Entry<String, String> entry : queryReports.entrySet()) {
-	String k = entry.getKey();
-	String v = entry.getValue();
-	String newv = "../artifact/" + jenkinsOutputDirName + "/" + v;
-	this.queryOutputUrls.put(k, newv);
+      String k = entry.getKey();
+      String v = entry.getValue();
+      String newv = "../artifact/" + jenkinsOutputDirName + "/" + v;
+      this.queryOutputUrls.put(k, newv);
     }
 
     // original maps conversion method
@@ -85,12 +82,31 @@ public class AnchoreAction implements Action {
   }
 
   public Map<String, String> getQueryOutputUrls() {
+    // queryOutputUrls was a guava TransformedEntriesMap object in plugin version <= 1.0.12. Jenkins does not handle this type
+    // change correctly post upgrade. Transfer the contents from the underlying guava map to a native java map using the keys and
+    // some hacky guess work
+    if (!(this.queryOutputUrls instanceof HashMap)) {
+      String base_path = this.gateOutputUrl.substring(0, this.gateOutputUrl.lastIndexOf('/'));
+      int query_num = 0;
+      Map<String, String> fixedQueryOutputUrls = new HashMap<>();
+      for (String key : this.queryOutputUrls.keySet()) {
+        fixedQueryOutputUrls.put(key, base_path + "/anchore_query_" + String.valueOf(++query_num) + ".json");
+      }
+      return fixedQueryOutputUrls;
+    }
     return this.queryOutputUrls;
   }
 
   public JSONObject getGateSummary() {
-      JSONObject ret = JSONObject.fromObject(gateSummary);
-      return ret;
+    // gateSummary was a JSON object in plugin version <= 1.0.12. Jenkins does not handle this type change correctly post upgrade.
+    // Summary data from the previous versions is lost during deserialization due to the type change and plugin versions > 1.0.12
+    // won't be able to render the summary table only for builds that were executed using older versions of the plugin. This check
+    // is necessary to ensure plugin doesn't exception out in the process
+    if (this.gateSummary != null && this.gateSummary.trim().length() > 0) {
+      return JSONObject.fromObject(this.gateSummary);
+    } else {
+      return null;
+    }
   }
 
   public String getGateReportUrl() {
