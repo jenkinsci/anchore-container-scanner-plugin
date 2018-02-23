@@ -4,6 +4,7 @@ import hudson.model.Action;
 import hudson.model.Run;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Collection;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
@@ -82,9 +83,12 @@ public class AnchoreAction implements Action {
   }
 
   public Map<String, String> getQueryOutputUrls() {
-    // queryOutputUrls was a guava TransformedEntriesMap object in plugin version <= 1.0.12. Jenkins does not handle this type
-    // change correctly post upgrade. Transfer the contents from the underlying guava map to a native java map using the keys and
+    // queryOutputUrls was a guava TransformedEntriesMap object in plugin version < 1.0.13 and is loaded as such. Plugin versions >=
+    // 1.0.13 changed the type definition and lose the transformer function required for reading the  map contents. This results in
+    // a failure to load the member. Transfer the contents from the underlying guava map to a native java map using the keys and
     // some hacky guess work
+
+    /* Find bugs does not like the instanceof check, falling back to try-catch approach
     if (!(this.queryOutputUrls instanceof HashMap)) {
       String base_path = this.gateOutputUrl.substring(0, this.gateOutputUrl.lastIndexOf('/'));
       int query_num = 0;
@@ -93,8 +97,22 @@ public class AnchoreAction implements Action {
         fixedQueryOutputUrls.put(key, base_path + "/anchore_query_" + String.valueOf(++query_num) + ".json");
       }
       return fixedQueryOutputUrls;
+    }*/
+
+    Map<String, String> fixedQueryOutputUrls = new HashMap<>();
+    try {
+      // Fetch values in the map to verify the underlying map is functional
+      if (null != this.queryOutputUrls) {
+        fixedQueryOutputUrls.putAll(this.queryOutputUrls);
+      }
+    } catch (Exception e) {
+      String base_path = this.gateOutputUrl.substring(0, this.gateOutputUrl.lastIndexOf('/'));
+      int query_num = 0;
+      for (String key : this.queryOutputUrls.keySet()) {
+        fixedQueryOutputUrls.put(key, base_path + "/anchore_query_" + String.valueOf(++query_num) + ".json");
+      }
     }
-    return this.queryOutputUrls;
+    return fixedQueryOutputUrls;
   }
 
   public JSONObject getGateSummary() {
@@ -102,7 +120,7 @@ public class AnchoreAction implements Action {
     // Summary data from the previous versions is lost during deserialization due to the type change and plugin versions > 1.0.12
     // won't be able to render the summary table only for builds that were executed using older versions of the plugin. This check
     // is necessary to ensure plugin doesn't exception out in the process
-    if (this.gateSummary != null && this.gateSummary.trim().length() > 0) {
+    if (null != this.gateSummary && this.gateSummary.trim().length() > 0) {
       return JSONObject.fromObject(this.gateSummary);
     } else {
       return null;
