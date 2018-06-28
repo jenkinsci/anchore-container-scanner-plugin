@@ -4,7 +4,6 @@ import hudson.model.Action;
 import hudson.model.Run;
 import java.util.Map;
 import java.util.HashMap;
-import java.util.Collection;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 

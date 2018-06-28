@@ -15,6 +15,10 @@
       <f:checkbox name="bailOnPluginFail" checked="${instance.bailOnPluginFail}" default="${descriptor.DEFAULT_BAIL_ON_PLUGIN_FAIL}"/>
     </f:entry>
 
+    <f:entry title="Fail build on policy check WARN result" field="bailOnWarn">
+      <f:checkbox name="bailOnWarn" checked="${instance.bailOnWarn}" default="${descriptor.DEFAULT_BAIL_ON_WARN}"/>
+    </f:entry>
+
     <j:choose>
       <j:when test="${descriptor.isMode('anchoreengine')}">
         <f:entry title="AnchoreEngine operation retries" field="engineRetries">
@@ -25,10 +29,6 @@
       <j:when test="${descriptor.isMode('anchorelocal')}">
         <f:entry title="User scripts directory" field="userScripts">
           <f:textbox default="${descriptor.DEFAULT_USER_SCRIPTS}"/>
-        </f:entry>
-
-        <f:entry title="Fail build on policy check WARN result" field="bailOnWarn">
-          <f:checkbox name="bailOnWarn" checked="${instance.bailOnWarn}" default="${descriptor.DEFAULT_BAIL_ON_WARN}"/>
         </f:entry>
 
         <f:entry title="Delete analyzed images from AnchoreDB" field="doCleanup">

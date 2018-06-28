@@ -44,6 +44,11 @@
       <name>Daniel Nurmi</name>
       <email>nurmi@anchore.com</email>
     </developer>
+    <developer>
+      <id>swathigangisetty</id>
+      <name>Swathi Gangisetty</name>
+      <email>swathi@anchore.com</email>
+    </developer>
   </developers>
 
   <scm>
