@@ -315,6 +315,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     public static final boolean DEFAULT_USE_CACHED_BUNDLE = true;
     public static final String DEFAULT_POLICY_EVAL_METHOD = "plainfile";
     public static final String DEFAULT_BUNDLE_FILE_OVERRIDE = "anchore_policy_bundle.json";
+    public static final String DEFAULT_PLUGIN_MODE = "anchoreengine";
     public static final List<AnchoreQuery> DEFAULT_INPUT_QUERIES = ImmutableList
         .of(new AnchoreQuery("cve-scan all"), new AnchoreQuery("list-packages all"), new AnchoreQuery("list-files all"),
             new AnchoreQuery("show-pkg-diffs base"));
@@ -391,25 +392,16 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
     public String getEnginemode() {
       if (Strings.isNullOrEmpty(enginemode)) {
-        enginemode = "anchorelocal";
+        enginemode = DEFAULT_PLUGIN_MODE;
       }
       return enginemode;
     }
 
     public boolean isMode(String inmode) {
-      if (null != inmode) {
-        if (null != enginemode) {
-          if (enginemode.equals(inmode)) {
-            return (true);
-          }
-        } else {
-          if (inmode.equals("anchorelocal")) {
-            return (true);
-          }
-        }
+      if (!Strings.isNullOrEmpty(inmode) && getEnginemode().equals(inmode)) {
+        return true;
       }
-
-      return (false);
+      return false;
     }
 
     public String getEngineurl() {
