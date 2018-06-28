@@ -63,6 +63,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   private String policyEvalMethod = DescriptorImpl.DEFAULT_POLICY_EVAL_METHOD;
   private String bundleFileOverride = DescriptorImpl.DEFAULT_BUNDLE_FILE_OVERRIDE;
   private List<AnchoreQuery> inputQueries;
+  private String policyBundleId = DescriptorImpl.DEFAULT_POLICY_BUNDLE_ID;
 
   // Getters are used by config.jelly
   public String getName() {
@@ -123,6 +124,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
   public List<AnchoreQuery> getInputQueries() {
     return inputQueries;
+  }
+
+  public String getPolicyBundleId() {
+    return policyBundleId;
   }
 
   @DataBoundSetter
@@ -196,6 +201,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     this.inputQueries = inputQueries;
   }
 
+  @DataBoundSetter
+  public void setPolicyBundleId(String policyBundleId) {
+    this.policyBundleId = policyBundleId;
+  }
 
   // Fields in config.jelly must match the parameter names in the "DataBoundConstructor" or "DataBoundSetter"
   @DataBoundConstructor
@@ -223,11 +232,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       worker = new BuildWorker(run, workspace, launcher, listener,
           new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, engineRetries, bailOnFail,
               bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride, inputQueries,
-              globalConfig.getDebug(), globalConfig.getEnabled(), globalConfig.getEnginemode(), globalConfig.getEngineurl(),
-              globalConfig.getEngineuser(), globalConfig.getEnginepass(), globalConfig.getEngineverify(),
+              policyBundleId, globalConfig.getDebug(), globalConfig.getEnabled(), globalConfig.getEnginemode(),
+              globalConfig.getEngineurl(), globalConfig.getEngineuser(), globalConfig.getEnginepass(), globalConfig.getEngineverify(),
               globalConfig.getContainerImageId(), globalConfig.getContainerId(), globalConfig.getLocalVol(),
               globalConfig.getModulesVol(), globalConfig.getUseSudo()));
-
 
       /* Run analysis */
       worker.runAnalyzer();
@@ -319,6 +327,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     public static final List<AnchoreQuery> DEFAULT_INPUT_QUERIES = ImmutableList
         .of(new AnchoreQuery("cve-scan all"), new AnchoreQuery("list-packages all"), new AnchoreQuery("list-files all"),
             new AnchoreQuery("show-pkg-diffs base"));
+    public static final String DEFAULT_POLICY_BUNDLE_ID = "";
 
     // Global configuration
     private boolean debug;

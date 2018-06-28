@@ -21,8 +21,12 @@
 
     <j:choose>
       <j:when test="${descriptor.isMode('anchoreengine')}">
-        <f:entry title="AnchoreEngine operation retries" field="engineRetries">
+        <f:entry title="Anchore Engine operation retries" field="engineRetries">
           <f:textbox default="${descriptor.DEFAULT_ENGINE_RETRIES}"/>
+        </f:entry>
+
+        <f:entry title="Anchore Engine policy bundle ID" field="policyBundleId">
+          <f:textbox default="${descriptor.DEFAULT_POLICY_BUNDLE_ID}"/>
         </f:entry>
       </j:when>
 

@@ -378,6 +378,10 @@ public class BuildWorker {
           String theurl =
               config.getEngineurl().replaceAll("/+$", "") + "/images/" + imageDigest + "/check?tag=" + tag + "&detail=true";
 
+          if (!Strings.isNullOrEmpty(config.getPolicyBundleId())) {
+            theurl += "&policyId=" + config.getPolicyBundleId();
+          }
+
           int tryCount = 0;
           int maxCount = Integer.parseInt(config.getEngineRetries());
           Boolean done = false;
@@ -819,10 +823,11 @@ public class BuildWorker {
       console.logDebug("Setting up build results");
 
       if (finalAction != null) {
-        build.addAction(
-			new AnchoreAction(build, finalAction.toString(), jenkinsOutputDirName, gateOutputFileName, queryOutputMap, gateSummary.toString()));
+        build.addAction(new AnchoreAction(build, finalAction.toString(), jenkinsOutputDirName, gateOutputFileName, queryOutputMap,
+            gateSummary.toString()));
       } else {
-	  build.addAction(new AnchoreAction(build, "", jenkinsOutputDirName, gateOutputFileName, queryOutputMap, gateSummary.toString()));
+        build
+            .addAction(new AnchoreAction(build, "", jenkinsOutputDirName, gateOutputFileName, queryOutputMap, gateSummary.toString()));
       }
       //    } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
       //      throw e;

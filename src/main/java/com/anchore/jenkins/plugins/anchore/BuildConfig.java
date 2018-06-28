@@ -26,6 +26,7 @@ public class BuildConfig {
   private String policyEvalMethod;
   private String bundleFileOverride;
   private List<AnchoreQuery> inputQueries;
+  private String policyBundleId;
 
   // Global configuration
   private boolean debug;
@@ -43,8 +44,8 @@ public class BuildConfig {
 
   public BuildConfig(String name, String policyName, String globalWhiteList, String anchoreioUser, String anchoreioPass,
       String userScripts, String engineRetries, boolean bailOnFail, boolean bailOnWarn, boolean bailOnPluginFail, boolean doCleanup,
-      boolean useCachedBundle, String policyEvalMethod, String bundleFileOverride, List<AnchoreQuery> inputQueries, boolean debug,
-      boolean enabled, String enginemode, String engineurl, String engineuser, String enginepass, boolean engineverify,
+      boolean useCachedBundle, String policyEvalMethod, String bundleFileOverride, List<AnchoreQuery> inputQueries, String policyBundleId,
+      boolean debug, boolean enabled, String enginemode, String engineurl, String engineuser, String enginepass, boolean engineverify,
       String containerImageId, String containerId, String localVol, String modulesVol, boolean useSudo) {
     this.name = name;
     this.policyName = policyName;
@@ -61,6 +62,7 @@ public class BuildConfig {
     this.policyEvalMethod = policyEvalMethod;
     this.bundleFileOverride = bundleFileOverride;
     this.inputQueries = inputQueries;
+    this.policyBundleId = policyBundleId;
     this.debug = debug;
     this.enabled = enabled;
     this.enginemode = enginemode;
@@ -77,7 +79,6 @@ public class BuildConfig {
     if (Strings.isNullOrEmpty(this.enginemode)) {
       this.enginemode = "anchoreengine";
     }
-
   }
 
   public String getName() {
@@ -138,6 +139,10 @@ public class BuildConfig {
 
   public List<AnchoreQuery> getInputQueries() {
     return inputQueries;
+  }
+
+  public String getPolicyBundleId() {
+    return policyBundleId;
   }
 
   public boolean getDebug() {
@@ -201,7 +206,7 @@ public class BuildConfig {
     consoleLog.logInfo("[global] useSudo: " + String.valueOf(useSudo));
     consoleLog.logInfo("[global] enginemode: " + enginemode);
 
-    if (enginemode.equals("anchoreengine")){
+    if (enginemode.equals("anchoreengine")) {
       // Global properties
       consoleLog.logInfo("[global] engineurl: " + engineurl);
       consoleLog.logInfo("[global] engineuser: " + engineuser);
@@ -211,6 +216,9 @@ public class BuildConfig {
       // Build properties
       consoleLog.logInfo("[build] name: " + name);
       consoleLog.logInfo("[build] engineRetries: " + engineRetries);
+      if (!Strings.isNullOrEmpty(policyBundleId)) {
+        consoleLog.logInfo("[build] policyBundleId: " + policyBundleId);
+      }
       consoleLog.logInfo("[build] bailOnFail: " + bailOnFail);
       consoleLog.logInfo("[build] bailOnWarn: " + bailOnWarn);
       consoleLog.logInfo("[build] bailOnPluginFail: " + bailOnPluginFail);
@@ -229,9 +237,9 @@ public class BuildConfig {
         consoleLog.logInfo("[build] anchoreioUser: " + anchoreioUser);
         consoleLog.logInfo("[build] anchoreioPass: " + "****");
         consoleLog.logInfo("[build] useCachedBundle: " + useCachedBundle);
-      } else if(policyEvalMethod.equals("bundlefile")) {
+      } else if (policyEvalMethod.equals("bundlefile")) {
         consoleLog.logInfo("[build] bundleFileOverride: " + bundleFileOverride);
-      } else if(policyEvalMethod.equals("plainfile")) {
+      } else if (policyEvalMethod.equals("plainfile")) {
         consoleLog.logInfo("[build] policyName: " + policyName);
         consoleLog.logInfo("[build] globalWhiteList: " + globalWhiteList);
       }
