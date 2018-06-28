@@ -216,9 +216,7 @@ public class BuildConfig {
       // Build properties
       consoleLog.logInfo("[build] name: " + name);
       consoleLog.logInfo("[build] engineRetries: " + engineRetries);
-      if (!Strings.isNullOrEmpty(policyBundleId)) {
-        consoleLog.logInfo("[build] policyBundleId: " + policyBundleId);
-      }
+      consoleLog.logInfo("[build] policyBundleId: " + policyBundleId);
       consoleLog.logInfo("[build] bailOnFail: " + bailOnFail);
       consoleLog.logInfo("[build] bailOnWarn: " + bailOnWarn);
       consoleLog.logInfo("[build] bailOnPluginFail: " + bailOnPluginFail);
