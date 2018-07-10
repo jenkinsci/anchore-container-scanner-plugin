@@ -218,7 +218,6 @@ public class BuildConfig {
       consoleLog.logInfo("[build] engineRetries: " + engineRetries);
       consoleLog.logInfo("[build] policyBundleId: " + policyBundleId);
       consoleLog.logInfo("[build] bailOnFail: " + bailOnFail);
-      consoleLog.logInfo("[build] bailOnWarn: " + bailOnWarn);
       consoleLog.logInfo("[build] bailOnPluginFail: " + bailOnPluginFail);
     } else {
       // Global properties

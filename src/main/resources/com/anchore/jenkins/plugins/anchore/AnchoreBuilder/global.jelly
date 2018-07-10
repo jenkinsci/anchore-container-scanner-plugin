@@ -7,7 +7,7 @@
       <f:checkbox name="enabled" checked="${descriptor.enabled}" default="${true}"/>
     </f:entry>
 
-    <f:entry title="Enable Debugging" field="debug">
+    <f:entry title="DEBUG log level" field="debug">
       <f:checkbox name="debug" checked="${descriptor.debug}" default="${false}"/>
     </f:entry>
 

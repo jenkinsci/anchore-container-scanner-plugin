@@ -15,10 +15,6 @@
       <f:checkbox name="bailOnPluginFail" checked="${instance.bailOnPluginFail}" default="${descriptor.DEFAULT_BAIL_ON_PLUGIN_FAIL}"/>
     </f:entry>
 
-    <f:entry title="Fail build on policy check WARN result" field="bailOnWarn">
-      <f:checkbox name="bailOnWarn" checked="${instance.bailOnWarn}" default="${descriptor.DEFAULT_BAIL_ON_WARN}"/>
-    </f:entry>
-
     <j:choose>
       <j:when test="${descriptor.isMode('anchoreengine')}">
         <f:entry title="Anchore Engine operation retries" field="engineRetries">
@@ -86,6 +82,10 @@
               <f:textbox default="${descriptor.DEFAULT_GLOBAL_WHITELIST}"/>
             </f:entry>
           </f:radioBlock>
+
+          <f:entry title="Fail build on policy check WARN result" field="bailOnWarn">
+            <f:checkbox name="bailOnWarn" checked="${instance.bailOnWarn}" default="${descriptor.DEFAULT_BAIL_ON_WARN}"/>
+          </f:entry>
         </f:section>
 
       </j:when>

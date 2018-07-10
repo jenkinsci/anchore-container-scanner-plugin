@@ -28,7 +28,7 @@ import org.kohsuke.stapler.StaplerRequest;
 
 /**
  * <p>Anchore Plugin enables Jenkins users to scan container images, generate analysis, evaluate gate policy, and execute customizable
- * queries. The plugin can be used in a freestyle project as a build step or invoked from a pipeline script</p>
+ * queries. The plugin can be used in a freestyle project as a step or invoked from a pipeline script</p>
  *
  * <p>Requirements:</p>
  *
@@ -40,7 +40,7 @@ import org.kohsuke.stapler.StaplerRequest;
  * <li>Each host on which jenkins jobs will run must have the latest anchore container image installed in the local docker host. To
  * install, run 'docker pull anchore/jenkins:latest' on each jenkins host to make the image available to the plugin. The plugin will
  * start an instance of the anchore/jenkins:latest docker container named 'jenkins_anchore' by default, on each host that runs a
- * jenkins job that includes an Anchore Container Image Scanner build step.</li> </ol>
+ * jenkins job that includes an Anchore Container Image Scanner step.</li> </ol>
  */
 public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
@@ -216,8 +216,8 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   public void perform(@Nonnull Run<?, ?> run, @Nonnull FilePath workspace, @Nonnull Launcher launcher, @Nonnull TaskListener listener)
       throws InterruptedException, IOException {
 
-    LOG.warning("Starting Anchore Container Image Scanner build step, project: " + run.getParent().getDisplayName() + ", job: " + run
-        .getNumber());
+    LOG.warning(
+        "Starting Anchore Container Image Scanner step, project: " + run.getParent().getDisplayName() + ", job: " + run.getNumber());
 
     boolean failedByGate = false;
     BuildWorker worker = null;
@@ -250,38 +250,37 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
         } catch (Exception e) {
           console.logWarn("Recording failure to execute Anchore queries and moving on with plugin operation", e);
         }
-
       }
 
       /* Setup reports */
       worker.setupBuildReports();
 
-      /* Evaluate result of build step based on gate action */
+      /* Evaluate result of step based on gate action */
       if (null != finalAction) {
-        if ((bailOnFail && GATE_ACTION.STOP.equals(finalAction)) || (bailOnWarn && GATE_ACTION.WARN.equals(finalAction))) {
-          console.logWarn("Failing Anchore Container Image Scanner Plugin build step due to final gate result " + finalAction);
+        if ((bailOnFail && (GATE_ACTION.STOP.equals(finalAction) || GATE_ACTION.FAIL.equals(finalAction))) || (bailOnWarn
+            && GATE_ACTION.WARN.equals(finalAction))) {
+          console.logWarn("Failing Anchore Container Image Scanner Plugin step due to final result " + finalAction);
           failedByGate = true;
-          throw new AbortException(
-              "Failing Anchore Container Image Scanner Plugin build step due to final gate result " + finalAction);
+          throw new AbortException("Failing Anchore Container Image Scanner Plugin step due to final result " + finalAction);
         } else {
-          console.logInfo("Marking Anchore Container Image Scanner build step as successful, final gate result " + finalAction);
+          console.logInfo("Marking Anchore Container Image Scanner step as successful, final result " + finalAction);
         }
       } else {
-        console.logInfo("Marking Anchore Container Image Scanner build step as successful, no final gate result");
+        console.logInfo("Marking Anchore Container Image Scanner step as successful, no final result");
       }
 
     } catch (Exception e) {
       if (failedByGate) {
         throw e;
       } else if (bailOnPluginFail) {
-        console.logError("Failing Anchore Container Image Scanner Plugin build step due to errors in plugin execution", e);
+        console.logError("Failing Anchore Container Image Scanner Plugin step due to errors in plugin execution", e);
         if (e instanceof AbortException) {
           throw e;
         } else {
-          throw new AbortException("Failing Anchore Container Image Scanner Plugin build step due to errors in plugin execution");
+          throw new AbortException("Failing Anchore Container Image Scanner Plugin step due to errors in plugin execution");
         }
       } else {
-        console.logWarn("Marking Anchore Container Image Scanner build step as successful despite errors in plugin execution");
+        console.logWarn("Marking Anchore Container Image Scanner step as successful despite errors in plugin execution");
       }
     } finally {
       // Wrap cleanup in try catch block to ensure this finally block does not throw an exception
@@ -292,10 +291,9 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
           console.logDebug("Failed to cleanup after the plugin, ignoring the errors", e);
         }
       }
-      console.logInfo("Completed Anchore Container Image Scanner build step");
-      LOG.warning(
-          "Completed Anchore Container Image Scanner build step, project: " + run.getParent().getDisplayName() + ", job: " + run
-              .getNumber());
+      console.logInfo("Completed Anchore Container Image Scanner step");
+      LOG.warning("Completed Anchore Container Image Scanner step, project: " + run.getParent().getDisplayName() + ", job: " + run
+          .getNumber());
     }
   }
 
@@ -304,7 +302,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     return (DescriptorImpl) super.getDescriptor();
   }
 
-  @Symbol("anchore") // For Jenkins pipeline workflow. This lets pipeline refer to build step using the defined identifier
+  @Symbol("anchore") // For Jenkins pipeline workflow. This lets pipeline refer to step using the defined identifier
   @Extension // This indicates to Jenkins that this is an implementation of an extension point.
   public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
 
