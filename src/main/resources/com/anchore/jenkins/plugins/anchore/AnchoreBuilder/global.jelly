@@ -4,7 +4,7 @@
   <f:section title="Anchore Plugin Mode">
 
     <f:radioBlock name="enginemode" value="anchoreengine" title="Engine Mode" checked="${descriptor.isMode('anchoreengine')}"
-      inline="true">
+      inline="true" help="/plugin/anchore-container-scanner/help/help-AnchoreEngineMode.html">>
 
       <f:entry title="Engine URL" field="engineurl">
         <f:textbox name="engineurl" default="http://your_anchore_engine_host_ip:your_anchore_engine_port/v1"/>
@@ -26,7 +26,8 @@
     </f:radioBlock>
 
     <f:radioBlock name="enginemode" value="anchorelocal" title="Local Anchore Scanner Mode"
-      checked="${descriptor.isMode('anchorelocal')}" inline="true">
+      checked="${descriptor.isMode('anchorelocal')}" inline="true"
+      help="/plugin/anchore-container-scanner/help/help-LocalAnchoreMode.html">
 
       <f:entry title="Anchore Container Image (ID/repo:tag)" field="containerImageId">
         <f:textbox name="containerImageId" default="anchore/jenkins:latest"/>
