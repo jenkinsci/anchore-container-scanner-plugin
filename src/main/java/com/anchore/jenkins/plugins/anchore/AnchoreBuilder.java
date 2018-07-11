@@ -232,8 +232,8 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       worker = new BuildWorker(run, workspace, launcher, listener,
           new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, engineRetries, bailOnFail,
               bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride, inputQueries,
-              policyBundleId, globalConfig.getDebug(), globalConfig.getEnabled(), globalConfig.getEnginemode(),
-              globalConfig.getEngineurl(), globalConfig.getEngineuser(), globalConfig.getEnginepass(), globalConfig.getEngineverify(),
+              policyBundleId, globalConfig.getDebug(), globalConfig.getEnginemode(), globalConfig.getEngineurl(),
+              globalConfig.getEngineuser(), globalConfig.getEnginepass(), globalConfig.getEngineverify(),
               globalConfig.getContainerImageId(), globalConfig.getContainerId(), globalConfig.getLocalVol(),
               globalConfig.getModulesVol(), globalConfig.getUseSudo()));
 
@@ -329,7 +329,6 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
     // Global configuration
     private boolean debug;
-    private boolean enabled;
     private String enginemode;
     private String engineurl;
     private String engineuser;
@@ -341,10 +340,15 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     private String modulesVol;
     private boolean useSudo;
 
+    // Upgrade case, you can never really remove these variables once they are introduced
+    @Deprecated
+    private boolean enabled;
+
     public void setDebug(boolean debug) {
       this.debug = debug;
     }
 
+    @Deprecated
     public void setEnabled(boolean enabled) {
       this.enabled = enabled;
     }
@@ -393,6 +397,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       return debug;
     }
 
+    @Deprecated
     public boolean getEnabled() {
       return enabled;
     }

@@ -894,13 +894,6 @@ public class BuildWorker {
    * Checks for minimum required config for executing step
    */
   private void checkConfig() throws AbortException {
-    if (!config.getEnabled()) {
-      console.logError("Anchore image scanning is disabled");
-      throw new AbortException(
-          "Anchore image scanning is disabled. Please enable image scanning in Anchore Configuration under Manage Jenkins -> "
-              + "Configure System and try again");
-    }
-
     if (Strings.isNullOrEmpty(config.getName())) {
       console.logError("Image list file not found");
       throw new AbortException(

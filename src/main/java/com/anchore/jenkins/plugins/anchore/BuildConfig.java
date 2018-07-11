@@ -30,7 +30,6 @@ public class BuildConfig {
 
   // Global configuration
   private boolean debug;
-  private boolean enabled;
   private String enginemode;
   private String engineurl;
   private String engineuser;
@@ -44,9 +43,9 @@ public class BuildConfig {
 
   public BuildConfig(String name, String policyName, String globalWhiteList, String anchoreioUser, String anchoreioPass,
       String userScripts, String engineRetries, boolean bailOnFail, boolean bailOnWarn, boolean bailOnPluginFail, boolean doCleanup,
-      boolean useCachedBundle, String policyEvalMethod, String bundleFileOverride, List<AnchoreQuery> inputQueries, String policyBundleId,
-      boolean debug, boolean enabled, String enginemode, String engineurl, String engineuser, String enginepass, boolean engineverify,
-      String containerImageId, String containerId, String localVol, String modulesVol, boolean useSudo) {
+      boolean useCachedBundle, String policyEvalMethod, String bundleFileOverride, List<AnchoreQuery> inputQueries,
+      String policyBundleId, boolean debug, String enginemode, String engineurl, String engineuser, String enginepass,
+      boolean engineverify, String containerImageId, String containerId, String localVol, String modulesVol, boolean useSudo) {
     this.name = name;
     this.policyName = policyName;
     this.globalWhiteList = globalWhiteList;
@@ -64,7 +63,6 @@ public class BuildConfig {
     this.inputQueries = inputQueries;
     this.policyBundleId = policyBundleId;
     this.debug = debug;
-    this.enabled = enabled;
     this.enginemode = enginemode;
     this.engineurl = engineurl;
     this.engineuser = engineuser;
@@ -149,10 +147,6 @@ public class BuildConfig {
     return debug;
   }
 
-  public boolean getEnabled() {
-    return enabled;
-  }
-
   public String getEnginemode() {
     return enginemode;
   }
@@ -201,9 +195,7 @@ public class BuildConfig {
   }
 
   public void print(ConsoleLog consoleLog) {
-    consoleLog.logInfo("[global] enabled: " + String.valueOf(enabled));
     consoleLog.logInfo("[global] debug: " + String.valueOf(debug));
-    consoleLog.logInfo("[global] useSudo: " + String.valueOf(useSudo));
     consoleLog.logInfo("[global] enginemode: " + enginemode);
 
     if (enginemode.equals("anchoreengine")) {
@@ -225,6 +217,7 @@ public class BuildConfig {
       consoleLog.logInfo("[global] containerId: " + containerId);
       consoleLog.logInfo("[global] localVol: " + localVol);
       consoleLog.logInfo("[global] modulesVol: " + modulesVol);
+      consoleLog.logInfo("[global] useSudo: " + String.valueOf(useSudo));
 
       // Build properties
       consoleLog.logInfo("[build] name: " + name);
