@@ -7,7 +7,7 @@
       <f:textbox default="${descriptor.DEFAULT_NAME}"/>
     </f:entry>
 
-    <f:entry title="Fail build on policy check STOP result" field="bailOnFail">
+    <f:entry title="Fail build on policy evaluation FAIL result" field="bailOnFail">
       <f:checkbox name="bailOnFail" checked="${instance.bailOnFail}" default="${descriptor.DEFAULT_BAIL_ON_FAIL}"/>
     </f:entry>
 
@@ -23,6 +23,16 @@
 
         <f:entry title="Anchore Engine policy bundle ID" field="policyBundleId">
           <f:textbox default="${descriptor.DEFAULT_POLICY_BUNDLE_ID}"/>
+        </f:entry>
+
+        <f:entry title="Anchore Engine image annotations" help="/plugin/anchore-container-scanner/help/help-Annotations.html">
+          <f:repeatableProperty field="annotations" noAddButton="false" add="Add annotation" default="${null}">
+            <f:entry>
+              <div align="right">
+                <f:repeatableDeleteButton/>
+              </div>
+            </f:entry>
+          </f:repeatableProperty>
         </f:entry>
       </j:when>
 
@@ -87,7 +97,6 @@
             <f:checkbox name="bailOnWarn" checked="${instance.bailOnWarn}" default="${descriptor.DEFAULT_BAIL_ON_WARN}"/>
           </f:entry>
         </f:section>
-
       </j:when>
     </j:choose>
 

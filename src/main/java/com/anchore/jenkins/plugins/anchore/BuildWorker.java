@@ -222,11 +222,20 @@ public class BuildWorker {
           // Prep POST request
           String theurl = config.getEngineurl().replaceAll("/+$", "") + "/images";
 
+          // Prep request body
           JSONObject jsonBody = new JSONObject();
           jsonBody.put("tag", tag);
           if (null != dfile) {
             jsonBody.put("dockerfile", dfile);
           }
+          if (null != config.getAnnotations() && !config.getAnnotations().isEmpty()) {
+            JSONObject annotations = new JSONObject();
+            for (Annotation a : config.getAnnotations()) {
+              annotations.put(a.getKey(), a.getValue());
+            }
+            jsonBody.put("annotations", annotations);
+          }
+
           String body = jsonBody.toString();
 
           HttpPost httppost = new HttpPost(theurl);

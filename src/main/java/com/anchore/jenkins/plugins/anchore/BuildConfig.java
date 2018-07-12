@@ -28,6 +28,8 @@ public class BuildConfig {
   private List<AnchoreQuery> inputQueries;
   private String policyBundleId;
 
+  private List<Annotation> annotations;
+
   // Global configuration
   private boolean debug;
   private String enginemode;
@@ -44,8 +46,9 @@ public class BuildConfig {
   public BuildConfig(String name, String policyName, String globalWhiteList, String anchoreioUser, String anchoreioPass,
       String userScripts, String engineRetries, boolean bailOnFail, boolean bailOnWarn, boolean bailOnPluginFail, boolean doCleanup,
       boolean useCachedBundle, String policyEvalMethod, String bundleFileOverride, List<AnchoreQuery> inputQueries,
-      String policyBundleId, boolean debug, String enginemode, String engineurl, String engineuser, String enginepass,
-      boolean engineverify, String containerImageId, String containerId, String localVol, String modulesVol, boolean useSudo) {
+      String policyBundleId, List<Annotation> annotations, boolean debug, String enginemode, String engineurl, String engineuser,
+      String enginepass, boolean engineverify, String containerImageId, String containerId, String localVol, String modulesVol,
+      boolean useSudo) {
     this.name = name;
     this.policyName = policyName;
     this.globalWhiteList = globalWhiteList;
@@ -62,6 +65,7 @@ public class BuildConfig {
     this.bundleFileOverride = bundleFileOverride;
     this.inputQueries = inputQueries;
     this.policyBundleId = policyBundleId;
+    this.annotations = annotations;
     this.debug = debug;
     this.enginemode = enginemode;
     this.engineurl = engineurl;
@@ -143,6 +147,10 @@ public class BuildConfig {
     return policyBundleId;
   }
 
+  public List<Annotation> getAnnotations() {
+    return annotations;
+  }
+
   public boolean getDebug() {
     return debug;
   }
@@ -209,6 +217,11 @@ public class BuildConfig {
       consoleLog.logInfo("[build] name: " + name);
       consoleLog.logInfo("[build] engineRetries: " + engineRetries);
       consoleLog.logInfo("[build] policyBundleId: " + policyBundleId);
+      if (null != annotations && !annotations.isEmpty()) {
+        for (Annotation a : annotations) {
+          consoleLog.logInfo("[build] annotation: " + a.getKey() + "=" + a.getValue());
+        }
+      }
       consoleLog.logInfo("[build] bailOnFail: " + bailOnFail);
       consoleLog.logInfo("[build] bailOnPluginFail: " + bailOnPluginFail);
     } else {

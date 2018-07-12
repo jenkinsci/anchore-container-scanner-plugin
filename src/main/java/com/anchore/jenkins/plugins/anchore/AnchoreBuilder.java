@@ -64,6 +64,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   private String bundleFileOverride = DescriptorImpl.DEFAULT_BUNDLE_FILE_OVERRIDE;
   private List<AnchoreQuery> inputQueries;
   private String policyBundleId = DescriptorImpl.DEFAULT_POLICY_BUNDLE_ID;
+  private List<Annotation> annotations;
 
   // Getters are used by config.jelly
   public String getName() {
@@ -128,6 +129,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
   public String getPolicyBundleId() {
     return policyBundleId;
+  }
+
+  public List<Annotation> getAnnotations() {
+    return annotations;
   }
 
   @DataBoundSetter
@@ -206,6 +211,11 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     this.policyBundleId = policyBundleId;
   }
 
+  @DataBoundSetter
+  public void setAnnotations(List<Annotation> annotations) {
+    this.annotations = annotations;
+  }
+
   // Fields in config.jelly must match the parameter names in the "DataBoundConstructor" or "DataBoundSetter"
   @DataBoundConstructor
   public AnchoreBuilder(String name) {
@@ -232,7 +242,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       worker = new BuildWorker(run, workspace, launcher, listener,
           new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, engineRetries, bailOnFail,
               bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride, inputQueries,
-              policyBundleId, globalConfig.getDebug(), globalConfig.getEnginemode(), globalConfig.getEngineurl(),
+              policyBundleId, annotations, globalConfig.getDebug(), globalConfig.getEnginemode(), globalConfig.getEngineurl(),
               globalConfig.getEngineuser(), globalConfig.getEnginepass(), globalConfig.getEngineverify(),
               globalConfig.getContainerImageId(), globalConfig.getContainerId(), globalConfig.getLocalVol(),
               globalConfig.getModulesVol(), globalConfig.getUseSudo()));
