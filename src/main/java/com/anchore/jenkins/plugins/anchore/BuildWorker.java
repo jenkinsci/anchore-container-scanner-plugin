@@ -903,6 +903,12 @@ public class BuildWorker {
    * Checks for minimum required config for executing step
    */
   private void checkConfig() throws AbortException {
+    if (!config.getEnginemode().equals("anchoreengine") && !config.getEnginemode().equals("anchorelocal")) {
+      console.logError("Undefined engine mode: " + config.getEnginemode());
+      throw new AbortException(
+          "Undefined engine mode: " + config.getEnginemode() + ". Valid engine modes are \'anchoreengine\' or \'anchorelocal\'");
+    }
+
     if (Strings.isNullOrEmpty(config.getName())) {
       console.logError("Image list file not found");
       throw new AbortException(

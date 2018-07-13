@@ -34,6 +34,27 @@
             </f:entry>
           </f:repeatableProperty>
         </f:entry>
+
+        <f:section title="Override Global Configuration">
+          <f:entry title="Anchore Engine URL" field="engineurl" help="/plugin/anchore-container-scanner/help/help-OverrideAEURL.html">
+            <f:textbox name="engineurl" default=""/>
+          </f:entry>
+
+          <f:entry title="Anchore Engine username" field="engineuser"
+            help="/plugin/anchore-container-scanner/help/help-OverrideAEUsername.html">
+            <f:textbox name="engineuser" default=""/>
+          </f:entry>
+
+          <f:entry title="Anchore Engine password" field="enginepass"
+            help="/plugin/anchore-container-scanner/help/help-OverrideAEPassword.html">
+            <f:password name="enginepass"/>
+          </f:entry>
+
+          <f:entry title="Anchore Engine verify SSL" field="engineverify">
+            <f:checkbox name="engineverify" checked="${instance.engineverify}" default="${false}"/>
+          </f:entry>
+        </f:section>
+
       </j:when>
 
       <j:when test="${descriptor.isMode('anchorelocal')}">

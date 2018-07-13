@@ -66,6 +66,14 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   private String policyBundleId = DescriptorImpl.DEFAULT_POLICY_BUNDLE_ID;
   private List<Annotation> annotations;
 
+  // Override global config. Supported for anchore-engine mode config only
+  private String engineurl = DescriptorImpl.EMPTY_STRING;
+  private String engineuser = DescriptorImpl.EMPTY_STRING;
+  private String enginepass = DescriptorImpl.EMPTY_STRING;
+  private boolean engineverify = false;
+  // More flags to indicate boolean override, ugh!
+  private boolean isEngineverifyOverrride = false;
+
   // Getters are used by config.jelly
   public String getName() {
     return name;
@@ -133,6 +141,22 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
   public List<Annotation> getAnnotations() {
     return annotations;
+  }
+
+  public String getEngineurl() {
+    return engineurl;
+  }
+
+  public String getEngineuser() {
+    return engineuser;
+  }
+
+  public String getEnginepass() {
+    return enginepass;
+  }
+
+  public boolean getEngineverify() {
+    return engineverify;
   }
 
   @DataBoundSetter
@@ -216,6 +240,27 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     this.annotations = annotations;
   }
 
+  @DataBoundSetter
+  public void setEngineurl(String engineurl) {
+    this.engineurl = engineurl;
+  }
+
+  @DataBoundSetter
+  public void setEngineuser(String engineuser) {
+    this.engineuser = engineuser;
+  }
+
+  @DataBoundSetter
+  public void setEnginepass(String enginepass) {
+    this.enginepass = enginepass;
+  }
+
+  @DataBoundSetter
+  public void setEngineverify(boolean engineverify) {
+    this.engineverify = engineverify;
+    this.isEngineverifyOverrride = true;
+  }
+
   // Fields in config.jelly must match the parameter names in the "DataBoundConstructor" or "DataBoundSetter"
   @DataBoundConstructor
   public AnchoreBuilder(String name) {
@@ -230,6 +275,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
         "Starting Anchore Container Image Scanner step, project: " + run.getParent().getDisplayName() + ", job: " + run.getNumber());
 
     boolean failedByGate = false;
+    BuildConfig config = null;
     BuildWorker worker = null;
     DescriptorImpl globalConfig = getDescriptor();
     ConsoleLog console = new ConsoleLog("AnchorePlugin", listener.getLogger(), globalConfig.getDebug());
@@ -238,14 +284,18 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
     try {
 
-      // Instantiate a new build worker
-      worker = new BuildWorker(run, workspace, launcher, listener,
-          new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, engineRetries, bailOnFail,
-              bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride, inputQueries,
-              policyBundleId, annotations, globalConfig.getDebug(), globalConfig.getEnginemode(), globalConfig.getEngineurl(),
-              globalConfig.getEngineuser(), globalConfig.getEnginepass(), globalConfig.getEngineverify(),
-              globalConfig.getContainerImageId(), globalConfig.getContainerId(), globalConfig.getLocalVol(),
-              globalConfig.getModulesVol(), globalConfig.getUseSudo()));
+      /* Instantiate config and a new build worker */
+      config = new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, engineRetries, bailOnFail,
+          bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride, inputQueries, policyBundleId,
+          annotations, globalConfig.getDebug(), globalConfig.getEnginemode(),
+          // messy build time overrides, ugh!
+          !Strings.isNullOrEmpty(engineurl) ? engineurl : globalConfig.getEngineurl(),
+          !Strings.isNullOrEmpty(engineuser) ? engineuser : globalConfig.getEngineuser(),
+          !Strings.isNullOrEmpty(enginepass) ? enginepass : globalConfig.getEnginepass(),
+          isEngineverifyOverrride ? engineverify : globalConfig.getEngineverify(), globalConfig.getContainerImageId(),
+          globalConfig.getContainerId(), globalConfig.getLocalVol(), globalConfig.getModulesVol(), globalConfig.getUseSudo());
+      worker = new BuildWorker(run, workspace, launcher, listener, config);
+
 
       /* Run analysis */
       worker.runAnalyzer();
@@ -267,8 +317,8 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
       /* Evaluate result of step based on gate action */
       if (null != finalAction) {
-        if ((bailOnFail && (GATE_ACTION.STOP.equals(finalAction) || GATE_ACTION.FAIL.equals(finalAction))) || (bailOnWarn
-            && GATE_ACTION.WARN.equals(finalAction))) {
+        if ((config.getBailOnFail() && (GATE_ACTION.STOP.equals(finalAction) || GATE_ACTION.FAIL.equals(finalAction))) || (
+            config.getBailOnWarn() && GATE_ACTION.WARN.equals(finalAction))) {
           console.logWarn("Failing Anchore Container Image Scanner Plugin step due to final result " + finalAction);
           failedByGate = true;
           throw new AbortException("Failing Anchore Container Image Scanner Plugin step due to final result " + finalAction);
@@ -282,7 +332,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     } catch (Exception e) {
       if (failedByGate) {
         throw e;
-      } else if (bailOnPluginFail) {
+      } else if ((null != config && config.getBailOnPluginFail()) || bailOnPluginFail) {
         console.logError("Failing Anchore Container Image Scanner Plugin step due to errors in plugin execution", e);
         if (e instanceof AbortException) {
           throw e;
@@ -336,6 +386,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
         .of(new AnchoreQuery("cve-scan all"), new AnchoreQuery("list-packages all"), new AnchoreQuery("list-files all"),
             new AnchoreQuery("show-pkg-diffs base"));
     public static final String DEFAULT_POLICY_BUNDLE_ID = "";
+    public static final String EMPTY_STRING = "";
 
     // Global configuration
     private boolean debug;

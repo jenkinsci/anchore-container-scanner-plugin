@@ -16,7 +16,6 @@
 
       <f:entry title="Engine Password" field="enginepass">
         <f:password name="enginepass"/>
-
       </f:entry>
 
       <f:entry title="Verify SSL" field="engineverify">
