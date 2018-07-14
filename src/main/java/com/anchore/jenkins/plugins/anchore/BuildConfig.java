@@ -207,11 +207,11 @@ public class BuildConfig {
     consoleLog.logInfo("[global] enginemode: " + enginemode);
 
     if (enginemode.equals("anchoreengine")) {
-      // Global properties
-      consoleLog.logInfo("[global] engineurl: " + engineurl);
-      consoleLog.logInfo("[global] engineuser: " + engineuser);
-      consoleLog.logInfo("[global] enginepass: " + "****");
-      consoleLog.logInfo("[global] engineverify: " + String.valueOf(engineverify));
+      // Global or build properties
+      consoleLog.logInfo("[build] engineurl: " + engineurl);
+      consoleLog.logInfo("[build] engineuser: " + engineuser);
+      consoleLog.logInfo("[build] enginepass: " + "****");
+      consoleLog.logInfo("[build] engineverify: " + String.valueOf(engineverify));
 
       // Build properties
       consoleLog.logInfo("[build] name: " + name);

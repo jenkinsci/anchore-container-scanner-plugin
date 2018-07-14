@@ -2,6 +2,11 @@ package com.anchore.jenkins.plugins.anchore;
 
 
 import com.anchore.jenkins.plugins.anchore.Util.GATE_ACTION;
+import com.cloudbees.plugins.credentials.CredentialsMatchers;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
+import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
+import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import hudson.AbortException;
@@ -11,13 +16,17 @@ import hudson.Launcher;
 import hudson.model.AbstractProject;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.security.ACL;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Logger;
 import javax.annotation.Nonnull;
+import jenkins.model.Jenkins;
 import jenkins.tasks.SimpleBuildStep;
 import net.sf.json.JSONObject;
 import org.jenkinsci.Symbol;
@@ -68,8 +77,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
   // Override global config. Supported for anchore-engine mode config only
   private String engineurl = DescriptorImpl.EMPTY_STRING;
-  private String engineuser = DescriptorImpl.EMPTY_STRING;
-  private String enginepass = DescriptorImpl.EMPTY_STRING;
+  private String engineCredentialsId = DescriptorImpl.EMPTY_STRING;
   private boolean engineverify = false;
   // More flags to indicate boolean override, ugh!
   private boolean isEngineverifyOverrride = false;
@@ -147,12 +155,8 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     return engineurl;
   }
 
-  public String getEngineuser() {
-    return engineuser;
-  }
-
-  public String getEnginepass() {
-    return enginepass;
+  public String getEngineCredentialsId() {
+    return engineCredentialsId;
   }
 
   public boolean getEngineverify() {
@@ -246,13 +250,8 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   }
 
   @DataBoundSetter
-  public void setEngineuser(String engineuser) {
-    this.engineuser = engineuser;
-  }
-
-  @DataBoundSetter
-  public void setEnginepass(String enginepass) {
-    this.enginepass = enginepass;
+  public void setEngineCredentialsId(String engineCredentialsId) {
+    this.engineCredentialsId = engineCredentialsId;
   }
 
   @DataBoundSetter
@@ -284,6 +283,29 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
     try {
 
+      /* Fetch Jenkins creds first, can't push this lower down the chain since it requires Jenkins instance object */
+      String engineuser = null;
+      String enginepass = null;
+      if (!Strings.isNullOrEmpty(engineCredentialsId)) {
+        console.logDebug("Found build override for anchore-engine credentials. Processing Jenkins credential ID ");
+        try {
+          StandardUsernamePasswordCredentials creds = CredentialsProvider
+              .findCredentialById(engineCredentialsId, StandardUsernamePasswordCredentials.class, run,
+                  Collections.<DomainRequirement>emptyList());
+          if (null != creds) {
+            engineuser = creds.getUsername();
+            enginepass = creds.getPassword().getPlainText();
+          } else {
+            throw new AbortException("Invalid result for Jenkins credentials " + engineCredentialsId);
+          }
+        } catch (AbortException e) {
+          throw e;
+        } catch (Exception e) {
+          console.logError("Error looking up Jenkins credentials by ID: \'" + engineCredentialsId + "\'", e);
+          throw new AbortException("Error looking up Jenkins credentials by ID: \'" + engineCredentialsId);
+        }
+      }
+
       /* Instantiate config and a new build worker */
       config = new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, engineRetries, bailOnFail,
           bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride, inputQueries, policyBundleId,
@@ -296,6 +318,16 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
           globalConfig.getContainerId(), globalConfig.getLocalVol(), globalConfig.getModulesVol(), globalConfig.getUseSudo());
       worker = new BuildWorker(run, workspace, launcher, listener, config);
 
+      /* Log any build time overrides are at play */
+      if (!Strings.isNullOrEmpty(engineurl)) {
+        console.logInfo("Build override set for Anchore Engine URL");
+      }
+      if (!Strings.isNullOrEmpty(engineuser) && !Strings.isNullOrEmpty(enginepass)) {
+        console.logInfo("Build override set for Anchore Engine credentials");
+      }
+      if (isEngineverifyOverrride) {
+        console.logInfo("Build override set for Anchore Engine verify SSL");
+      }
 
       /* Run analysis */
       worker.runAnalyzer();
@@ -542,6 +574,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
      * FormValidation#error(String)} does not prevent the form from being saved. It just means that a message will be displayed to the
      * user
      */
+    @SuppressWarnings("unused")
     public FormValidation doCheckName(@QueryParameter String value) {
       if (!Strings.isNullOrEmpty(value)) {
         return FormValidation.ok();
@@ -550,6 +583,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       }
     }
 
+    @SuppressWarnings("unused")
     public FormValidation doCheckContainerImageId(@QueryParameter String value) {
       if (!Strings.isNullOrEmpty(value)) {
         return FormValidation.ok();
@@ -558,12 +592,26 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       }
     }
 
+    @SuppressWarnings("unused")
     public FormValidation doCheckContainerId(@QueryParameter String value) {
       if (!Strings.isNullOrEmpty(value)) {
         return FormValidation.ok();
       } else {
         return FormValidation.error("Please provide a valid Anchore Container ID");
       }
+    }
+
+    @SuppressWarnings("unused")
+    public ListBoxModel doFillEngineCredentialsIdItems(@QueryParameter String credentialsId) {
+      StandardListBoxModel result = new StandardListBoxModel();
+
+      if (!Jenkins.getActiveInstance().hasPermission(Jenkins.ADMINISTER)) {
+        return result.includeCurrentValue(credentialsId);
+      }
+
+      return result.includeEmptyValue()
+          .includeMatchingAs(ACL.SYSTEM, Jenkins.getActiveInstance(), StandardUsernamePasswordCredentials.class,
+              Collections.<DomainRequirement>emptyList(), CredentialsMatchers.always());
     }
   }
 }
