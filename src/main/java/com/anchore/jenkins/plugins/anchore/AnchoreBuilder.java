@@ -296,7 +296,8 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
             engineuser = creds.getUsername();
             enginepass = creds.getPassword().getPlainText();
           } else {
-            throw new AbortException("Invalid result for Jenkins credentials " + engineCredentialsId);
+            throw new AbortException("Cannot find Jenkins credentials by ID: \'" + engineCredentialsId
+                + "\'. Ensure credentials are defined in Jenkins before using them");
           }
         } catch (AbortException e) {
           throw e;

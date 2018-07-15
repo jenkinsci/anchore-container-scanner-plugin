@@ -216,7 +216,7 @@ public class BuildWorker {
         String tag = entry.getKey();
         String dfile = entry.getValue();
 
-        console.logDebug("Adding " + tag + " to anchore-engine for analysis");
+        console.logInfo("Submitting " + tag + " for analysis");
 
         try (CloseableHttpClient httpclient = makeHttpClient(sslverify)) {
           // Prep POST request
@@ -260,7 +260,7 @@ public class BuildWorker {
               // TODO EntityUtils.consume(entity2);
               JSONArray respJson = JSONArray.fromObject(responseBody);
               imageDigest = JSONObject.fromObject(respJson.get(0)).getString("imageDigest");
-              console.logInfo("Submitted " + tag + " to anchore-engine for analysis. Received image digest: " + imageDigest);
+              console.logInfo("Analysis request accepted, received image digest " + imageDigest);
               input_image_imageDigest.put(tag, imageDigest);
             }
           } catch (Throwable e) {
@@ -367,7 +367,7 @@ public class BuildWorker {
           String tag = entry.getKey();
           String imageDigest = entry.getValue();
 
-          console.logInfo("Waiting on anchore-engine to analyze " + tag + ". Polling status periodically");
+          console.logInfo("Waiting for analysis of " + tag + ", polling status periodically");
 
           Boolean anchore_eval_status = false;
           String theurl =
@@ -436,7 +436,6 @@ public class BuildWorker {
                   } else {
                     // String eval_status = JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0)).getJSONArray(tag).get(0))
                     // .getString("status");
-                    console.logInfo("Analysis complete, processing policy evaluation result from anchore-engine");
                     String eval_status = JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0))).getString("status");
                     JSONObject gate_result = JSONObject.fromObject(JSONObject.fromObject(
                         JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0)).getJSONObject("detail")).getJSONObject("result"))
@@ -458,6 +457,7 @@ public class BuildWorker {
                       anchore_eval_status = true;
                     }
                     done = true;
+                    console.logInfo("Completed analysis and processed policy evaluation result");
                   }
                 }
               } catch (Throwable e) {
@@ -487,6 +487,7 @@ public class BuildWorker {
         }
 
         try {
+          console.logDebug("Writing policy evaluation result to " + jenkinsGatesOutputFP.getRemote());
           try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(jenkinsGatesOutputFP.write(), StandardCharsets.UTF_8))) {
             bw.write(gate_results.toString());
           }
@@ -495,7 +496,8 @@ public class BuildWorker {
           throw new AbortException("Failed to write policy evaluation output to " + jenkinsGatesOutputFP.getRemote());
         }
 
-        generateGatesSummary(jenkinsGatesOutputFP);
+        generateGatesSummary(gate_results);
+        console.logInfo("Anchore Container Image Scanner Plugin step result - " + finalAction);
         return finalAction;
       } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
         throw e;
@@ -514,140 +516,150 @@ public class BuildWorker {
 
   }
 
+  private void generateGatesSummary(JSONObject gatesJson) {
+    console.logInfo("Summarizing policy evaluation results");
+    if (gatesJson != null)  {
+      JSONArray summaryRows = new JSONArray();
+      // Populate once and reuse
+      int numColumns = 0, repoTagIndex = -1, gateNameIndex = -1, gateActionIndex = -1, whitelistedIndex = -1;
+
+      for (Object imageKey : gatesJson.keySet()) {
+        JSONObject content = gatesJson.getJSONObject((String) imageKey);
+        if (null != content) {
+          JSONObject result = content.getJSONObject("result");
+          if (null != result) {
+            // populate data from header element once, most likely for the first image
+            if (numColumns <= 0 || repoTagIndex < 0 || gateNameIndex < 0 || gateActionIndex < 0 || whitelistedIndex < 0) {
+              JSONArray header = result.getJSONArray("header");
+              if (null != header) {
+                numColumns = header.size();
+                for (int i = 0; i < header.size(); i++) {
+                  switch (header.getString(i)) {
+                    case "Repo_Tag":
+                      repoTagIndex = i;
+                      break;
+                    case "Gate":
+                      gateNameIndex = i;
+                      break;
+                    case "Gate_Action":
+                      gateActionIndex = i;
+                      break;
+                    case "Whitelisted":
+                      whitelistedIndex = i;
+                      break;
+                    default:
+                      break;
+                  }
+                }
+              } else {
+                console.logWarn("\'header\' element not found in gate output, skipping summary computation for " + imageKey);
+                continue;
+              }
+            } else {
+              // indices have been populated, reuse it
+            }
+
+            if (numColumns <= 0 || repoTagIndex < 0 || gateNameIndex < 0 || gateActionIndex < 0) {
+              console.logWarn("Either \'header\' element has no columns or column indices (for Repo_Tag, Gate, Gate_Action) not "
+                  + "initialized, skipping summary computation for " + imageKey);
+              continue;
+            }
+
+            JSONArray rows = result.getJSONArray("rows");
+            if (null != rows) {
+              int stop = 0, warn = 0, go = 0, stop_wl = 0, warn_wl = 0, go_wl = 0;
+              String repoTag = null;
+
+              for (int i = 0; i < rows.size(); i++) {
+                JSONArray row = rows.getJSONArray(i);
+                if (row.size() == numColumns) {
+                  if (Strings.isNullOrEmpty(repoTag)) {
+                    repoTag = row.getString(repoTagIndex);
+                  }
+                  if (!row.getString(gateNameIndex).equalsIgnoreCase("FINAL")) {
+                    switch (row.getString(gateActionIndex).toLowerCase()) {
+                      case "stop":
+                        stop++;
+                        stop_wl = (whitelistedIndex != -1 && !(row.getString(whitelistedIndex).equalsIgnoreCase("none") || row
+                            .getString(whitelistedIndex).equalsIgnoreCase("false"))) ? ++stop_wl : stop_wl;
+                        break;
+                      case "warn":
+                        warn++;
+                        warn_wl = (whitelistedIndex != -1 && !(row.getString(whitelistedIndex).equalsIgnoreCase("none") || row
+                            .getString(whitelistedIndex).equalsIgnoreCase("false"))) ? ++warn_wl : warn_wl;
+                        break;
+                      case "go":
+                        go++;
+                        go_wl = (whitelistedIndex != -1 && !(row.getString(whitelistedIndex).equalsIgnoreCase("none") || row
+                            .getString(whitelistedIndex).equalsIgnoreCase("false"))) ? ++go_wl : go_wl;
+                        break;
+                      default:
+                        break;
+                    }
+                  }
+                } else {
+                  console.logWarn("Expected " + numColumns + " elements but got " + row.size() + ", skipping row " + row
+                      + " in summary computation for " + imageKey);
+                }
+              }
+
+              if (!Strings.isNullOrEmpty(repoTag)) {
+                console.logInfo("Policy evaluation summary for " + repoTag + " - stop: " + (stop - stop_wl) + " (+" + stop_wl
+                    + " whitelisted), warn: " + (warn - warn_wl) + " (+" + warn_wl + " whitelisted), go: " + (go - go_wl) + " (+"
+                    + go_wl + " whitelisted), final: " + result.getString("final_action"));
+
+                JSONObject summaryRow = new JSONObject();
+                summaryRow.put(GATE_SUMMARY_COLUMN.Repo_Tag.toString(), repoTag);
+                summaryRow.put(GATE_SUMMARY_COLUMN.Stop_Actions.toString(), (stop - stop_wl));
+                summaryRow.put(GATE_SUMMARY_COLUMN.Warn_Actions.toString(), (warn - warn_wl));
+                summaryRow.put(GATE_SUMMARY_COLUMN.Go_Actions.toString(), (go - go_wl));
+                summaryRow.put(GATE_SUMMARY_COLUMN.Final_Action.toString(), result.getString("final_action"));
+                summaryRows.add(summaryRow);
+              } else {
+                console.logInfo("Policy evaluation summary for " + imageKey + " - stop: " + (stop - stop_wl) + " (+" + stop_wl
+                    + " whitelisted), warn: " + (warn - warn_wl) + " (+" + warn_wl + " whitelisted), go: " + (go - go_wl) + " (+"
+                    + go_wl + " whitelisted), final: " + result.getString("final_action"));
+                JSONObject summaryRow = new JSONObject();
+                summaryRow.put(GATE_SUMMARY_COLUMN.Repo_Tag.toString(), imageKey.toString());
+                summaryRow.put(GATE_SUMMARY_COLUMN.Stop_Actions.toString(), (stop - stop_wl));
+                summaryRow.put(GATE_SUMMARY_COLUMN.Warn_Actions.toString(), (warn - warn_wl));
+                summaryRow.put(GATE_SUMMARY_COLUMN.Go_Actions.toString(), (go - go_wl));
+                summaryRow.put(GATE_SUMMARY_COLUMN.Final_Action.toString(), result.getString("final_action"));
+                summaryRows.add(summaryRow);
+
+                //console.logWarn("Repo_Tag element not found in gate output, skipping summary computation for " + imageKey);
+                console.logWarn("Repo_Tag element not found in gate output, using imageId: " + imageKey);
+              }
+            } else { // rows object not found
+              console.logWarn("\'rows\' element not found in gate output, skipping summary computation for " + imageKey);
+            }
+          } else { // result object not found, log and move on
+            console.logWarn("\'result\' element not found in gate output, skipping summary computation for " + imageKey);
+          }
+        } else { // no content found for a given image id, log and move on
+          console.logWarn("No mapped object found in gate output, skipping summary computation for " + imageKey);
+        }
+      }
+
+      gateSummary = new JSONObject();
+      gateSummary.put("header", generateDataTablesColumnsForGateSummary());
+      gateSummary.put("rows", summaryRows);
+
+    } else { // could not load gates output to json object
+      console.logWarn("Invalid input to generate gates summary");
+    }
+  }
+
   private void generateGatesSummary(FilePath jenkinsGatesOutputFP) throws AbortException {
     // Parse gate output and generate summary json
     try {
-      console.logDebug("Parsing and summarizing gate output in " + jenkinsGatesOutputFP.getRemote());
+      console.logDebug("Parsing gate output from " + jenkinsGatesOutputFP.getRemote());
       if (jenkinsGatesOutputFP.exists() && jenkinsGatesOutputFP.length() > 0) {
         JSONObject gatesJson = JSONObject.fromObject(jenkinsGatesOutputFP.readToString());
         if (gatesJson != null) {
-          JSONArray summaryRows = new JSONArray();
-          // Populate once and reuse
-          int numColumns = 0, repoTagIndex = -1, gateNameIndex = -1, gateActionIndex = -1, whitelistedIndex = -1;
-
-          for (Object imageKey : gatesJson.keySet()) {
-            JSONObject content = gatesJson.getJSONObject((String) imageKey);
-            if (null != content) {
-              JSONObject result = content.getJSONObject("result");
-              if (null != result) {
-                // populate data from header element once, most likely for the first image
-                if (numColumns <= 0 || repoTagIndex < 0 || gateNameIndex < 0 || gateActionIndex < 0 || whitelistedIndex < 0) {
-                  JSONArray header = result.getJSONArray("header");
-                  if (null != header) {
-                    numColumns = header.size();
-                    for (int i = 0; i < header.size(); i++) {
-                      switch (header.getString(i)) {
-                        case "Repo_Tag":
-                          repoTagIndex = i;
-                          break;
-                        case "Gate":
-                          gateNameIndex = i;
-                          break;
-                        case "Gate_Action":
-                          gateActionIndex = i;
-                          break;
-                        case "Whitelisted":
-                          whitelistedIndex = i;
-                          break;
-                        default:
-                          break;
-                      }
-                    }
-                  } else {
-                    console.logWarn("\'header\' element not found in gate output, skipping summary computation for " + imageKey);
-                    continue;
-                  }
-                } else {
-                  // indices have been populated, reuse it
-                }
-
-                if (numColumns <= 0 || repoTagIndex < 0 || gateNameIndex < 0 || gateActionIndex < 0) {
-                  console.logWarn("Either \'header\' element has no columns or column indices (for Repo_Tag, Gate, Gate_Action) not "
-                      + "initialized, skipping summary computation for " + imageKey);
-                  continue;
-                }
-
-                JSONArray rows = result.getJSONArray("rows");
-                if (null != rows) {
-                  int stop = 0, warn = 0, go = 0, stop_wl = 0, warn_wl = 0, go_wl = 0;
-                  String repoTag = null;
-
-                  for (int i = 0; i < rows.size(); i++) {
-                    JSONArray row = rows.getJSONArray(i);
-                    if (row.size() == numColumns) {
-                      if (Strings.isNullOrEmpty(repoTag)) {
-                        repoTag = row.getString(repoTagIndex);
-                      }
-                      if (!row.getString(gateNameIndex).equalsIgnoreCase("FINAL")) {
-                        switch (row.getString(gateActionIndex).toLowerCase()) {
-                          case "stop":
-                            stop++;
-                            stop_wl = (whitelistedIndex != -1 && !(row.getString(whitelistedIndex).equalsIgnoreCase("none") || row
-                                .getString(whitelistedIndex).equalsIgnoreCase("false"))) ? ++stop_wl : stop_wl;
-                            break;
-                          case "warn":
-                            warn++;
-                            warn_wl = (whitelistedIndex != -1 && !(row.getString(whitelistedIndex).equalsIgnoreCase("none") || row
-                                .getString(whitelistedIndex).equalsIgnoreCase("false"))) ? ++warn_wl : warn_wl;
-                            break;
-                          case "go":
-                            go++;
-                            go_wl = (whitelistedIndex != -1 && !(row.getString(whitelistedIndex).equalsIgnoreCase("none") || row
-                                .getString(whitelistedIndex).equalsIgnoreCase("false"))) ? ++go_wl : go_wl;
-                            break;
-                          default:
-                            break;
-                        }
-                      }
-                    } else {
-                      console.logWarn("Expected " + numColumns + " elements but got " + row.size() + ", skipping row " + row
-                          + " in summary computation for " + imageKey);
-                    }
-                  }
-
-                  if (!Strings.isNullOrEmpty(repoTag)) {
-                    console.logInfo("Policy evaluation summary for " + repoTag + " - stop: " + (stop - stop_wl) + " (+" + stop_wl
-                        + " whitelisted), warn: " + (warn - warn_wl) + " (+" + warn_wl + " whitelisted), go: " + (go - go_wl) + " (+"
-                        + go_wl + " whitelisted), final: " + result.getString("final_action"));
-
-                    JSONObject summaryRow = new JSONObject();
-                    summaryRow.put(GATE_SUMMARY_COLUMN.Repo_Tag.toString(), repoTag);
-                    summaryRow.put(GATE_SUMMARY_COLUMN.Stop_Actions.toString(), (stop - stop_wl));
-                    summaryRow.put(GATE_SUMMARY_COLUMN.Warn_Actions.toString(), (warn - warn_wl));
-                    summaryRow.put(GATE_SUMMARY_COLUMN.Go_Actions.toString(), (go - go_wl));
-                    summaryRow.put(GATE_SUMMARY_COLUMN.Final_Action.toString(), result.getString("final_action"));
-                    summaryRows.add(summaryRow);
-                  } else {
-                    console.logInfo("Policy evaluation summary for " + imageKey + " - stop: " + (stop - stop_wl) + " (+" + stop_wl
-                        + " whitelisted), warn: " + (warn - warn_wl) + " (+" + warn_wl + " whitelisted), go: " + (go - go_wl) + " (+"
-                        + go_wl + " whitelisted), final: " + result.getString("final_action"));
-                    JSONObject summaryRow = new JSONObject();
-                    summaryRow.put(GATE_SUMMARY_COLUMN.Repo_Tag.toString(), imageKey.toString());
-                    summaryRow.put(GATE_SUMMARY_COLUMN.Stop_Actions.toString(), (stop - stop_wl));
-                    summaryRow.put(GATE_SUMMARY_COLUMN.Warn_Actions.toString(), (warn - warn_wl));
-                    summaryRow.put(GATE_SUMMARY_COLUMN.Go_Actions.toString(), (go - go_wl));
-                    summaryRow.put(GATE_SUMMARY_COLUMN.Final_Action.toString(), result.getString("final_action"));
-                    summaryRows.add(summaryRow);
-
-                    //console.logWarn("Repo_Tag element not found in gate output, skipping summary computation for " + imageKey);
-                    console.logWarn("Repo_Tag element not found in gate output, using imageId: " + imageKey);
-                  }
-                } else { // rows object not found
-                  console.logWarn("\'rows\' element not found in gate output, skipping summary computation for " + imageKey);
-                }
-              } else { // result object not found, log and move on
-                console.logWarn("\'result\' element not found in gate output, skipping summary computation for " + imageKey);
-              }
-            } else { // no content found for a given image id, log and move on
-              console.logWarn("No mapped object found in gate output, skipping summary computation for " + imageKey);
-            }
-          }
-
-          gateSummary = new JSONObject();
-          gateSummary.put("header", generateDataTablesColumnsForGateSummary());
-          gateSummary.put("rows", summaryRows);
-
-        } else { // could not load gates output to json object
+          generateGatesSummary(gatesJson);
+        }
+        else { // could not load gates output to json object
           console.logWarn("Failed to load/parse gate output from " + jenkinsGatesOutputFP.getRemote());
         }
 
