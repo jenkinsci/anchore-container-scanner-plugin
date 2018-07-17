@@ -212,7 +212,7 @@ function buildSecurityTable(tableId, outputFile) {
         retrieve: true,
         data: tableObj.data,
         columns: tableObj.columns,
-        order: [[2, 'asc']],
+        order: [[2, 'asc'], [0, 'asc']],
         columnDefs: [
           {
             targets: 2,
