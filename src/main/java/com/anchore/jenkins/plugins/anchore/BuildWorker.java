@@ -18,7 +18,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -57,6 +57,7 @@ public class BuildWorker {
   // TODO refactor
   private static final String ANCHORE_BINARY = "anchore";
   private static final String GATES_OUTPUT_PREFIX = "anchore_gates";
+  private static final String CVE_LISTING_PREFIX = "anchore_security";
   private static final String QUERY_OUTPUT_PREFIX = "anchore_query_";
   private static final String JENKINS_DIR_NAME_PREFIX = "AnchoreReport.";
   private static final String JSON_FILE_EXTENSION = ".json";
@@ -77,11 +78,12 @@ public class BuildWorker {
   private String buildId;
   private String jenkinsOutputDirName;
   private Map<String, String> queryOutputMap; // TODO rename
-  private Map<String, String> input_image_dfile = new HashMap<String, String>();
-  private Map<String, String> input_image_imageDigest = new HashMap<String, String>();
+  private Map<String, String> input_image_dfile = new LinkedHashMap<>();
+  private Map<String, String> input_image_imageDigest = new LinkedHashMap<>();
   private String gateOutputFileName;
   private GATE_ACTION finalAction;
   private JSONObject gateSummary;
+  private String cveListingFileName;
 
   // Initialized by Anchore workspace prep
   private String anchoreWorkspaceDirName;
@@ -509,16 +511,99 @@ public class BuildWorker {
       }
     } else {
       console.logError(
-          "Image(s) were not added to anchore-engine (or a prior attempt to add images may have failed). Re-add image(s) to "
-              + "anchore-engine before attempting policy evaluation ");
-      throw new AbortException("Add image(s) to anchore-engine before attempting policy evaluation ");
+          "Image(s) were not added to anchore-engine (or a prior attempt to add images may have failed). Re-submit image(s) to "
+              + "anchore-engine before attempting policy evaluation");
+      throw new AbortException("Submit image(s) to anchore-engine for analysis before attempting policy evaluation");
     }
 
   }
 
+  private void runVulnerabilityListing() throws AbortException {
+    if (analyzed) {
+      String username = config.getEngineuser();
+      String password = config.getEnginepass();
+      boolean sslverify = config.getEngineverify();
+
+      CredentialsProvider credsProvider = new BasicCredentialsProvider();
+      credsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
+      HttpClientContext context = HttpClientContext.create();
+      context.setCredentialsProvider(credsProvider);
+
+      try {
+        JSONObject securityJson = new JSONObject();
+        JSONArray columnsJson = new JSONArray();
+        for (String column : Arrays.asList("Tag", "CVE ID", "Severity", "Vulnerability Package", "Fix Available", "URL")) {
+          JSONObject columnJson = new JSONObject();
+          columnJson.put("title", column);
+          columnsJson.add(columnJson);
+        }
+        JSONArray dataJson = new JSONArray();
+
+        for (Map.Entry<String, String> entry : input_image_imageDigest.entrySet()) {
+          String input = entry.getKey();
+          String digest = entry.getValue();
+
+          try (CloseableHttpClient httpclient = makeHttpClient(sslverify)) {
+            console.logInfo("Querying vulnerability listing for " + input);
+            String theurl = config.getEngineurl().replaceAll("/+$", "") + "/images/" + digest + "/vuln/all";
+            HttpGet httpget = new HttpGet(theurl);
+            httpget.addHeader("Content-Type", "application/json");
+
+            console.logDebug("anchore-engine get vulnerability listing URL: " + theurl);
+            try (CloseableHttpResponse response = httpclient.execute(httpget, context)) {
+              String responseBody = EntityUtils.toString(response.getEntity());
+              JSONObject responseJson = JSONObject.fromObject(responseBody);
+              JSONArray vulList = responseJson.getJSONArray("vulnerabilities");
+              for (int i = 0; i < vulList.size(); i++) {
+                JSONObject vulnJson = vulList.getJSONObject(i);
+                JSONArray vulnArray = new JSONArray();
+                vulnArray.addAll(Arrays
+                    .asList(input, vulnJson.getString("vuln"), vulnJson.getString("severity"), vulnJson.getString("package"),
+                        vulnJson.getString("fix"),
+                        "<a href='" + vulnJson.getString("url") + "'>" + vulnJson.getString("url") + "</a>"));
+                dataJson.add(vulnArray);
+              }
+            } catch (Exception e) {
+              throw e;
+            }
+          } catch (Exception e) {
+            throw e;
+          }
+        }
+        securityJson.put("columns", columnsJson);
+        securityJson.put("data", dataJson);
+
+        cveListingFileName = CVE_LISTING_PREFIX + JSON_FILE_EXTENSION;
+        FilePath jenkinsOutputDirFP = new FilePath(workspace, jenkinsOutputDirName);
+        FilePath jenkinsQueryOutputFP = new FilePath(jenkinsOutputDirFP, cveListingFileName);
+        try {
+          console.logDebug("Writing vulnerability listing result to " + jenkinsQueryOutputFP.getRemote());
+          try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(jenkinsQueryOutputFP.write(), StandardCharsets.UTF_8))) {
+            bw.write(securityJson.toString());
+          }
+        } catch (IOException | InterruptedException e) {
+          console.logWarn("Failed to write vulnerability listing to " + jenkinsQueryOutputFP.getRemote(), e);
+          throw new AbortException("Failed to write vulnerability listing to " + jenkinsQueryOutputFP.getRemote());
+        }
+      } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
+        throw e;
+      } catch (Exception e) { // caught unknown exception, log it and wrap it
+        console.logError("Failed to fetch vulnerability listing from anchore-engine due to an unexpected error", e);
+        throw new AbortException(
+            "Failed to fetch vulnerability listing from anchore-engine due to an unexpected error. Please refer to above logs for "
+                + "more information");
+      }
+    } else {
+      console.logError(
+          "Image(s) were not added to anchore-engine (or a prior attempt to add images may have failed). Re-submit image(s) to "
+              + "anchore-engine before attempting vulnerability listing");
+      throw new AbortException("Submit image(s) to anchore-engine for analysis before attempting vulnerability listing");
+    }
+  }
+
   private void generateGatesSummary(JSONObject gatesJson) {
-    console.logInfo("Summarizing policy evaluation results");
-    if (gatesJson != null)  {
+    console.logDebug("Summarizing policy evaluation results");
+    if (gatesJson != null) {
       JSONArray summaryRows = new JSONArray();
       // Populate once and reuse
       int numColumns = 0, repoTagIndex = -1, gateNameIndex = -1, gateActionIndex = -1, whitelistedIndex = -1;
@@ -658,8 +743,7 @@ public class BuildWorker {
         JSONObject gatesJson = JSONObject.fromObject(jenkinsGatesOutputFP.readToString());
         if (gatesJson != null) {
           generateGatesSummary(gatesJson);
-        }
-        else { // could not load gates output to json object
+        } else { // could not load gates output to json object
           console.logWarn("Failed to load/parse gate output from " + jenkinsGatesOutputFP.getRemote());
         }
 
@@ -758,6 +842,14 @@ public class BuildWorker {
   }
 
   public void runQueries() throws AbortException {
+    if (config.getEnginemode().equals("anchoreengine")) {
+      runVulnerabilityListing();
+    } else {
+      runQueriesLocal();
+    }
+  }
+
+  private void runQueriesLocal() throws AbortException {
     if (analyzed) {
       try {
         if (config.getInputQueries() != null && !config.getInputQueries().isEmpty()) {
@@ -829,10 +921,10 @@ public class BuildWorker {
 
       if (finalAction != null) {
         build.addAction(new AnchoreAction(build, finalAction.toString(), jenkinsOutputDirName, gateOutputFileName, queryOutputMap,
-            gateSummary.toString()));
+            gateSummary.toString(), cveListingFileName));
       } else {
-        build
-            .addAction(new AnchoreAction(build, "", jenkinsOutputDirName, gateOutputFileName, queryOutputMap, gateSummary.toString()));
+        build.addAction(new AnchoreAction(build, "", jenkinsOutputDirName, gateOutputFileName, queryOutputMap, gateSummary.toString(),
+            cveListingFileName));
       }
       //    } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
       //      throw e;

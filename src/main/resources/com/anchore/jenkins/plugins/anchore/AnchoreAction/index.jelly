@@ -44,6 +44,9 @@
                 <j:set var="counter" value="${counter + 1}"/>
                 <li role="presentation"><a href="#query${counter}" aria-controls="query${counter}" role="tab" data-toggle="tab">${e.key}</a></li>
               </j:forEach>
+              <j:if test="${!empty(it.cveListingUrl)}">
+                <li role="presentation"><a href="#security" aria-controls="security" role="tab" data-toggle="tab">Security</a></li>
+              </j:if>
             </ul>
 
             <!-- Tab panes -->
@@ -78,6 +81,17 @@
                   </script>
                 </div>
               </j:forEach>
+
+              <j:if test="${!empty(it.cveListingUrl)}">
+                <div role="tabpanel" class="tab-pane fade" id="security">
+                  <h3 style="margin-bottom: 30px;">Common Vulnerabilities and Exposures (CVE) List</h3>
+                  <style>#security_table_wrapper {float: left; width: 100%; margin-bottom: 50px;}</style>
+                  <table id="security_table" class="table table-striped table-bordered dataTable no-footer" style="width: 100%;"></table>
+                  <script type="text/javascript">
+                    buildSecurityTable("#security_table", "${it.cveListingUrl}");
+                  </script>
+                </div>
+              </j:if>
             </div>
           </div>
         </j:when>

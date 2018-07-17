@@ -4,6 +4,15 @@ const actionLookup = {
   go: 2,
 };
 
+const severityLookup = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+  negligible: 4,
+  unknown: 5
+}
+
 function gateAction(source, type, val) {
   var el = '<span>' + source + '</span>';
   if ((typeof source === 'string') && source.trim().toLowerCase().match(/(stop|go|warn)/g)) {
@@ -28,37 +37,75 @@ function gateAction(source, type, val) {
   return el;
 }
 
+function severity(source, type, val) {
+  var el = '<span>' + source + '</span>';
+  if ((typeof source === 'string') && source.trim().toLowerCase().match(/(critical|high|medium|low|negligible|unknown)/g)) {
+    switch (source.trim().toLowerCase()) {
+      case 'critical': {
+        el = '<span style="display:none;">' + severityLookup[source.toLowerCase()]
+            + '</span><span class="label label-danger">' + source + '</span>';
+        break;
+      }
+      case 'high': {
+        el = '<span style="display:none;">' + severityLookup[source.toLowerCase()]
+            + '</span><span class="label label-warning">' + source + '</span>';
+        break;
+      }
+      case 'medium': {
+        el = '<span style = "display:none;">' + severityLookup[source.toLowerCase()]
+            + '</span><span class="label label-info">' + source + '</span>';
+        break;
+      }
+      case 'low': {
+        el = '<span style="display:none;">' + severityLookup[source.toLowerCase()]
+            + '</span><span class="label label-success">' + source + '</span>';
+        break;
+      }
+      case 'negligible': {
+        el = '<span style="display:none;">' + severityLookup[source.toLowerCase()]
+            + '</span><span class="label label-default">' + source + '</span>';
+        break;
+      }
+      case 'unknown': {
+        el = '<span style = "display:none;">' + severityLookup[source.toLowerCase()]
+            + '</span><span class="label label-default">' + source + '</span>';
+        break;
+      }
+    }
+  }
+  return el;
+}
+
 function buildPolicyEvalTable(tableId, outputFile) {
   jQuery.getJSON(outputFile, function (data) {
-        var headers = [];
-        var rows = [];
-        jQuery.each(data, function (imageId, imageIdObj) {
-          if (headers.length === 0) {
-            jQuery.each(imageIdObj.result.header, function (i, header) {
-              var headerObj = new Object();
-              headerObj.title = header.replace('_', ' ');
-              headers.push(headerObj);
-            });
-          }
-          jQuery.merge(rows, imageIdObj.result.rows);
-        });
-
-        jQuery(document).ready(function () {
-          jQuery(tableId).DataTable({
-            retrieve: true,
-            data: rows,
-            columns: headers,
-            order: [[6, 'asc']],
-            columnDefs: [
-              {
-                targets: 6,
-                render: gateAction
-              }
-            ]
-          });
+    var headers = [];
+    var rows = [];
+    jQuery.each(data, function (imageId, imageIdObj) {
+      if (headers.length === 0) {
+        jQuery.each(imageIdObj.result.header, function (i, header) {
+          var headerObj = new Object();
+          headerObj.title = header.replace('_', ' ');
+          headers.push(headerObj);
         });
       }
-  );
+      jQuery.merge(rows, imageIdObj.result.rows);
+    });
+
+    jQuery(document).ready(function () {
+      jQuery(tableId).DataTable({
+        retrieve: true,
+        data: rows,
+        columns: headers,
+        order: [[6, 'asc']],
+        columnDefs: [
+          {
+            targets: 6,
+            render: gateAction
+          }
+        ]
+      });
+    });
+  });
 }
 
 function buildTableFromAnchoreOutput(tableId, outputFile) {
@@ -154,6 +201,25 @@ function buildPolicyEvalSummaryTable(tableId, tableObj) {
           render: gateAction
         }
       ]
+    });
+  });
+}
+
+function buildSecurityTable(tableId, outputFile) {
+  jQuery.getJSON(outputFile, function (tableObj) {
+    jQuery(document).ready(function () {
+      jQuery(tableId).DataTable({
+        retrieve: true,
+        data: tableObj.data,
+        columns: tableObj.columns,
+        order: [[2, 'asc']],
+        columnDefs: [
+          {
+            targets: 2,
+            render: severity
+          }
+        ]
+      });
     });
   });
 }

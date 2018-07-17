@@ -19,6 +19,7 @@ public class AnchoreAction implements Action {
   private String gateOutputUrl;
   private Map<String, String> queryOutputUrls;
   private String gateSummary;
+  private String cveListingUrl;
 
   // For backwards compatibility
   @Deprecated
@@ -28,7 +29,7 @@ public class AnchoreAction implements Action {
 
 
   public AnchoreAction(Run<?, ?> build, String gateStatus, final String jenkinsOutputDirName, String gateReport,
-      Map<String, String> queryReports, String gateSummary) {
+      Map<String, String> queryReports, String gateSummary, String cveListingFileName) {
     this.build = build;
     this.gateStatus = gateStatus;
     this.gateOutputUrl = "../artifact/" + jenkinsOutputDirName + "/" + gateReport;
@@ -52,6 +53,7 @@ public class AnchoreAction implements Action {
     });
     */
     this.gateSummary = gateSummary;
+    this.cveListingUrl = "../artifact/" + jenkinsOutputDirName + "/" + cveListingFileName;
   }
 
   @Override
@@ -124,6 +126,10 @@ public class AnchoreAction implements Action {
     } else {
       return null;
     }
+  }
+
+  public String getCveListingUrl() {
+    return cveListingUrl;
   }
 
   public String getGateReportUrl() {

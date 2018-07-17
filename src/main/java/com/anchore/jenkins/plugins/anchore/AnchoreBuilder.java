@@ -337,12 +337,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       finalAction = worker.runGates();
 
       /* Run queries and continue even if it fails */
-      if (globalConfig.getEnginemode().equals("anchorelocal")) {
-        try {
-          worker.runQueries();
-        } catch (Exception e) {
-          console.logWarn("Recording failure to execute Anchore queries and moving on with plugin operation", e);
-        }
+      try {
+        worker.runQueries();
+      } catch (Exception e) {
+        console.logWarn("Recording failure to execute Anchore queries and moving on with plugin operation", e);
       }
 
       /* Setup reports */
