@@ -24,7 +24,7 @@
 
     </f:radioBlock>
 
-    <f:radioBlock name="enginemode" value="anchorelocal" title="Local Anchore Scanner Mode"
+    <f:radioBlock name="enginemode" value="anchorelocal" title="Local Anchore Scanner Mode - DEPRECATED"
       checked="${descriptor.isMode('anchorelocal')}" inline="true"
       help="/plugin/anchore-container-scanner/help/help-LocalAnchoreMode.html">
 

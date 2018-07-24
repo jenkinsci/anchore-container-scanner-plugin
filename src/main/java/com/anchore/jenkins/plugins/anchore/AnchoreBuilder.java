@@ -21,6 +21,7 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import hudson.util.Secret;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -314,7 +315,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
           // messy build time overrides, ugh!
           !Strings.isNullOrEmpty(engineurl) ? engineurl : globalConfig.getEngineurl(),
           !Strings.isNullOrEmpty(engineuser) ? engineuser : globalConfig.getEngineuser(),
-          !Strings.isNullOrEmpty(enginepass) ? enginepass : globalConfig.getEnginepass(),
+          !Strings.isNullOrEmpty(enginepass) ? enginepass : globalConfig.getEnginepass().getPlainText(),
           isEngineverifyOverrride ? engineverify : globalConfig.getEngineverify(), globalConfig.getContainerImageId(),
           globalConfig.getContainerId(), globalConfig.getLocalVol(), globalConfig.getModulesVol(), globalConfig.getUseSudo());
       worker = new BuildWorker(run, workspace, launcher, listener, config);
@@ -424,7 +425,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     private String enginemode;
     private String engineurl;
     private String engineuser;
-    private String enginepass;
+    private Secret enginepass;
     private boolean engineverify;
     private String containerImageId;
     private String containerId;
@@ -457,7 +458,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       this.engineuser = engineuser;
     }
 
-    public void setEnginepass(String enginepass) {
+    public void setEnginepass(Secret enginepass) {
       this.enginepass = enginepass;
     }
 
@@ -516,7 +517,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       return engineuser;
     }
 
-    public String getEnginepass() {
+    public Secret getEnginepass() {
       return enginepass;
     }
 

@@ -2,8 +2,8 @@ package com.anchore.jenkins.plugins.anchore;
 
 import hudson.model.Action;
 import hudson.model.Run;
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Map;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
@@ -53,7 +53,9 @@ public class AnchoreAction implements Action {
     });
     */
     this.gateSummary = gateSummary;
-    this.cveListingUrl = "../artifact/" + jenkinsOutputDirName + "/" + cveListingFileName;
+    if (null != cveListingFileName && cveListingFileName.trim().length() > 0) {
+      this.cveListingUrl = "../artifact/" + jenkinsOutputDirName + "/" + cveListingFileName;
+    }
   }
 
   @Override
