@@ -99,6 +99,12 @@ function buildPolicyEvalTable(tableId, outputFile) {
         order: [[6, 'asc']],
         columnDefs: [
           {
+            targets: [0, 1, 2],
+            render: function (source, type, val) {
+              return '<span style="word-break: break-all;">' + source + '</span>';
+            }
+          },
+          {
             targets: 6,
             render: gateAction
           }
