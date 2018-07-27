@@ -7,7 +7,7 @@
       <j:choose>
         <j:when test="${!empty(it.gateOutputUrl)}">
 
-          <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css"/>
+          <link rel="stylesheet" type="text/css" href="${resURL}/plugin/anchore-container-scanner/css/bootstrap.min.css"/>
           <link rel="stylesheet" type="text/css" href="${resURL}/plugin/anchore-container-scanner/css/dataTables.bootstrap.min.css"/>
 
           <script type="text/javascript" src="${resURL}/plugin/anchore-container-scanner/js/jquery.min.js"></script>
@@ -29,7 +29,7 @@
             disablePrototypeJS('show', pluginsToDisable);
             disablePrototypeJS('hide', pluginsToDisable);
           </script>
-          <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
+          <script type="text/javascript" src="${resURL}/plugin/anchore-container-scanner/js/bootstrap.min.js"></script>
           <script type="text/javascript" src="${resURL}/plugin/anchore-container-scanner/js/jquery.dataTables.min.js"></script>
           <script type="text/javascript" src="${resURL}/plugin/anchore-container-scanner/js/dataTables.bootstrap.min.js"></script>
           <script type="text/javascript" src="${resURL}/plugin/anchore-container-scanner/js/renderOutput.js"></script>

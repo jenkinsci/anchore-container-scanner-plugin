@@ -146,6 +146,12 @@
                     **/jquery.dataTables.min.js,**/dataTables.bootstrap.min.js,**/dataTables.bootstrap.min.css
                   </includes>
                 </artifactItem>
+                <artifactItem>
+                  <groupId>org.webjars</groupId>
+                  <artifactId>bootstrap</artifactId>
+                  <version>3.3.7-1</version>
+                  <includes>**/bootstrap.min.css,**/bootstrap.min.js,**/fonts/*</includes>
+                </artifactItem>
               </artifactItems>
               <outputDirectory>${project.build.directory}/webjars</outputDirectory>
             </configuration>
@@ -173,6 +179,9 @@
                 </resource>
                 <resource>
                   <directory>${project.build.directory}/webjars/META-INF/resources/webjars/datatables/1.10.11</directory>
+                </resource>
+                <resource>
+                  <directory>${project.build.directory}/webjars/META-INF/resources/webjars/bootstrap/3.3.7-1</directory>
                 </resource>
                 <!-- also copy existing resources to use them in the HPL for testing -->
                 <resource>
