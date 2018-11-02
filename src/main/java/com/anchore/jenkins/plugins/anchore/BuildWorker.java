@@ -551,23 +551,32 @@ public class BuildWorker {
 
             console.logDebug("anchore-engine get vulnerability listing URL: " + theurl);
             try (CloseableHttpResponse response = httpclient.execute(httpget, context)) {
-              String responseBody = EntityUtils.toString(response.getEntity());
-              JSONObject responseJson = JSONObject.fromObject(responseBody);
-              JSONArray vulList = responseJson.getJSONArray("vulnerabilities");
-              for (int i = 0; i < vulList.size(); i++) {
-                JSONObject vulnJson = vulList.getJSONObject(i);
-                JSONArray vulnArray = new JSONArray();
-                vulnArray.addAll(Arrays
-                    .asList(input, vulnJson.getString("vuln"), vulnJson.getString("severity"), vulnJson.getString("package"),
-                        vulnJson.getString("fix"),
-                        "<a href='" + vulnJson.getString("url") + "'>" + vulnJson.getString("url") + "</a>"));
-                dataJson.add(vulnArray);
+              int statusCode = response.getStatusLine().getStatusCode();
+              if (statusCode != 200) {
+                String serverMessage = EntityUtils.toString(response.getEntity());
+                console.logWarn(
+                    "anchore-engine get vulnerability listing failed. URL: " + theurl + ", status: " + response.getStatusLine()
+                        + ", error: " + serverMessage);
+                throw new AbortException("Failed to fetch vulnerability listing from anchore-engine");
+              } else {
+                String responseBody = EntityUtils.toString(response.getEntity());
+                JSONObject responseJson = JSONObject.fromObject(responseBody);
+                JSONArray vulList = responseJson.getJSONArray("vulnerabilities");
+                for (int i = 0; i < vulList.size(); i++) {
+                  JSONObject vulnJson = vulList.getJSONObject(i);
+                  JSONArray vulnArray = new JSONArray();
+                  vulnArray.addAll(Arrays
+                      .asList(input, vulnJson.getString("vuln"), vulnJson.getString("severity"), vulnJson.getString("package"),
+                          vulnJson.getString("fix"),
+                          "<a href='" + vulnJson.getString("url") + "'>" + vulnJson.getString("url") + "</a>"));
+                  dataJson.add(vulnArray);
+                }
               }
-            } catch (Exception e) {
-              throw e;
+            } catch (Throwable t) {
+              throw t;
             }
-          } catch (Exception e) {
-            throw e;
+          } catch (Throwable t) {
+            throw t;
           }
         }
         securityJson.put("columns", columnsJson);
