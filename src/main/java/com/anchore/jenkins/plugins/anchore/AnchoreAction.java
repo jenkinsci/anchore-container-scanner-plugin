@@ -1,10 +1,16 @@
 package com.anchore.jenkins.plugins.anchore;
 
 import hudson.model.Action;
+import hudson.model.Job;
 import hudson.model.Run;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import jenkins.model.Jenkins;
+import jenkins.model.lazy.LazyBuildMixIn;
+import jenkins.tasks.SimpleBuildStep;
 import net.sf.json.JSONObject;
 
 /**
@@ -12,7 +18,7 @@ import net.sf.json.JSONObject;
  * the results is defined in the appropriate index and summary jelly files. This Jenkins Action is associated with a build (and not the
  * project which is one level up)
  */
-public class AnchoreAction implements Action {
+public class AnchoreAction implements SimpleBuildStep.LastBuildAction {
 
   private Run<?, ?> build;
   private String gateStatus;
@@ -20,6 +26,9 @@ public class AnchoreAction implements Action {
   private Map<String, String> queryOutputUrls;
   private String gateSummary;
   private String cveListingUrl;
+  private int stopActionCount;
+  private int warnActionCount;
+  private int goActionCount;
 
   // For backwards compatibility
   @Deprecated
@@ -29,9 +38,13 @@ public class AnchoreAction implements Action {
 
 
   public AnchoreAction(Run<?, ?> build, String gateStatus, final String jenkinsOutputDirName, String gateReport,
-      Map<String, String> queryReports, String gateSummary, String cveListingFileName) {
+      Map<String, String> queryReports, String gateSummary, String cveListingFileName,
+      int stopActionCount, int warnActionCount, int goActionCount) {
     this.build = build;
     this.gateStatus = gateStatus;
+    this.stopActionCount = stopActionCount;
+    this.warnActionCount = warnActionCount;
+    this.goActionCount = goActionCount;
     this.gateOutputUrl = "../artifact/" + jenkinsOutputDirName + "/" + gateReport;
 
     this.queryOutputUrls = new HashMap<String, String>();
@@ -141,5 +154,52 @@ public class AnchoreAction implements Action {
   public Map<String, String> getQueries() {
     return this.queries;
   }
-}
+  
+  public int getGoActionCount(){
+    return this.goActionCount;
+  }
+  
+  public int getStopActionCount(){
+    return this.stopActionCount;
+  }
+  
+  public int getWarnActionCount(){
+    return this.warnActionCount;
+  }
 
+  @Override
+  public Collection<? extends Action> getProjectActions() {
+    Job<?,?> job = this.build.getParent();
+    return Collections.singleton(new AnchoreProjectAction(job));
+  }
+
+  /**
+   * Gets the Anchore result of the previous build, if it's recorded, or null.
+   * @return the previous AnchoreAction
+   */
+  public AnchoreAction getPreviousResult() {
+    Run<?,?> b = this.build;
+    Set<Integer> loadedBuilds;
+    if (this.build.getParent() instanceof LazyBuildMixIn.LazyLoadingJob) {
+      loadedBuilds = ((LazyBuildMixIn.LazyLoadingJob<?,?>) this.build.getParent()).getLazyBuildMixIn()._getRuns().getLoadedBuilds().keySet();
+    } else {
+      loadedBuilds = null;
+    }
+    while(true) {
+      b = loadedBuilds == null || loadedBuilds.contains(b.number - /* assuming there are no gaps */1) ? b.getPreviousBuild() : null;
+      if (b == null) {
+        return null;
+      }
+      AnchoreAction r = b.getAction(AnchoreAction.class);
+      if (r != null) {
+        if (r == this) {
+          throw new IllegalStateException(this + " was attached to both " + b + " and " + this.build);
+        }
+        if (r.build.number != b.number) {
+          throw new IllegalStateException(r + " was attached to both " + b + " and " + r.build);
+        }
+        return r;
+      }
+    }
+  }
+}

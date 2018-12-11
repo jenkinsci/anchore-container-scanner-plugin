@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:t="/lib/hudson">
+    <table style="margin-top: 1em; margin-left: 1em;">
+        <j:set var="ar" value="${it.job.lastCompletedBuild.getAction(it.class.classLoader.loadClass('com.anchore.jenkins.plugins.anchore.AnchoreAction'))}"/>
+        <j:if test="${ar != null}">
+        	<t:summary href="lastCompletedBuild/${ar.urlName}/" icon="/plugin/anchore-container-scanner/images/anchore.png">
+		    	<j:out value="Latest Anchore Report (${ar.gateStatus})" />
+		    </t:summary>
+        </j:if>
+    </table>
+</j:jelly>
