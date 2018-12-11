@@ -83,6 +83,9 @@ public class BuildWorker {
   private String gateOutputFileName;
   private GATE_ACTION finalAction;
   private JSONObject gateSummary;
+  private int totalStopActionCount = 0;
+  private int totalWarnActionCount = 0;
+  private int totalGoActionCount = 0;
   private String cveListingFileName;
 
   // Initialized by Anchore workspace prep
@@ -697,6 +700,10 @@ public class BuildWorker {
                 }
               }
 
+              totalStopActionCount += (stop - stop_wl);
+              totalWarnActionCount += (warn - warn_wl);
+              totalGoActionCount += (go - go_wl);
+              
               if (!Strings.isNullOrEmpty(repoTag)) {
                 console.logInfo("Policy evaluation summary for " + repoTag + " - stop: " + (stop - stop_wl) + " (+" + stop_wl
                     + " whitelisted), warn: " + (warn - warn_wl) + " (+" + warn_wl + " whitelisted), go: " + (go - go_wl) + " (+"
@@ -928,12 +935,13 @@ public class BuildWorker {
       // add the link in jenkins UI for anchore results
       console.logDebug("Setting up build results");
 
+      
       if (finalAction != null) {
         build.addAction(new AnchoreAction(build, finalAction.toString(), jenkinsOutputDirName, gateOutputFileName, queryOutputMap,
-            gateSummary.toString(), cveListingFileName));
+            gateSummary.toString(), cveListingFileName, totalStopActionCount, totalWarnActionCount, totalGoActionCount));
       } else {
         build.addAction(new AnchoreAction(build, "", jenkinsOutputDirName, gateOutputFileName, queryOutputMap, gateSummary.toString(),
-            cveListingFileName));
+            cveListingFileName, totalStopActionCount, totalWarnActionCount, totalGoActionCount));
       }
       //    } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
       //      throw e;
