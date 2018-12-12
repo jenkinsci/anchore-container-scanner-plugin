@@ -936,7 +936,7 @@ public class BuildWorker {
       console.logDebug("Setting up build results");
 
       
-      build.addAction(new AnchoreAction(build, finalAction != null ? finalAction.toString() : "", jenkinsOutputDirName,
+      build.addAction(new AnchoreAction(finalAction != null ? finalAction.toString() : "", jenkinsOutputDirName,
           gateOutputFileName, queryOutputMap, gateSummary.toString(), cveListingFileName, totalStopActionCount,
           totalWarnActionCount, totalGoActionCount, config.getWarnActionHealthFactor(),
           config.getStopActionHealthFactor()));

@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import jenkins.model.Jenkins;
+import jenkins.model.RunAction2;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.tasks.SimpleBuildStep;
 import jenkins.util.NonLocalizable;
@@ -21,9 +22,9 @@ import net.sf.json.JSONObject;
  * the results is defined in the appropriate index and summary jelly files. This Jenkins Action is associated with a build (and not the
  * project which is one level up)
  */
-public class AnchoreAction implements HealthReportingAction, SimpleBuildStep.LastBuildAction {
+public class AnchoreAction implements HealthReportingAction, SimpleBuildStep.LastBuildAction, RunAction2 {
 
-  private Run<?, ?> build;
+  private transient Run<?, ?> build;
   private String gateStatus;
   private String gateOutputUrl;
   private Map<String, String> queryOutputUrls;
@@ -42,10 +43,9 @@ public class AnchoreAction implements HealthReportingAction, SimpleBuildStep.Las
   private Map<String, String> queries;
 
 
-  public AnchoreAction(Run<?, ?> build, String gateStatus, final String jenkinsOutputDirName, String gateReport,
+  public AnchoreAction(String gateStatus, final String jenkinsOutputDirName, String gateReport,
       Map<String, String> queryReports, String gateSummary, String cveListingFileName,
       int stopActionCount, int warnActionCount, int goActionCount, double warnActionHealthFactor, double stopActionHealthFactor) {
-    this.build = build;
     this.gateStatus = gateStatus;
     this.stopActionCount = stopActionCount;
     this.warnActionCount = warnActionCount;
@@ -77,7 +77,17 @@ public class AnchoreAction implements HealthReportingAction, SimpleBuildStep.Las
       this.cveListingUrl = "../artifact/" + jenkinsOutputDirName + "/" + cveListingFileName;
     }
   }
+  
+  @Override
+  public void onAttached(Run<?, ?> r){
+    this.build = r;
+  }
 
+  @Override
+  public void onLoad(Run<?, ?> r){
+    this.build = r;
+  }
+  
   @Override
   public String getIconFileName() {
     return Jenkins.RESOURCE_PATH + "/plugin/anchore-container-scanner/images/anchore.png";
