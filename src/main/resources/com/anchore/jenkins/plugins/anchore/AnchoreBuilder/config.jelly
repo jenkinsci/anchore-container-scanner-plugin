@@ -15,6 +15,14 @@
       <f:checkbox name="bailOnPluginFail" checked="${instance.bailOnPluginFail}" default="${descriptor.DEFAULT_BAIL_ON_PLUGIN_FAIL}"/>
     </f:entry>
 
+    <f:entry title="Health warn action amplification factor" field="warnActionHealthFactor">
+        <f:number default="${descriptor.DEFAULT_WARN_ACTION_HEALTH_FACTOR}" min="0" step="1.0" size="10"/>
+    </f:entry>
+    
+    <f:entry title="Health stop action amplification factor" field="stopActionHealthFactor">
+        <f:number default="${descriptor.DEFAULT_STOP_ACTION_HEALTH_FACTOR}" min="0" step="1.0" size="10"/>
+    </f:entry>
+    
     <j:choose>
       <j:when test="${descriptor.isMode('anchoreengine')}">
         <f:entry title="Anchore Engine operation retries" field="engineRetries">

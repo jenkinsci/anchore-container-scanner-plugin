@@ -1,0 +1,17 @@
+<div>
+    The amplification factor to apply to warn actions when computing the build health score.
+    <br />
+    The default factor is <code>5.0</code>
+    <ul>
+        <li>A factor of <code>0.0</code> means that warn actions will not influence the build health score.</li>
+        <li>A factor of <code>0.1</code> means that 10 warn actions result in 99% health</li>
+        <li>A factor of <code>0.5</code> means that 10 warn actions result in 95% health</li>
+        <li>A factor of <code>1.0</code> means that 10 warn actions result in 90% health</li>
+        <li>A factor of <code>2.0</code> means that 10 warn actions result in 80% health</li>
+        <li>A factor of <code>2.5</code> means that 10 warn actions result in 75% health</li>
+        <li>A factor of <code>5.0</code> means that 10 warn actions result in 50% health</li>
+        <li>A factor of <code>10.0</code> means that 10 warn actions result in 0% health</li>
+        <li>A factor of <code>25.0</code> means that 1 warn action results in 75% health</li>
+    </ul>
+    The factor is persisted with the build results, so changes will only be reflected in new builds.
+</div>

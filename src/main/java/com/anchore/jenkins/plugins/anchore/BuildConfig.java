@@ -27,6 +27,8 @@ public class BuildConfig {
   private String bundleFileOverride;
   private List<AnchoreQuery> inputQueries;
   private String policyBundleId;
+  private double warnActionHealthFactor;
+  private double stopActionHealthFactor;
 
   private List<Annotation> annotations;
 
@@ -46,9 +48,9 @@ public class BuildConfig {
   public BuildConfig(String name, String policyName, String globalWhiteList, String anchoreioUser, String anchoreioPass,
       String userScripts, String engineRetries, boolean bailOnFail, boolean bailOnWarn, boolean bailOnPluginFail, boolean doCleanup,
       boolean useCachedBundle, String policyEvalMethod, String bundleFileOverride, List<AnchoreQuery> inputQueries,
-      String policyBundleId, List<Annotation> annotations, boolean debug, String enginemode, String engineurl, String engineuser,
-      String enginepass, boolean engineverify, String containerImageId, String containerId, String localVol, String modulesVol,
-      boolean useSudo) {
+      String policyBundleId, double warnActionHealthFactor, double stopActionHealthFactor, List<Annotation> annotations, boolean debug, String enginemode,
+      String engineurl, String engineuser, String enginepass, boolean engineverify, String containerImageId, String containerId,
+      String localVol, String modulesVol, boolean useSudo) {
     this.name = name;
     this.policyName = policyName;
     this.globalWhiteList = globalWhiteList;
@@ -65,6 +67,8 @@ public class BuildConfig {
     this.bundleFileOverride = bundleFileOverride;
     this.inputQueries = inputQueries;
     this.policyBundleId = policyBundleId;
+    this.warnActionHealthFactor = warnActionHealthFactor;
+    this.stopActionHealthFactor = stopActionHealthFactor;
     this.annotations = annotations;
     this.debug = debug;
     this.enginemode = enginemode;
@@ -147,6 +151,14 @@ public class BuildConfig {
     return policyBundleId;
   }
 
+  public double getStopActionHealthFactor(){
+    return stopActionHealthFactor;
+  }
+  
+  public double getWarnActionHealthFactor(){
+    return warnActionHealthFactor;
+  }
+  
   public List<Annotation> getAnnotations() {
     return annotations;
   }
@@ -224,6 +236,8 @@ public class BuildConfig {
       }
       consoleLog.logInfo("[build] bailOnFail: " + bailOnFail);
       consoleLog.logInfo("[build] bailOnPluginFail: " + bailOnPluginFail);
+      consoleLog.logInfo("[build] warnActionHealthFactor: " + warnActionHealthFactor);
+      consoleLog.logInfo("[build] stopActionHealthFactor: " + stopActionHealthFactor);
     } else {
       // Global properties
       consoleLog.logInfo("[global] containerImageId: " + containerImageId);
@@ -255,6 +269,8 @@ public class BuildConfig {
       consoleLog.logInfo("[build] bailOnFail: " + bailOnFail);
       consoleLog.logInfo("[build] bailOnWarn: " + bailOnWarn);
       consoleLog.logInfo("[build] bailOnPluginFail: " + bailOnPluginFail);
+      consoleLog.logInfo("[build] warnActionHealthFactor: " + warnActionHealthFactor);
+      consoleLog.logInfo("[build] stopActionHealthFactor: " + stopActionHealthFactor);
     }
   }
 }

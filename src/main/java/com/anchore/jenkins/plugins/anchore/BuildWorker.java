@@ -936,13 +936,10 @@ public class BuildWorker {
       console.logDebug("Setting up build results");
 
       
-      if (finalAction != null) {
-        build.addAction(new AnchoreAction(build, finalAction.toString(), jenkinsOutputDirName, gateOutputFileName, queryOutputMap,
-            gateSummary.toString(), cveListingFileName, totalStopActionCount, totalWarnActionCount, totalGoActionCount));
-      } else {
-        build.addAction(new AnchoreAction(build, "", jenkinsOutputDirName, gateOutputFileName, queryOutputMap, gateSummary.toString(),
-            cveListingFileName, totalStopActionCount, totalWarnActionCount, totalGoActionCount));
-      }
+      build.addAction(new AnchoreAction(build, finalAction != null ? finalAction.toString() : "", jenkinsOutputDirName,
+          gateOutputFileName, queryOutputMap, gateSummary.toString(), cveListingFileName, totalStopActionCount,
+          totalWarnActionCount, totalGoActionCount, config.getWarnActionHealthFactor(),
+          config.getStopActionHealthFactor()));
       //    } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
       //      throw e;
     } catch (Exception e) { // caught unknown exception, log it and wrap it

@@ -1,6 +1,8 @@
 package com.anchore.jenkins.plugins.anchore;
 
 import hudson.model.Action;
+import hudson.model.HealthReport;
+import hudson.model.HealthReportingAction;
 import hudson.model.Job;
 import hudson.model.Run;
 import java.util.Collection;
@@ -11,6 +13,7 @@ import java.util.Set;
 import jenkins.model.Jenkins;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.tasks.SimpleBuildStep;
+import jenkins.util.NonLocalizable;
 import net.sf.json.JSONObject;
 
 /**
@@ -18,7 +21,7 @@ import net.sf.json.JSONObject;
  * the results is defined in the appropriate index and summary jelly files. This Jenkins Action is associated with a build (and not the
  * project which is one level up)
  */
-public class AnchoreAction implements SimpleBuildStep.LastBuildAction {
+public class AnchoreAction implements HealthReportingAction, SimpleBuildStep.LastBuildAction {
 
   private Run<?, ?> build;
   private String gateStatus;
@@ -29,6 +32,8 @@ public class AnchoreAction implements SimpleBuildStep.LastBuildAction {
   private int stopActionCount;
   private int warnActionCount;
   private int goActionCount;
+  private double warnActionHealthFactor;
+  private double stopActionHealthFactor;
 
   // For backwards compatibility
   @Deprecated
@@ -39,12 +44,14 @@ public class AnchoreAction implements SimpleBuildStep.LastBuildAction {
 
   public AnchoreAction(Run<?, ?> build, String gateStatus, final String jenkinsOutputDirName, String gateReport,
       Map<String, String> queryReports, String gateSummary, String cveListingFileName,
-      int stopActionCount, int warnActionCount, int goActionCount) {
+      int stopActionCount, int warnActionCount, int goActionCount, double warnActionHealthFactor, double stopActionHealthFactor) {
     this.build = build;
     this.gateStatus = gateStatus;
     this.stopActionCount = stopActionCount;
     this.warnActionCount = warnActionCount;
     this.goActionCount = goActionCount;
+    this.warnActionHealthFactor = warnActionHealthFactor;
+    this.stopActionHealthFactor = stopActionHealthFactor;
     this.gateOutputUrl = "../artifact/" + jenkinsOutputDirName + "/" + gateReport;
 
     this.queryOutputUrls = new HashMap<String, String>();
@@ -165,6 +172,14 @@ public class AnchoreAction implements SimpleBuildStep.LastBuildAction {
   
   public int getWarnActionCount(){
     return this.warnActionCount;
+  }
+
+  @Override
+  public HealthReport getBuildHealth(){
+    int health = Math.min(100, Math.max(0, 100 - (int)(this.stopActionCount * this.stopActionHealthFactor 
+            + this.warnActionCount * this.warnActionHealthFactor)));
+    return new HealthReport(health, new NonLocalizable(String.format( // Plugin is not localized yet
+            "Anchore policy evaluation resulted in %d stop and %d warn actions.", this.stopActionCount, this.warnActionCount)));
   }
 
   @Override

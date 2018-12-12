@@ -74,6 +74,9 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   private String bundleFileOverride = DescriptorImpl.DEFAULT_BUNDLE_FILE_OVERRIDE;
   private List<AnchoreQuery> inputQueries;
   private String policyBundleId = DescriptorImpl.DEFAULT_POLICY_BUNDLE_ID;
+  private double stopActionHealthFactor = DescriptorImpl.DEFAULT_STOP_ACTION_HEALTH_FACTOR;
+  private double warnActionHealthFactor = DescriptorImpl.DEFAULT_WARN_ACTION_HEALTH_FACTOR;
+  
   private List<Annotation> annotations;
 
   // Override global config. Supported for anchore-engine mode config only
@@ -146,6 +149,14 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
   public String getPolicyBundleId() {
     return policyBundleId;
+  }
+  
+  public double getWarnActionHealthFactor(){
+    return warnActionHealthFactor;
+  }
+  
+  public double getStopActionHealthFactor(){
+    return stopActionHealthFactor;
   }
 
   public List<Annotation> getAnnotations() {
@@ -241,6 +252,16 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   }
 
   @DataBoundSetter
+  public void setWarnActionHealthFactor(double warnActionHealthFactor){
+    this.warnActionHealthFactor = warnActionHealthFactor;
+  }
+
+  @DataBoundSetter
+  public void setStopActionHealthFactor(double stopActionHealthFactor){
+    this.stopActionHealthFactor = stopActionHealthFactor;
+  }
+  
+  @DataBoundSetter
   public void setAnnotations(List<Annotation> annotations) {
     this.annotations = annotations;
   }
@@ -311,7 +332,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       /* Instantiate config and a new build worker */
       config = new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, engineRetries, bailOnFail,
           bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride, inputQueries, policyBundleId,
-          annotations, globalConfig.getDebug(), globalConfig.getEnginemode(),
+          warnActionHealthFactor, stopActionHealthFactor, annotations, globalConfig.getDebug(), globalConfig.getEnginemode(),
           // messy build time overrides, ugh!
           !Strings.isNullOrEmpty(engineurl) ? engineurl : globalConfig.getEngineurl(),
           !Strings.isNullOrEmpty(engineuser) ? engineuser : globalConfig.getEngineuser(),
@@ -418,6 +439,8 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
         .of(new AnchoreQuery("cve-scan all"), new AnchoreQuery("list-packages all"), new AnchoreQuery("list-files all"),
             new AnchoreQuery("show-pkg-diffs base"));
     public static final String DEFAULT_POLICY_BUNDLE_ID = "";
+    public static final double DEFAULT_STOP_ACTION_HEALTH_FACTOR = 25;
+    public static final double DEFAULT_WARN_ACTION_HEALTH_FACTOR = 5;
     public static final String EMPTY_STRING = "";
 
     // Global configuration
