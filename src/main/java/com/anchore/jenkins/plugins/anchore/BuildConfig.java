@@ -29,6 +29,10 @@ public class BuildConfig {
   private String policyBundleId;
   private double warnActionHealthFactor;
   private double stopActionHealthFactor;
+  private Integer unstableStopThreshold;
+  private Integer unstableWarnThreshold;
+  private Integer failedStopThreshold;
+  private Integer failedWarnThreshold;
 
   private List<Annotation> annotations;
 
@@ -46,11 +50,13 @@ public class BuildConfig {
   private boolean useSudo;
 
   public BuildConfig(String name, String policyName, String globalWhiteList, String anchoreioUser, String anchoreioPass,
-      String userScripts, String engineRetries, boolean bailOnFail, boolean bailOnWarn, boolean bailOnPluginFail, boolean doCleanup,
-      boolean useCachedBundle, String policyEvalMethod, String bundleFileOverride, List<AnchoreQuery> inputQueries,
-      String policyBundleId, double warnActionHealthFactor, double stopActionHealthFactor, List<Annotation> annotations, boolean debug, String enginemode,
-      String engineurl, String engineuser, String enginepass, boolean engineverify, String containerImageId, String containerId,
-      String localVol, String modulesVol, boolean useSudo) {
+      String userScripts, String engineRetries, boolean bailOnFail, boolean bailOnWarn, boolean bailOnPluginFail,
+      boolean doCleanup, boolean useCachedBundle, String policyEvalMethod, String bundleFileOverride,
+      List<AnchoreQuery> inputQueries, String policyBundleId, double warnActionHealthFactor,
+      double stopActionHealthFactor, Integer unstableStopThreshold, Integer unstableWarnThreshold, Integer failedStopThreshold,
+      Integer failedWarnThreshold, List<Annotation> annotations, boolean debug, String enginemode, String engineurl,
+      String engineuser, String enginepass, boolean engineverify, String containerImageId, String containerId,
+      String localVol, String modulesVol, boolean useSudo){
     this.name = name;
     this.policyName = policyName;
     this.globalWhiteList = globalWhiteList;
@@ -69,6 +75,10 @@ public class BuildConfig {
     this.policyBundleId = policyBundleId;
     this.warnActionHealthFactor = warnActionHealthFactor;
     this.stopActionHealthFactor = stopActionHealthFactor;
+    this.unstableStopThreshold = unstableStopThreshold;
+    this.unstableWarnThreshold = unstableWarnThreshold;
+    this.failedStopThreshold = failedStopThreshold;
+    this.failedWarnThreshold = failedWarnThreshold;
     this.annotations = annotations;
     this.debug = debug;
     this.enginemode = enginemode;
@@ -158,6 +168,22 @@ public class BuildConfig {
   public double getWarnActionHealthFactor(){
     return warnActionHealthFactor;
   }
+
+  public Integer getUnstableStopThreshold(){
+    return unstableStopThreshold;
+  }
+
+  public Integer getUnstableWarnThreshold(){
+    return unstableWarnThreshold;
+  }
+
+  public Integer getFailedStopThreshold(){
+    return failedStopThreshold;
+  }
+
+  public Integer getFailedWarnThreshold(){
+    return failedWarnThreshold;
+  }
   
   public List<Annotation> getAnnotations() {
     return annotations;
@@ -238,6 +264,10 @@ public class BuildConfig {
       consoleLog.logInfo("[build] bailOnPluginFail: " + bailOnPluginFail);
       consoleLog.logInfo("[build] warnActionHealthFactor: " + warnActionHealthFactor);
       consoleLog.logInfo("[build] stopActionHealthFactor: " + stopActionHealthFactor);
+      consoleLog.logInfo("[build] unstableStopThreshold: " + unstableStopThreshold);
+      consoleLog.logInfo("[build] unstableWarnThreshold: " + unstableWarnThreshold);
+      consoleLog.logInfo("[build] failedStopThreshold: " + failedStopThreshold);
+      consoleLog.logInfo("[build] failedWarnThreshold: " + failedWarnThreshold);
     } else {
       // Global properties
       consoleLog.logInfo("[global] containerImageId: " + containerImageId);
@@ -271,6 +301,10 @@ public class BuildConfig {
       consoleLog.logInfo("[build] bailOnPluginFail: " + bailOnPluginFail);
       consoleLog.logInfo("[build] warnActionHealthFactor: " + warnActionHealthFactor);
       consoleLog.logInfo("[build] stopActionHealthFactor: " + stopActionHealthFactor);
+      consoleLog.logInfo("[build] unstableStopThreshold: " + unstableStopThreshold);
+      consoleLog.logInfo("[build] unstableWarnThreshold: " + unstableWarnThreshold);
+      consoleLog.logInfo("[build] failedStopThreshold: " + failedStopThreshold);
+      consoleLog.logInfo("[build] failedWarnThreshold: " + failedWarnThreshold);
     }
   }
 }

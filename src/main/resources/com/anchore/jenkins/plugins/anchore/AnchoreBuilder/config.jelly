@@ -23,6 +23,44 @@
         <f:number default="${descriptor.DEFAULT_STOP_ACTION_HEALTH_FACTOR}" min="0" step="1.0" size="10"/>
     </f:entry>
     
+    <f:entry title="Status thresholds" help="/plugin/anchore-container-scanner/help/help-StatusThresholds.html">
+	    <table>
+			<thead>
+				<tr>
+					<td />
+					<td>Stop actions</td>
+					<td>Warn actions</td>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td style="vertical-align: middle;">
+						<img src="${resURL}/images/24x24/yellow.png" alt="Unstable"
+							class="icon-yellow icon-md" title="Unstable thresholds" />
+					</td>
+					<td>
+	        			<f:number field="unstableStopThreshold" default="${descriptor.DEFAULT_UNSTABLE_STOP_THRESHOLD}" min="1" step="1" size="10"/>
+					</td>
+					<td>
+	        			<f:number field="unstableWarnThreshold" default="${descriptor.DEFAULT_UNSTABLE_WARN_THRESHOLD}" min="1" step="1" size="10"/>
+					</td>
+				</tr>
+				<tr>
+					<td style="vertical-align: middle;">
+						<img src="${resURL}/images/24x24/red.png" alt="Failed"
+							class="icon-red icon-md" title="Failed thresholds" />
+					</td>
+					<td>
+	        			<f:number field="failedStopThreshold" default="${descriptor.DEFAULT_FAILED_STOP_THRESHOLD}" min="1" step="1" size="10"/>
+					</td>
+					<td>
+	        			<f:number field="failedWarnThreshold" default="${descriptor.DEFAULT_FAILED_WARN_THRESHOLD}" min="1" step="1" size="10"/>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+	</f:entry>
+    
     <j:choose>
       <j:when test="${descriptor.isMode('anchoreengine')}">
         <f:entry title="Anchore Engine operation retries" field="engineRetries">

@@ -7,6 +7,7 @@ import hudson.AbortException;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.PluginWrapper;
+import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.tasks.ArtifactArchiver;
@@ -341,15 +342,15 @@ public class BuildWorker {
     }
   }
 
-  public GATE_ACTION runGates() throws AbortException {
+  public void runGates() throws AbortException {
     if (config.getEnginemode().equals("anchoreengine")) {
-      return (runGatesEngine());
+      runGatesEngine();
     } else {
-      return (runGatesLocal());
+      runGatesLocal();
     }
   }
 
-  private GATE_ACTION runGatesEngine() throws AbortException {
+  private void runGatesEngine() throws AbortException {
     String username = config.getEngineuser();
     String password = config.getEnginepass();
     boolean sslverify = config.getEngineverify();
@@ -503,7 +504,6 @@ public class BuildWorker {
 
         generateGatesSummary(gate_results);
         console.logInfo("Anchore Container Image Scanner Plugin step result - " + finalAction);
-        return finalAction;
       } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
         throw e;
       } catch (Exception e) { // caught unknown exception, log it and wrap it
@@ -775,7 +775,7 @@ public class BuildWorker {
     }
   }
 
-  private GATE_ACTION runGatesLocal() throws AbortException {
+  private void runGatesLocal() throws AbortException {
     if (analyzed) {
       try {
         console.logInfo("Running Anchore Gates");
@@ -841,8 +841,6 @@ public class BuildWorker {
         }
 
         generateGatesSummary(jenkinsGatesOutputFP);
-
-        return finalAction;
       } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
         throw e;
       } catch (Exception e) { // caught unknown exception, log it and wrap it
@@ -949,6 +947,45 @@ public class BuildWorker {
     }
   }
 
+  /**
+   * Evaluate the Anchore result against the build quality gates and return the resulting build result.
+   * @return determined build result
+   */
+  public Result evalGates() {
+    Result stepResult;
+
+    // legacy bail on fail/warn check
+    if(null != finalAction
+        && ((config.getBailOnFail() && (GATE_ACTION.STOP.equals(finalAction) || GATE_ACTION.FAIL.equals(finalAction)))
+          || (config.getBailOnWarn() && GATE_ACTION.WARN.equals(finalAction)))) {
+      console.logWarn("Failing Anchore Container Image Scanner Plugin step due to final result " + finalAction);
+      stepResult = Result.FAILURE;
+    // threshold checks
+    } else if (config.getFailedStopThreshold() != null && totalStopActionCount >= config.getFailedStopThreshold()) {
+      console.logWarn("Failing Anchore Container Image Scanner Plugin step due to threshold exceeded: "
+        + totalStopActionCount + " Stop action(s), threshold: " + config.getFailedStopThreshold());
+      stepResult = Result.FAILURE;
+    } else if (config.getFailedWarnThreshold() != null && totalWarnActionCount >= config.getFailedWarnThreshold()) {
+      console.logWarn("Failing Anchore Container Image Scanner Plugin step due to threshold exceeded: "
+        + totalWarnActionCount + " Warn action(s), threshold: " + config.getFailedWarnThreshold());
+      stepResult = Result.FAILURE;
+    } else if (config.getUnstableStopThreshold() != null && totalStopActionCount >= config.getUnstableStopThreshold()) {
+      console.logWarn("Marking Anchore Container Image Scanner Plugin step as Unstable due to threshold exceeded: "
+        + totalStopActionCount + " Stop action(s), threshold: " + config.getUnstableStopThreshold());
+      stepResult = Result.UNSTABLE;
+    } else if (config.getUnstableWarnThreshold() != null && totalWarnActionCount >= config.getUnstableWarnThreshold()) {
+      console.logWarn("Marking Anchore Container Image Scanner Plugin step as Unstable due to threshold exceeded: "
+        + totalWarnActionCount + " Warn action(s), threshold: " + config.getUnstableWarnThreshold());
+      stepResult = Result.UNSTABLE;
+    } else {
+      stepResult = Result.SUCCESS;
+      console.logInfo("Marking Anchore Container Image Scanner step as successful, final result " + (finalAction != null ? finalAction : "N/A")
+        + "; Stop actions: " + totalStopActionCount + "; Warn actions: " + totalWarnActionCount + "; Go actions: " + totalGoActionCount);
+    }
+
+    return stepResult;
+  }
+  
   public void cleanup() {
     try {
       console.logDebug("Cleaning up build artifacts");
