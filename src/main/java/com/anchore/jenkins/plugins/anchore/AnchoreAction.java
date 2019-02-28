@@ -179,14 +179,8 @@ public class AnchoreAction implements SimpleBuildStep.LastBuildAction {
    */
   public AnchoreAction getPreviousResult() {
     Run<?,?> b = this.build;
-    Set<Integer> loadedBuilds;
-    if (this.build.getParent() instanceof LazyBuildMixIn.LazyLoadingJob) {
-      loadedBuilds = ((LazyBuildMixIn.LazyLoadingJob<?,?>) this.build.getParent()).getLazyBuildMixIn()._getRuns().getLoadedBuilds().keySet();
-    } else {
-      loadedBuilds = null;
-    }
     while(true) {
-      b = loadedBuilds == null || loadedBuilds.contains(b.number - /* assuming there are no gaps */1) ? b.getPreviousBuild() : null;
+      b = b.getPreviousBuild();
       if (b == null) {
         return null;
       }
