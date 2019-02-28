@@ -37,6 +37,7 @@ import java.io.IOException;
  */
 public class AnchoreProjectAction implements Action {
   private final static class AnchoreTrendGraph extends Graph {
+    private static final int MAX_HISTORY_DEFAULT = 100;
     private AnchoreAction base;
     private String relPath;
 
@@ -74,7 +75,7 @@ public class AnchoreProjectAction implements Action {
     private CategoryDataset buildDataSet() {
       DataSetBuilder<String, NumberOnlyBuildLabel> dsb = new DataSetBuilder<>();
 
-      int cap = Integer.getInteger(AnchoreAction.class.getName() + ".anchore.trend.max", Integer.MAX_VALUE);
+      int cap = Integer.getInteger(AnchoreAction.class.getName() + ".anchore.trend.max", AnchoreTrendGraph.MAX_HISTORY_DEFAULT);
       int count = 0;
       for (AnchoreAction a = this.base; a != null; a = a.getPreviousResult()) {
         if (++count > cap) {
