@@ -4,7 +4,7 @@
   <j:set var="ar" value="${action.lastAnchoreAction}" />
   <j:if test="${ar.previousResult!=null}">
     <!-- at least two data points are required for a trend report -->
-    <div align="right">
+    <div align="right" style="position:relative; z-index:1;">
       <div class="test-trend-caption">
         Anchore Trend
       </div>
