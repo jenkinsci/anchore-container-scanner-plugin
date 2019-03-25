@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form" xmlns:i="jelly:fmt">
+  <j:set var="ar" value="${action.lastAnchoreAction}" />
+  <j:if test="${ar.previousResult!=null}">
+    <!-- at least two data points are required for a trend report -->
+    <div align="right" style="position:relative; z-index:1;">
+      <div class="test-trend-caption">
+        Anchore Trend
+      </div>
+      <div>
+        <img src="anchore/trendGraph/png" lazymap="anchore/trendGraph/map" alt="[Anchore trend chart]"/>
+      </div>
+      <div style="text-align:right">
+        <a href="anchore/detailGraph?width=800&amp;height=600">Enlarge</a>
+      </div>
+    </div>
+  </j:if>
+</j:jelly>
