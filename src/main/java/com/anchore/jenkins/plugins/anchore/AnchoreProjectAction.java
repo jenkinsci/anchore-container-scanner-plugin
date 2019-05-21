@@ -162,7 +162,7 @@ public class AnchoreProjectAction implements Action {
   /**
    * Create new AnchoreProjectAction instance.
    *
-   * @param job
+   * @param job instance of Jenkins Job
    */
   public AnchoreProjectAction(Job<?,?> job) {
     this.job = job;
