@@ -75,6 +75,8 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   private List<AnchoreQuery> inputQueries;
   private String policyBundleId = DescriptorImpl.DEFAULT_POLICY_BUNDLE_ID;
   private List<Annotation> annotations;
+  private boolean autoSubscribeTag = DescriptorImpl.DEFAULT_TAG_AUTOSUBSCRIBE;
+  private boolean force = DescriptorImpl.DEFAULT_USE_FORCE_FLAG;
 
   // Override global config. Supported for anchore-engine mode config only
   private String engineurl = DescriptorImpl.EMPTY_STRING;
@@ -150,6 +152,14 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
   public List<Annotation> getAnnotations() {
     return annotations;
+  }
+
+  public boolean getAutoSubscribeTag() {
+    return autoSubscribeTag;
+  }
+
+  public boolean getForce() {
+    return force;
   }
 
   public String getEngineurl() {
@@ -246,6 +256,16 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   }
 
   @DataBoundSetter
+  public void setAutoSubscribeTag(boolean autoSubscribeTag) {
+    this.autoSubscribeTag = autoSubscribeTag;
+  }
+
+  @DataBoundSetter
+  public void setForce(boolean force) {
+    this.force = force;
+  }
+
+  @DataBoundSetter
   public void setEngineurl(String engineurl) {
     this.engineurl = engineurl;
   }
@@ -311,7 +331,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       /* Instantiate config and a new build worker */
       config = new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, engineRetries, bailOnFail,
           bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride, inputQueries, policyBundleId,
-          annotations, globalConfig.getDebug(), globalConfig.getEnginemode(),
+          annotations, autoSubscribeTag, force, globalConfig.getDebug(), globalConfig.getEnginemode(),
           // messy build time overrides, ugh!
           !Strings.isNullOrEmpty(engineurl) ? engineurl : globalConfig.getEngineurl(),
           !Strings.isNullOrEmpty(engineuser) ? engineuser : globalConfig.getEngineuser(),
@@ -419,6 +439,8 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
             new AnchoreQuery("show-pkg-diffs base"));
     public static final String DEFAULT_POLICY_BUNDLE_ID = "";
     public static final String EMPTY_STRING = "";
+    public static final boolean DEFAULT_TAG_AUTOSUBSCRIBE = true;
+    public static final boolean DEFAULT_USE_FORCE_FLAG = false;
 
     // Global configuration
     private boolean debug;

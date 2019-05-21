@@ -3,6 +3,7 @@ package com.anchore.jenkins.plugins.anchore;
 import com.anchore.jenkins.plugins.anchore.Util.GATE_ACTION;
 import com.anchore.jenkins.plugins.anchore.Util.GATE_SUMMARY_COLUMN;
 import com.google.common.base.Strings;
+import com.google.common.base.Joiner;
 import hudson.AbortException;
 import hudson.FilePath;
 import hudson.Launcher;
@@ -220,12 +221,32 @@ public class BuildWorker {
       for (Map.Entry<String, String> entry : input_image_dfile.entrySet()) {
         String tag = entry.getKey();
         String dfile = entry.getValue();
+        List<String> queryList = new ArrayList<>();
+        String queryStr = null;
 
         console.logInfo("Submitting " + tag + " for analysis");
 
         try (CloseableHttpClient httpclient = makeHttpClient(sslverify)) {
           // Prep POST request
           String theurl = config.getEngineurl().replaceAll("/+$", "") + "/images";
+
+          // Disable autosubscribe if necessary
+          if (!config.getAutoSubscribeTag()){
+            queryList.add("autosubscribe=false");
+          }
+
+          // Enable force if necessary
+          if (config.getForce()) {
+            queryList.add("force=true");
+          }
+
+          if (!queryList.isEmpty()){
+            queryStr = Joiner.on('&').skipNulls().join(queryList);
+          }
+
+          if (!Strings.isNullOrEmpty(queryStr)) {
+            theurl += "?" + queryStr;
+          }
 
           // Prep request body
           JSONObject jsonBody = new JSONObject();
