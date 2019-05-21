@@ -35,6 +35,14 @@
           </f:repeatableProperty>
         </f:entry>
 
+        <f:entry title="Anchore Engine tag auto subscribe" field="autoSubscribeTag">
+          <f:checkbox name="autoSubscribeTag" checked="${instance.autoSubscribeTag}" default="${descriptor.DEFAULT_TAG_AUTOSUBSCRIBE}"/>
+        </f:entry>
+
+        <f:entry title="Anchore Engine force flag" field="force">
+          <f:checkbox name="force" checked="${instance.force}" default="${descriptor.DEFAULT_USE_FORCE_FLAG}"/>
+        </f:entry>
+
         <f:section title="Override Global Configuration">
           <f:entry title="Anchore Engine URL" field="engineurl" help="/plugin/anchore-container-scanner/help/help-OverrideAEURL.html">
             <f:textbox name="engineurl" default=""/>

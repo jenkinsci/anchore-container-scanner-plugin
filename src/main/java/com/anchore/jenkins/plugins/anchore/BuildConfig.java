@@ -1,8 +1,8 @@
 package com.anchore.jenkins.plugins.anchore;
 
 
-import java.util.List;
 import com.google.common.base.Strings;
+import java.util.List;
 
 /**
  * Holder for all Anchore configuration - includes global and project level attributes. A convenience class for capturing a snapshot of
@@ -27,8 +27,9 @@ public class BuildConfig {
   private String bundleFileOverride;
   private List<AnchoreQuery> inputQueries;
   private String policyBundleId;
-
   private List<Annotation> annotations;
+  private boolean autoSubscribeTag;
+  private boolean force;
 
   // Global configuration
   private boolean debug;
@@ -46,9 +47,9 @@ public class BuildConfig {
   public BuildConfig(String name, String policyName, String globalWhiteList, String anchoreioUser, String anchoreioPass,
       String userScripts, String engineRetries, boolean bailOnFail, boolean bailOnWarn, boolean bailOnPluginFail, boolean doCleanup,
       boolean useCachedBundle, String policyEvalMethod, String bundleFileOverride, List<AnchoreQuery> inputQueries,
-      String policyBundleId, List<Annotation> annotations, boolean debug, String enginemode, String engineurl, String engineuser,
-      String enginepass, boolean engineverify, String containerImageId, String containerId, String localVol, String modulesVol,
-      boolean useSudo) {
+      String policyBundleId, List<Annotation> annotations, boolean autoSubscribeTag, boolean force, boolean debug, String enginemode,
+      String engineurl, String engineuser, String enginepass, boolean engineverify, String containerImageId, String containerId,
+      String localVol, String modulesVol, boolean useSudo) {
     this.name = name;
     this.policyName = policyName;
     this.globalWhiteList = globalWhiteList;
@@ -66,6 +67,8 @@ public class BuildConfig {
     this.inputQueries = inputQueries;
     this.policyBundleId = policyBundleId;
     this.annotations = annotations;
+    this.autoSubscribeTag = autoSubscribeTag;
+    this.force = force;
     this.debug = debug;
     this.enginemode = enginemode;
     this.engineurl = engineurl;
@@ -149,6 +152,14 @@ public class BuildConfig {
 
   public List<Annotation> getAnnotations() {
     return annotations;
+  }
+
+  public boolean getAutoSubscribeTag() {
+    return autoSubscribeTag;
+  }
+  
+  public boolean getForce() {
+    return force;
   }
 
   public boolean getDebug() {
