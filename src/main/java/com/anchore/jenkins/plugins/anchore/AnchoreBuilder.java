@@ -75,8 +75,8 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   private List<AnchoreQuery> inputQueries;
   private String policyBundleId = DescriptorImpl.DEFAULT_POLICY_BUNDLE_ID;
   private List<Annotation> annotations;
-  private boolean autoSubscribeTag = DescriptorImpl.DEFAULT_TAG_AUTOSUBSCRIBE;
-  private boolean force = DescriptorImpl.DEFAULT_USE_FORCE_FLAG;
+  private boolean autoSubscribeTagUpdates = DescriptorImpl.DEFAULT_AUTOSUBSCRIBE_TAG_UPDATES;
+  private boolean forceAnalyze = DescriptorImpl.DEFAULT_FORCE_ANALYZE;
 
   // Override global config. Supported for anchore-engine mode config only
   private String engineurl = DescriptorImpl.EMPTY_STRING;
@@ -154,12 +154,12 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     return annotations;
   }
 
-  public boolean getAutoSubscribeTag() {
-    return autoSubscribeTag;
+  public boolean getAutoSubscribeTagUpdates() {
+    return autoSubscribeTagUpdates;
   }
 
-  public boolean getForce() {
-    return force;
+  public boolean getForceAnalyze() {
+    return forceAnalyze;
   }
 
   public String getEngineurl() {
@@ -256,13 +256,13 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   }
 
   @DataBoundSetter
-  public void setAutoSubscribeTag(boolean autoSubscribeTag) {
-    this.autoSubscribeTag = autoSubscribeTag;
+  public void setAutoSubscribeTagUpdates(boolean autoSubscribeTagUpdates) {
+    this.autoSubscribeTagUpdates = autoSubscribeTagUpdates;
   }
 
   @DataBoundSetter
-  public void setForce(boolean force) {
-    this.force = force;
+  public void setForceAnalyze(boolean forceAnalyze) {
+    this.forceAnalyze = forceAnalyze;
   }
 
   @DataBoundSetter
@@ -331,7 +331,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       /* Instantiate config and a new build worker */
       config = new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, engineRetries, bailOnFail,
           bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride, inputQueries, policyBundleId,
-          annotations, autoSubscribeTag, force, globalConfig.getDebug(), globalConfig.getEnginemode(),
+          annotations, autoSubscribeTagUpdates, forceAnalyze, globalConfig.getDebug(), globalConfig.getEnginemode(),
           // messy build time overrides, ugh!
           !Strings.isNullOrEmpty(engineurl) ? engineurl : globalConfig.getEngineurl(),
           !Strings.isNullOrEmpty(engineuser) ? engineuser : globalConfig.getEngineuser(),
@@ -439,8 +439,8 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
             new AnchoreQuery("show-pkg-diffs base"));
     public static final String DEFAULT_POLICY_BUNDLE_ID = "";
     public static final String EMPTY_STRING = "";
-    public static final boolean DEFAULT_TAG_AUTOSUBSCRIBE = true;
-    public static final boolean DEFAULT_USE_FORCE_FLAG = false;
+    public static final boolean DEFAULT_AUTOSUBSCRIBE_TAG_UPDATES = true;
+    public static final boolean DEFAULT_FORCE_ANALYZE = false;
 
     // Global configuration
     private boolean debug;

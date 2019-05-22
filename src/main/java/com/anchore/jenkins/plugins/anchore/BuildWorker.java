@@ -231,12 +231,12 @@ public class BuildWorker {
           String theurl = config.getEngineurl().replaceAll("/+$", "") + "/images";
 
           // Disable autosubscribe if necessary
-          if (!config.getAutoSubscribeTag()){
+          if (!config.getAutoSubscribeTagUpdates()){
             queryList.add("autosubscribe=false");
           }
 
           // Enable force if necessary
-          if (config.getForce()) {
+          if (config.getForceAnalyze()) {
             queryList.add("force=true");
           }
 

@@ -35,12 +35,12 @@
           </f:repeatableProperty>
         </f:entry>
 
-        <f:entry title="Anchore Engine tag auto subscribe" field="autoSubscribeTag">
-          <f:checkbox name="autoSubscribeTag" checked="${instance.autoSubscribeTag}" default="${descriptor.DEFAULT_TAG_AUTOSUBSCRIBE}"/>
+        <f:entry title="Anchore Engine auto-subscribe tag updates" field="autoSubscribeTagUpdates">
+          <f:checkbox name="autoSubscribeTagUpdates" checked="${instance.autoSubscribeTagUpdates}" default="${descriptor.DEFAULT_AUTOSUBSCRIBE_TAG_UPDATES}"/>
         </f:entry>
 
-        <f:entry title="Anchore Engine force flag" field="force">
-          <f:checkbox name="force" checked="${instance.force}" default="${descriptor.DEFAULT_USE_FORCE_FLAG}"/>
+        <f:entry title="Anchore Engine force image analysis" field="forceAnalyze">
+          <f:checkbox name="forceAnalyze" checked="${instance.forceAnalyze}" default="${descriptor.DEFAULT_FORCE_ANALYZE}"/>
         </f:entry>
 
         <f:section title="Override Global Configuration">
