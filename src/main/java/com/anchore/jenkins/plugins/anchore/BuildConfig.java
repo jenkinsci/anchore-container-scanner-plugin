@@ -28,8 +28,8 @@ public class BuildConfig {
   private List<AnchoreQuery> inputQueries;
   private String policyBundleId;
   private List<Annotation> annotations;
-  private boolean autoSubscribeTag;
-  private boolean force;
+  private boolean autoSubscribeTagUpdates;
+  private boolean forceAnalyze;
 
   // Global configuration
   private boolean debug;
@@ -47,7 +47,7 @@ public class BuildConfig {
   public BuildConfig(String name, String policyName, String globalWhiteList, String anchoreioUser, String anchoreioPass,
       String userScripts, String engineRetries, boolean bailOnFail, boolean bailOnWarn, boolean bailOnPluginFail, boolean doCleanup,
       boolean useCachedBundle, String policyEvalMethod, String bundleFileOverride, List<AnchoreQuery> inputQueries,
-      String policyBundleId, List<Annotation> annotations, boolean autoSubscribeTag, boolean force, boolean debug, String enginemode,
+      String policyBundleId, List<Annotation> annotations, boolean autoSubscribeTagUpdates, boolean forceAnalyze, boolean debug, String enginemode,
       String engineurl, String engineuser, String enginepass, boolean engineverify, String containerImageId, String containerId,
       String localVol, String modulesVol, boolean useSudo) {
     this.name = name;
@@ -67,8 +67,8 @@ public class BuildConfig {
     this.inputQueries = inputQueries;
     this.policyBundleId = policyBundleId;
     this.annotations = annotations;
-    this.autoSubscribeTag = autoSubscribeTag;
-    this.force = force;
+    this.autoSubscribeTagUpdates = autoSubscribeTagUpdates;
+    this.forceAnalyze = forceAnalyze;
     this.debug = debug;
     this.enginemode = enginemode;
     this.engineurl = engineurl;
@@ -154,12 +154,12 @@ public class BuildConfig {
     return annotations;
   }
 
-  public boolean getAutoSubscribeTag() {
-    return autoSubscribeTag;
+  public boolean getAutoSubscribeTagUpdates() {
+    return autoSubscribeTagUpdates;
   }
-  
-  public boolean getForce() {
-    return force;
+
+  public boolean getForceAnalyze() {
+    return forceAnalyze;
   }
 
   public boolean getDebug() {
