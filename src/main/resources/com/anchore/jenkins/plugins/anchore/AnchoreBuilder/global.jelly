@@ -1,54 +1,23 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
 
-  <f:section title="Anchore Plugin Mode">
+  <f:section title="Anchore Container Image Scanner">
 
-    <f:radioBlock name="enginemode" value="anchoreengine" title="Engine Mode" checked="${descriptor.isMode('anchoreengine')}"
-      inline="true" help="/plugin/anchore-container-scanner/help/help-AnchoreEngineMode.html">>
+    <f:entry title="Engine URL" field="engineurl">
+      <f:textbox name="engineurl" default="http://your_anchore_engine_host_ip:your_anchore_engine_port/v1"/>
+    </f:entry>
 
-      <f:entry title="Engine URL" field="engineurl">
-        <f:textbox name="engineurl" default="http://your_anchore_engine_host_ip:your_anchore_engine_port/v1"/>
-      </f:entry>
+    <f:entry title="Engine Username" field="engineuser">
+      <f:textbox name="engineuser" default=""/>
+    </f:entry>
 
-      <f:entry title="Engine Username" field="engineuser">
-        <f:textbox name="engineuser" default=""/>
-      </f:entry>
+    <f:entry title="Engine Password" field="enginepass">
+      <f:password name="enginepass"/>
+    </f:entry>
 
-      <f:entry title="Engine Password" field="enginepass">
-        <f:password name="enginepass"/>
-      </f:entry>
-
-      <f:entry title="Verify SSL" field="engineverify">
-        <f:checkbox name="engineverify" checked="${descriptor.engineverify}" default="${true}"/>
-      </f:entry>
-
-    </f:radioBlock>
-
-    <f:radioBlock name="enginemode" value="anchorelocal" title="Local Anchore Scanner Mode - DEPRECATED"
-      checked="${descriptor.isMode('anchorelocal')}" inline="true"
-      help="/plugin/anchore-container-scanner/help/help-LocalAnchoreMode.html">
-
-      <f:entry title="Anchore Container Image (ID/repo:tag)" field="containerImageId">
-        <f:textbox name="containerImageId" default="anchore/jenkins:latest"/>
-      </f:entry>
-
-      <f:entry title="Anchore Container (ID/Name)" field="containerId">
-        <f:textbox name="containerId" default="jenkins_anchore"/>
-      </f:entry>
-
-      <f:entry title="Local Anchore Data Volume" field="localVol">
-        <f:textbox name="localVol" default=""/>
-      </f:entry>
-
-      <f:entry title="Local Anchore Module Package Volume" field="modulesVol">
-        <f:textbox name="modulesVol" default=""/>
-      </f:entry>
-
-      <f:entry title="Use sudo" field="useSudo">
-        <f:checkbox name="useSudo" checked="${descriptor.useSudo}" default="${false}"/>
-      </f:entry>
-
-    </f:radioBlock>
+    <f:entry title="Verify SSL" field="engineverify">
+      <f:checkbox name="engineverify" checked="${descriptor.engineverify}" default="${true}"/>
+    </f:entry>
 
     <f:entry title="Enable DEBUG logging" field="debug">
       <f:checkbox name="debug" checked="${descriptor.debug}" default="${false}"/>
