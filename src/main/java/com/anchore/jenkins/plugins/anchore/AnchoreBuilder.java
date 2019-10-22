@@ -8,7 +8,6 @@ import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import hudson.AbortException;
 import hudson.Extension;
 import hudson.FilePath;
@@ -59,20 +58,9 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
   // Assigning the defaults here for pipeline builds
   private String name;
-  private String policyName = DescriptorImpl.DEFAULT_POLICY_NAME;
-  private String globalWhiteList = DescriptorImpl.DEFAULT_GLOBAL_WHITELIST;
-  private String anchoreioUser = DescriptorImpl.DEFAULT_ANCHORE_IO_USER;
-  private String anchoreioPass = DescriptorImpl.DEFAULT_ANCHORE_IO_PASSWORD;
-  private String userScripts = DescriptorImpl.DEFAULT_USER_SCRIPTS;
   private String engineRetries = DescriptorImpl.DEFAULT_ENGINE_RETRIES;
   private boolean bailOnFail = DescriptorImpl.DEFAULT_BAIL_ON_FAIL;
-  private boolean bailOnWarn = DescriptorImpl.DEFAULT_BAIL_ON_WARN;
   private boolean bailOnPluginFail = DescriptorImpl.DEFAULT_BAIL_ON_PLUGIN_FAIL;
-  private boolean doCleanup = DescriptorImpl.DEFAULT_DO_CLEANUP;
-  private boolean useCachedBundle = DescriptorImpl.DEFAULT_USE_CACHED_BUNDLE;
-  private String policyEvalMethod = DescriptorImpl.DEFAULT_POLICY_EVAL_METHOD;
-  private String bundleFileOverride = DescriptorImpl.DEFAULT_BUNDLE_FILE_OVERRIDE;
-  private List<AnchoreQuery> inputQueries;
   private String policyBundleId = DescriptorImpl.DEFAULT_POLICY_BUNDLE_ID;
   private List<Annotation> annotations;
   private boolean autoSubscribeTagUpdates = DescriptorImpl.DEFAULT_AUTOSUBSCRIBE_TAG_UPDATES;
@@ -90,26 +78,6 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     return name;
   }
 
-  public String getPolicyName() {
-    return policyName;
-  }
-
-  public String getGlobalWhiteList() {
-    return globalWhiteList;
-  }
-
-  public String getAnchoreioUser() {
-    return anchoreioUser;
-  }
-
-  public String getAnchoreioPass() {
-    return anchoreioPass;
-  }
-
-  public String getUserScripts() {
-    return userScripts;
-  }
-
   public String getEngineRetries() {
     return engineRetries;
   }
@@ -118,32 +86,8 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     return bailOnFail;
   }
 
-  public boolean getBailOnWarn() {
-    return bailOnWarn;
-  }
-
   public boolean getBailOnPluginFail() {
     return bailOnPluginFail;
-  }
-
-  public boolean getDoCleanup() {
-    return doCleanup;
-  }
-
-  public boolean getUseCachedBundle() {
-    return useCachedBundle;
-  }
-
-  public String getPolicyEvalMethod() {
-    return policyEvalMethod;
-  }
-
-  public String getBundleFileOverride() {
-    return bundleFileOverride;
-  }
-
-  public List<AnchoreQuery> getInputQueries() {
-    return inputQueries;
   }
 
   public String getPolicyBundleId() {
@@ -174,30 +118,6 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     return engineverify;
   }
 
-  @DataBoundSetter
-  public void setPolicyName(String policyName) {
-    this.policyName = policyName;
-  }
-
-  @DataBoundSetter
-  public void setGlobalWhiteList(String globalWhiteList) {
-    this.globalWhiteList = globalWhiteList;
-  }
-
-  @DataBoundSetter
-  public void setAnchoreioUser(String anchoreioUser) {
-    this.anchoreioUser = anchoreioUser;
-  }
-
-  @DataBoundSetter
-  public void setAnchoreioPass(String anchoreioPass) {
-    this.anchoreioPass = anchoreioPass;
-  }
-
-  @DataBoundSetter
-  public void setUserScripts(String userScripts) {
-    this.userScripts = userScripts;
-  }
 
   @DataBoundSetter
   public void setEngineRetries(String engineRetries) {
@@ -210,39 +130,8 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   }
 
   @DataBoundSetter
-  public void setBailOnWarn(boolean bailOnWarn) {
-    this.bailOnWarn = bailOnWarn;
-  }
-
-  @DataBoundSetter
   public void setBailOnPluginFail(boolean bailOnPluginFail) {
     this.bailOnPluginFail = bailOnPluginFail;
-  }
-
-  @DataBoundSetter
-  public void setDoCleanup(boolean doCleanup) {
-    this.doCleanup = doCleanup;
-  }
-
-  @DataBoundSetter
-  public void setUseCachedBundle(boolean useCachedBundle) {
-    this.useCachedBundle = useCachedBundle;
-  }
-
-  @DataBoundSetter
-  public void setPolicyEvalMethod(String policyEvalMethod) {
-    this.policyEvalMethod = policyEvalMethod;
-  }
-
-  @DataBoundSetter
-  public void setBundleFileOverride(String bundleFileOverride) {
-    this.bundleFileOverride = bundleFileOverride;
-  }
-
-  // Convenience method for easily passing queries, invoked only by Jenkins Pipelines
-  @DataBoundSetter
-  public void setInputQueries(List<AnchoreQuery> inputQueries) {
-    this.inputQueries = inputQueries;
   }
 
   @DataBoundSetter
@@ -329,15 +218,13 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       }
 
       /* Instantiate config and a new build worker */
-      config = new BuildConfig(name, policyName, globalWhiteList, anchoreioUser, anchoreioPass, userScripts, engineRetries, bailOnFail,
-          bailOnWarn, bailOnPluginFail, doCleanup, useCachedBundle, policyEvalMethod, bundleFileOverride, inputQueries, policyBundleId,
-          annotations, autoSubscribeTagUpdates, forceAnalyze, globalConfig.getDebug(), globalConfig.getEnginemode(),
+      config = new BuildConfig(name, engineRetries, bailOnFail,
+          bailOnPluginFail, policyBundleId, annotations, autoSubscribeTagUpdates, forceAnalyze, globalConfig.getDebug(),
           // messy build time overrides, ugh!
           !Strings.isNullOrEmpty(engineurl) ? engineurl : globalConfig.getEngineurl(),
           !Strings.isNullOrEmpty(engineuser) ? engineuser : globalConfig.getEngineuser(),
           !Strings.isNullOrEmpty(enginepass) ? enginepass : globalConfig.getEnginepass().getPlainText(),
-          isEngineverifyOverrride ? engineverify : globalConfig.getEngineverify(), globalConfig.getContainerImageId(),
-          globalConfig.getContainerId(), globalConfig.getLocalVol(), globalConfig.getModulesVol(), globalConfig.getUseSudo());
+          isEngineverifyOverrride ? engineverify : globalConfig.getEngineverify());
       worker = new BuildWorker(run, workspace, launcher, listener, config);
 
       /* Log any build time overrides are at play */
@@ -369,8 +256,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
       /* Evaluate result of step based on gate action */
       if (null != finalAction) {
-        if ((config.getBailOnFail() && (GATE_ACTION.STOP.equals(finalAction) || GATE_ACTION.FAIL.equals(finalAction))) || (
-            config.getBailOnWarn() && GATE_ACTION.WARN.equals(finalAction))) {
+        if (config.getBailOnFail() && (GATE_ACTION.STOP.equals(finalAction) || GATE_ACTION.FAIL.equals(finalAction))) {
           console.logWarn("Failing Anchore Container Image Scanner Plugin step due to final result " + finalAction);
           failedByGate = true;
           throw new AbortException("Failing Anchore Container Image Scanner Plugin step due to final result " + finalAction);
@@ -420,23 +306,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
     // Default job level config that may be used both by config.jelly and an instance of AnchoreBuilder
     public static final String DEFAULT_NAME = "anchore_images";
-    public static final String DEFAULT_POLICY_NAME = "anchore_policy";
-    public static final String DEFAULT_GLOBAL_WHITELIST = "anchore_global_whitelist";
-    public static final String DEFAULT_ANCHORE_IO_USER = "";
-    public static final String DEFAULT_ANCHORE_IO_PASSWORD = "";
-    public static final String DEFAULT_USER_SCRIPTS = "anchore_user_scripts";
     public static final String DEFAULT_ENGINE_RETRIES = "300";
     public static final boolean DEFAULT_BAIL_ON_FAIL = true;
-    public static final boolean DEFAULT_BAIL_ON_WARN = false;
     public static final boolean DEFAULT_BAIL_ON_PLUGIN_FAIL = true;
-    public static final boolean DEFAULT_DO_CLEANUP = false;
-    public static final boolean DEFAULT_USE_CACHED_BUNDLE = true;
-    public static final String DEFAULT_POLICY_EVAL_METHOD = "plainfile";
-    public static final String DEFAULT_BUNDLE_FILE_OVERRIDE = "anchore_policy_bundle.json";
     public static final String DEFAULT_PLUGIN_MODE = "anchoreengine";
-    public static final List<AnchoreQuery> DEFAULT_INPUT_QUERIES = ImmutableList
-        .of(new AnchoreQuery("cve-scan all"), new AnchoreQuery("list-packages all"), new AnchoreQuery("list-files all"),
-            new AnchoreQuery("show-pkg-diffs base"));
     public static final String DEFAULT_POLICY_BUNDLE_ID = "";
     public static final String EMPTY_STRING = "";
     public static final boolean DEFAULT_AUTOSUBSCRIBE_TAG_UPDATES = true;
@@ -444,16 +317,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
     // Global configuration
     private boolean debug;
-    private String enginemode;
     private String engineurl;
     private String engineuser;
     private Secret enginepass;
     private boolean engineverify;
-    private String containerImageId;
-    private String containerId;
-    private String localVol;
-    private String modulesVol;
-    private boolean useSudo;
 
     // Upgrade case, you can never really remove these variables once they are introduced
     @Deprecated
@@ -466,10 +333,6 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     @Deprecated
     public void setEnabled(boolean enabled) {
       this.enabled = enabled;
-    }
-
-    public void setEnginemode(String enginemode) {
-      this.enginemode = enginemode;
     }
 
     public void setEngineurl(String engineurl) {
@@ -488,26 +351,6 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       this.engineverify = engineverify;
     }
 
-    public void setContainerImageId(String containerImageId) {
-      this.containerImageId = containerImageId;
-    }
-
-    public void setContainerId(String containerId) {
-      this.containerId = containerId;
-    }
-
-    public void setLocalVol(String localVol) {
-      this.localVol = localVol;
-    }
-
-    public void setModulesVol(String modulesVol) {
-      this.modulesVol = modulesVol;
-    }
-
-    public void setUseSudo(boolean useSudo) {
-      this.useSudo = useSudo;
-    }
-
     public boolean getDebug() {
       return debug;
     }
@@ -515,20 +358,6 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     @Deprecated
     public boolean getEnabled() {
       return enabled;
-    }
-
-    public String getEnginemode() {
-      if (Strings.isNullOrEmpty(enginemode)) {
-        enginemode = DEFAULT_PLUGIN_MODE;
-      }
-      return enginemode;
-    }
-
-    public boolean isMode(String inmode) {
-      if (!Strings.isNullOrEmpty(inmode) && getEnginemode().equals(inmode)) {
-        return true;
-      }
-      return false;
     }
 
     public String getEngineurl() {
@@ -545,26 +374,6 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
     public boolean getEngineverify() {
       return engineverify;
-    }
-
-    public boolean getUseSudo() {
-      return useSudo;
-    }
-
-    public String getContainerImageId() {
-      return containerImageId;
-    }
-
-    public String getContainerId() {
-      return containerId;
-    }
-
-    public String getLocalVol() {
-      return localVol;
-    }
-
-    public String getModulesVol() {
-      return modulesVol;
     }
 
     public DescriptorImpl() {
@@ -602,24 +411,6 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
         return FormValidation.ok();
       } else {
         return FormValidation.error("Please enter a valid file name");
-      }
-    }
-
-    @SuppressWarnings("unused")
-    public FormValidation doCheckContainerImageId(@QueryParameter String value) {
-      if (!Strings.isNullOrEmpty(value)) {
-        return FormValidation.ok();
-      } else {
-        return FormValidation.error("Please provide a valid Anchore Container Image ID");
-      }
-    }
-
-    @SuppressWarnings("unused")
-    public FormValidation doCheckContainerId(@QueryParameter String value) {
-      if (!Strings.isNullOrEmpty(value)) {
-        return FormValidation.ok();
-      } else {
-        return FormValidation.error("Please provide a valid Anchore Container ID");
       }
     }
 
