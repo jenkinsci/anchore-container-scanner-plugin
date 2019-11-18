@@ -25,10 +25,11 @@ public class BuildConfig {
   private String engineuser;
   private String enginepass;
   private boolean engineverify;
+  private boolean preserveartifacts;
 
   public BuildConfig(String name,  String engineRetries, boolean bailOnFail, boolean bailOnPluginFail,
       String policyBundleId, List<Annotation> annotations, boolean autoSubscribeTagUpdates, boolean forceAnalyze, boolean debug,
-      String engineurl, String engineuser, String enginepass, boolean engineverify) {
+      String engineurl, String engineuser, String enginepass, boolean engineverify, boolean preserveartifacts) {
     this.name = name;
     this.engineRetries = engineRetries;
     this.bailOnFail = bailOnFail;
@@ -42,6 +43,7 @@ public class BuildConfig {
     this.engineuser = engineuser;
     this.enginepass = enginepass;
     this.engineverify = engineverify;
+    this.preserveartifacts = preserveartifacts;
   }
 
   public String getName() {
@@ -96,6 +98,10 @@ public class BuildConfig {
     return engineverify;
   }
 
+  public boolean getPreserveartifacts(){
+    return preserveartifacts;
+  }
+
   public void print(ConsoleLog consoleLog) {
     consoleLog.logInfo("[global] debug: " + String.valueOf(debug));
 
@@ -104,6 +110,7 @@ public class BuildConfig {
     consoleLog.logInfo("[build] engineuser: " + engineuser);
     consoleLog.logInfo("[build] enginepass: " + "****");
     consoleLog.logInfo("[build] engineverify: " + String.valueOf(engineverify));
+    consoleLog.logInfo("[build] preserveartifacts: " + String.valueOf(preserveartifacts));
 
     // Build properties
     consoleLog.logInfo("[build] name: " + name);

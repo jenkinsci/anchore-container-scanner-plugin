@@ -118,7 +118,6 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     return engineverify;
   }
 
-
   @DataBoundSetter
   public void setEngineRetries(String engineRetries) {
     this.engineRetries = engineRetries;
@@ -224,7 +223,8 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
           !Strings.isNullOrEmpty(engineurl) ? engineurl : globalConfig.getEngineurl(),
           !Strings.isNullOrEmpty(engineuser) ? engineuser : globalConfig.getEngineuser(),
           !Strings.isNullOrEmpty(enginepass) ? enginepass : globalConfig.getEnginepass().getPlainText(),
-          isEngineverifyOverrride ? engineverify : globalConfig.getEngineverify());
+          isEngineverifyOverrride ? engineverify : globalConfig.getEngineverify(),
+          globalConfig.getPreserveartifacts());
       worker = new BuildWorker(run, workspace, launcher, listener, config);
 
       /* Log any build time overrides are at play */
@@ -321,6 +321,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     private String engineuser;
     private Secret enginepass;
     private boolean engineverify;
+    private boolean preserveartifacts;
 
     // Upgrade case, you can never really remove these variables once they are introduced
     @Deprecated
@@ -351,6 +352,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       this.engineverify = engineverify;
     }
 
+    public void setPreserveartifacts(boolean preserveartifacts){
+      this.preserveartifacts = preserveartifacts;
+    }
+
     public boolean getDebug() {
       return debug;
     }
@@ -374,6 +379,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
     public boolean getEngineverify() {
       return engineverify;
+    }
+
+    public boolean getPreserveartifacts(){
+      return preserveartifacts;
     }
 
     public DescriptorImpl() {

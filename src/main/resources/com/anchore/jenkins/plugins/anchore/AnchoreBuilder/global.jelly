@@ -23,6 +23,10 @@
       <f:checkbox name="debug" checked="${descriptor.debug}" default="${false}"/>
     </f:entry>
 
+    <f:entry title="Preserve Scan Artifacts" field="preserveartifacts">
+      <f:checkbox name="preserveartifacts" checked="${descriptor.preserveartifacts}" default="${false}"/>
+    </f:entry>
+
   </f:section>
 
 </j:jelly>

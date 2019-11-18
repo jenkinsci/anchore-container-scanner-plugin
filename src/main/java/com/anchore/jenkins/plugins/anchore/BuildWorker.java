@@ -733,23 +733,24 @@ public class BuildWorker {
   }
 
   public void cleanup() {
-    try {
-      console.logDebug("Cleaning up build artifacts");
-      int rc;
+    if(!this.config.getPreserveartifacts()){
+      try {
+        console.logDebug("Cleaning up build artifacts");
 
-      // Clear Jenkins workspace
-      if (!Strings.isNullOrEmpty(jenkinsOutputDirName)) {
-        try {
-          console.logDebug("Deleting Jenkins workspace " + jenkinsOutputDirName);
-          cleanJenkinsWorkspaceQuietly();
-          // FilePath jenkinsOutputDirFP = new FilePath(build.getWorkspace(), jenkinsOutputDirName);
-          // jenkinsOutputDirFP.deleteRecursive();
-        } catch (IOException | InterruptedException e) {
-          console.logDebug("Unable to delete Jenkins workspace " + jenkinsOutputDirName, e);
+        // Clear Jenkins workspace
+        if (!Strings.isNullOrEmpty(jenkinsOutputDirName)) {
+          try {
+            console.logDebug("Deleting Jenkins workspace " + jenkinsOutputDirName);
+            cleanJenkinsWorkspaceQuietly();
+            // FilePath jenkinsOutputDirFP = new FilePath(build.getWorkspace(), jenkinsOutputDirName);
+            // jenkinsOutputDirFP.deleteRecursive();
+          } catch (IOException | InterruptedException e) {
+            console.logDebug("Unable to delete Jenkins workspace " + jenkinsOutputDirName, e);
+          }
         }
+      } catch (RuntimeException e) { // caught unknown exception, log it
+        console.logDebug("Failed to clean up build artifacts due to an unexpected error", e);
       }
-    } catch (RuntimeException e) { // caught unknown exception, log it
-      console.logDebug("Failed to clean up build artifacts due to an unexpected error", e);
     }
   }
 
@@ -839,7 +840,6 @@ public class BuildWorker {
       FilePath inputImageFP = new FilePath(workspace, config.getName()); // Already checked in checkConfig()
       try (BufferedReader br = new BufferedReader(new InputStreamReader(inputImageFP.read(), StandardCharsets.UTF_8))) {
         String line;
-        int count = 0;
         while ((line = br.readLine()) != null) {
           String imgId = null;
           String jenkinsDFile = null;

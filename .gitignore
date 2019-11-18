@@ -17,6 +17,11 @@ target/
 # IDE
 .idea
 *.iml
+# VS Code
+.settings/
+.project
+.factorypath
+.classpath
 
 # OS
 .DS_Store
