@@ -59,6 +59,8 @@ public class BuildWorker {
   private static final String CVE_LISTING_PREFIX = "anchore_security";
   private static final String JENKINS_DIR_NAME_PREFIX = "AnchoreReport.";
   private static final String JSON_FILE_EXTENSION = ".json";
+  private static final String AE_VULNS_PREFIX = "anchoreengine-api-response-vulnerabilities-";
+  private static final String AE_EVAL_PREFIX = "anchoreengine-api-response-evaluation-";
 
   // Private members
   Run<?, ?> build;
@@ -306,6 +308,7 @@ public class BuildWorker {
     //Credentials defaultcreds = new UsernamePasswordCredentials(username, password);
     FilePath jenkinsOutputDirFP = new FilePath(workspace, jenkinsOutputDirName);
     FilePath jenkinsGatesOutputFP = new FilePath(jenkinsOutputDirFP, gateOutputFileName);
+    int counter = 0;
 
     finalAction = GATE_ACTION.PASS;
     if (analyzed) {
@@ -383,6 +386,19 @@ public class BuildWorker {
                     // Thread.sleep(1000); sleeping here keeps connection open. Unnecessary if the retries have been exhausted
                     sleep = true;
                   } else {
+                    // Write api response to a file as it is
+                    String jenkinsAEResponseFileName = AE_EVAL_PREFIX + (++counter) + JSON_FILE_EXTENSION;
+                    FilePath jenkinsAEResponseFP = new FilePath(jenkinsOutputDirFP, jenkinsAEResponseFileName);
+                    try {
+                      console.logDebug("Writing anchore-engine policy evaluation response to " + jenkinsAEResponseFP.getRemote());
+                      try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(jenkinsAEResponseFP.write(), StandardCharsets.UTF_8))) {
+                        bw.write(responseBody);
+                      }
+                    } catch (IOException | InterruptedException e) {
+                      console.logWarn("Failed to write anchore-engine policy evaluation response to " + jenkinsAEResponseFP.getRemote(), e);
+                      throw new AbortException("Failed to write anchore-engine policy evaluation response to " + jenkinsAEResponseFP.getRemote());
+                    }
+
                     // String eval_status = JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0)).getJSONArray(tag).get(0))
                     // .getString("status");
                     String eval_status = JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0))).getString("status");
@@ -471,6 +487,9 @@ public class BuildWorker {
       String password = config.getEnginepass();
       boolean sslverify = config.getEngineverify();
 
+      FilePath jenkinsOutputDirFP = new FilePath(workspace, jenkinsOutputDirName);
+      int counter = 0;
+
       CredentialsProvider credsProvider = new BasicCredentialsProvider();
       credsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
       HttpClientContext context = HttpClientContext.create();
@@ -507,6 +526,19 @@ public class BuildWorker {
                 throw new AbortException("Failed to fetch vulnerability listing from anchore-engine");
               } else {
                 String responseBody = EntityUtils.toString(response.getEntity());
+                // Write api response to a file as it is
+                String jenkinsAEResponseFileName = AE_VULNS_PREFIX + (++counter) + JSON_FILE_EXTENSION;
+                FilePath jenkinsAEResponseFP = new FilePath(jenkinsOutputDirFP, jenkinsAEResponseFileName);
+                try {
+                  console.logDebug("Writing anchore-engine vulnerabilities listing response to " + jenkinsAEResponseFP.getRemote());
+                  try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(jenkinsAEResponseFP.write(), StandardCharsets.UTF_8))) {
+                    bw.write(responseBody);
+                  }
+                } catch (IOException | InterruptedException e) {
+                  console.logWarn("Failed to write anchore-engine vulnerabilities listing response to " + jenkinsAEResponseFP.getRemote(), e);
+                  throw new AbortException("Failed to write anchore-engine vulnerabilities listing response to " + jenkinsAEResponseFP.getRemote());
+                }
+
                 JSONObject responseJson = JSONObject.fromObject(responseBody);
                 JSONArray vulList = responseJson.getJSONArray("vulnerabilities");
                 for (int i = 0; i < vulList.size(); i++) {
@@ -530,7 +562,6 @@ public class BuildWorker {
         securityJson.put("data", dataJson);
 
         cveListingFileName = CVE_LISTING_PREFIX + JSON_FILE_EXTENSION;
-        FilePath jenkinsOutputDirFP = new FilePath(workspace, jenkinsOutputDirName);
         FilePath jenkinsQueryOutputFP = new FilePath(jenkinsOutputDirFP, cveListingFileName);
         try {
           console.logDebug("Writing vulnerability listing result to " + jenkinsQueryOutputFP.getRemote());
