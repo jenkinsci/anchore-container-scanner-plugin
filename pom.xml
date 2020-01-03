@@ -15,7 +15,7 @@
   <name>Anchore Container Image Scanner Plugin</name>
   <description>Integrates Jenkins with the Anchore Image Scanner</description>
 
-  <url>https://wiki.jenkins-ci.org/display/JENKINS/Anchore+Container+Image+Scanner+Plugin</url>
+  <url>https://github.com/jenkinsci/anchore-container-scanner-plugin</url>
 
   <licenses>
     <license>
