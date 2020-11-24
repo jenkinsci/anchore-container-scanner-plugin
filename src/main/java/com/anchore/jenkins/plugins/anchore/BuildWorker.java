@@ -838,6 +838,10 @@ public class BuildWorker {
         throw new AbortException("Unable to generate a unique identifier for this build due to invalid configuration");
       }
 
+      // ArtifactArchiver.perform() cannot parse file paths with commas, which this will have in some cases, for
+      // example if this is a matrix job. So replace any commas with underscores to separate the matrix values.
+      buildId = buildId.replaceAll(",", "_");
+
       jenkinsOutputDirName = JENKINS_DIR_NAME_PREFIX + buildId;
       FilePath jenkinsReportDir = new FilePath(workspace, jenkinsOutputDirName);
 
