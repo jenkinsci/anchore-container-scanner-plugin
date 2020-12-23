@@ -170,16 +170,133 @@ and policy evaluation in the Jenkins web UI
 
 ![](docs/images/build_report.png)
 
-### Pipeline 
+### Pipeline Reference
+The sections below describe how to configure the anchore plugin to operate within a Jenkins plugin, and also 
+provide some usage examples which illustrate how your team might start using the tool, and some examples of 
+how that usage could evolve over time.
 
-Following is a sample code snippet for using Anchore plugin in a
-pipeline script. For more options refer to Pipeline Syntax and try the
-Snippet Generator
+#### Root Command
+**anchore**: The root plugin command. For specific usage example, see below.
+
+#### Options
+- **name**: _Required._ The image list file. This is a required field, but the 'name' key may be ommitted if 
+the name value immediately follows `anchore` (see the first example below).
+```
+anchore 'my_image_file'
+anchore name: 'my_image_file'
+```
+
+- **annotations**: An optional list of key value pairs to annotate to the images. Omitted by default.
+```
+anchore annotations: [[key: 'image_owner', value: 'my_team']]
+```
+
+- **autoSubscribeTagUpdates**: This option will prompt anchore to periodically rescan the generated docker image 
+when there are tag updates.
+```
+anchore autoSubscribeTagUpdates: true
+```
+
+- **bailOnFail**: Fail the build if anchore returns a policy evaluation FAIL result. Default == true
+```
+anchore bailOnFail: false
+```
+
+- **bailOnPluginFail**: Fail the build if Jenkins encounters a critical plugin error Default == true
+```
+anchore bailOnPluginFail: false
+```
+
+- **engineCredentialsId**: The id of the Anchore credentials stored in Jenkins. These are typically set in 
+the Jenkins global config, but can be overwritten on a per-job basis as needed.
+
+```
+anchore engineCredentialsId: 'my_id',
+```
+
+- **engineRetries**: The number of retries on the Anchore scan operation. Default == 300
+```
+anchore engineRetries: '400'
+```
+
+- **engineurl**: The URL of the Anchore instance. This is typically set in the Jenkins global config, 
+but can be overwritten on a per-job basis as needed.
+```
+anchore engineurl: 'myUrl'
+```
+
+- **engineverify**: Verify the SSL connection between Jenkins and Anchore. This is typically set in the Jenkins 
+global config, but can be overwritten on a per-job basis as needed.
+```
+anchore engineverify: true
+```
+
+- **forceAnalyze**: Force Anchore engine to analyze and, as needed, analyze images it has seen before.
+```
+anchore forceAnalyze: true
+```
+
+- **policyBundleId**: The UUID of the policy bundle to use for image analysis. 
+```
+anchore policyBundleId: 'a8b6aa90-4097-4f9b-ab5c-da7000776e29'
+```
+
+### Pipeline Examples
+  >Note: These examples use scripted pipeline snippets, but the specific commands can also be used in declarative 
+  >pipeline scripts.
+  >
+  >These examples take a single, publicly-available image tag ('debian:latest'), put it into a file, and send that 
+  >file to Anchore engine for analysis with various analysis options specified.
+
+This first example imagines a scenario where your team is just getting started with Anchore, and anticipates that
+the tool will find some issues that will need to be fixed. In order to not block the CI build until those issues 
+have been fixed, the `bailOnFail` parameter has been temporarily set to `false`.
+```
+node {
+  def imageLine = 'debian:latest'
+  writeFile file: 'anchore_images', text: imageLine
+  anchore name: 'my_image_file', bailOnFail: false
+}
+```
+
+Once the issues identified by the scan have been fixed that parameter should be set (or removed so it can default) 
+to `true`. This will help prevent new security issues from being introduced.
+```
+node {
+  def imageLine = 'debian:latest'
+  writeFile file: 'anchore_images', text: imageLine
+  anchore name: 'my_image_file'
+}
+```
+
+However, other teams within your organization are now starting to use anchore to analyze the images they are 
+building. This has the potential to introduce many more images into the system, but you may want to be able to 
+easily generate reports that only highlight the results of scans on your team's images. Annotations are a great 
+way to do that! Using annotations, you can easily filter Anchore search results to only return data about the 
+images you are concerned with.
+
+To update your pipeline to include annotations on images your team is building, do the following.
 
 ```
 node {
   def imageLine = 'debian:latest'
   writeFile file: 'anchore_images', text: imageLine
-  anchore name: 'anchore_images'
+  anchore name: 'my_image_file', bailOnFail: false
+}
+anchore name: 'my_image_file', annotations: [[key: 'image_owner', value: 'my_team']],
+```
+
+As your organization's DevOps maturity progresses, you may find that you not only want to report on image scan 
+data from different teams differently, you may also want to customize those scans to more closely control how 
+the images you are developing are being scanned.
+
+Information about how to customize policy bundles is available 
+[here](https://docs.anchore.com/current/docs/engine/general/concepts/policy/bundles/). To apply a specific policy 
+bundle to your image scans, not the unique UUID of your policy and update your pipeline script as shown below.
+```
+node {
+  def imageLine = 'debian:latest'
+  writeFile file: 'anchore_images', text: imageLine
+  anchore 'my_image_file', annotations: [[key: 'my_key', value: 'my_value']], policyBundleId: 'myUUID'
 }
 ```
