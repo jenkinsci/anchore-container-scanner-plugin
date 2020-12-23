@@ -118,128 +118,9 @@ When run, the Anchore plugin will look for a file named _anchore\_images_
 in the project workspace. This file should contain the name(s) of 
 containers to be scanned and optionally include the Dockerfile. 
 
-### Freestyle 
-
-In the example below an _Execute Shell_ build step is used to build and
-push a container image to a local registry.
-
-```
-TAG=$(date "+%H%M%S%d%m%Y")
-IMAGENAME=build.example.com/myapp
-docker build -t $IMAGENAME:$TAG .
-docker push $IMAGENAME:$TAG
-```
-
-We will add a single line to create the _anchore\_images_ file that is
-read by the Anchore plugin
-
->Note: Multiple lines can be added if the build produces more than a
-single container image.
-
-```
-TAG=$(date "+%H%M%S%d%m%Y")
-IMAGENAME=build.example.com/myapp
-docker build -t $IMAGENAME:$TAG .
-docker push $IMAGENAME:$TAG
-
-# Line added to create anchore_images file
-echo "$IMAGENAME:$TAG ${WORKSPACE}/Dockerfile " > anchore_images
-```
-
-After the image has been built and pushed to the staging registry the
-Anchore plugin should be invoked. 
-
-Dropdown _Add build step_ and select the _Anchore Container Image Scanner_
-
-![](docs/images/freestyle_build_step.png)
-
-A new build step labeled **Anchore Build Options** will appear in your job
-
-![](docs/images/build_options.png)
-
-The plugin creates an Anchore Report directory that includes a
-JSON file with the results of the policy evaluation.
-
-The status of the scan status is indicated in the build summary
-(GO = Pass, STOP = Fail, WARN=Warning)
-
-![](docs/images/build_summary.png)
-
-Clicking on the Anchore Report link will render the vulnerabilities
-and policy evaluation in the Jenkins web UI
-
-![](docs/images/build_report.png)
-
 ### Pipeline Reference
-The sections below describe how to configure the anchore plugin to operate within a Jenkins plugin, and also 
-provide some usage examples which illustrate how your team might start using the tool, and some examples of 
-how that usage could evolve over time.
-
-#### Root Command
-**anchore**: The root plugin command. For specific usage example, see below.
-
-#### Options
-- **name**: _Required._ The image list file. This is a required field, but the 'name' key may be ommitted if 
-the name value immediately follows `anchore` (see the first example below).
-```
-anchore 'my_image_file'
-anchore name: 'my_image_file'
-```
-
-- **annotations**: An optional list of key value pairs to annotate to the images. Omitted by default.
-```
-anchore annotations: [[key: 'image_owner', value: 'my_team']]
-```
-
-- **autoSubscribeTagUpdates**: This option will prompt anchore to periodically rescan the generated docker image 
-when there are tag updates.
-```
-anchore autoSubscribeTagUpdates: true
-```
-
-- **bailOnFail**: Fail the build if anchore returns a policy evaluation FAIL result. Default == true
-```
-anchore bailOnFail: false
-```
-
-- **bailOnPluginFail**: Fail the build if Jenkins encounters a critical plugin error Default == true
-```
-anchore bailOnPluginFail: false
-```
-
-- **engineCredentialsId**: The id of the Anchore credentials stored in Jenkins. These are typically set in 
-the Jenkins global config, but can be overwritten on a per-job basis as needed.
-
-```
-anchore engineCredentialsId: 'my_id',
-```
-
-- **engineRetries**: The number of retries on the Anchore scan operation. Default == 300
-```
-anchore engineRetries: '400'
-```
-
-- **engineurl**: The URL of the Anchore instance. This is typically set in the Jenkins global config, 
-but can be overwritten on a per-job basis as needed.
-```
-anchore engineurl: 'myUrl'
-```
-
-- **engineverify**: Verify the SSL connection between Jenkins and Anchore. This is typically set in the Jenkins 
-global config, but can be overwritten on a per-job basis as needed.
-```
-anchore engineverify: true
-```
-
-- **forceAnalyze**: Force Anchore engine to analyze and, as needed, analyze images it has seen before.
-```
-anchore forceAnalyze: true
-```
-
-- **policyBundleId**: The UUID of the policy bundle to use for image analysis. 
-```
-anchore policyBundleId: 'a8b6aa90-4097-4f9b-ab5c-da7000776e29'
-```
+See [here](https://www.jenkins.io/doc/pipeline/steps/anchore-container-scanner/) for documentation on the 
+plugin pipeline command.
 
 ### Pipeline Examples
   >Note: These examples use scripted pipeline snippets, but the specific commands can also be used in declarative 
@@ -300,3 +181,55 @@ node {
   anchore 'my_image_file', annotations: [[key: 'my_key', value: 'my_value']], policyBundleId: 'myUUID'
 }
 ```
+
+### Freestyle 
+
+In the example below an _Execute Shell_ build step is used to build and
+push a container image to a local registry.
+
+```
+TAG=$(date "+%H%M%S%d%m%Y")
+IMAGENAME=build.example.com/myapp
+docker build -t $IMAGENAME:$TAG .
+docker push $IMAGENAME:$TAG
+```
+
+We will add a single line to create the _anchore\_images_ file that is
+read by the Anchore plugin
+
+>Note: Multiple lines can be added if the build produces more than a
+single container image.
+
+```
+TAG=$(date "+%H%M%S%d%m%Y")
+IMAGENAME=build.example.com/myapp
+docker build -t $IMAGENAME:$TAG .
+docker push $IMAGENAME:$TAG
+
+# Line added to create anchore_images file
+echo "$IMAGENAME:$TAG ${WORKSPACE}/Dockerfile " > anchore_images
+```
+
+After the image has been built and pushed to the staging registry the
+Anchore plugin should be invoked. 
+
+Dropdown _Add build step_ and select the _Anchore Container Image Scanner_
+
+![](docs/images/freestyle_build_step.png)
+
+A new build step labeled **Anchore Build Options** will appear in your job
+
+![](docs/images/build_options.png)
+
+The plugin creates an Anchore Report directory that includes a
+JSON file with the results of the policy evaluation.
+
+The status of the scan status is indicated in the build summary
+(GO = Pass, STOP = Fail, WARN=Warning)
+
+![](docs/images/build_summary.png)
+
+Clicking on the Anchore Report link will render the vulnerabilities
+and policy evaluation in the Jenkins web UI
+
+![](docs/images/build_report.png)
