@@ -136,7 +136,7 @@ have been fixed, the `bailOnFail` parameter has been temporarily set to `false`.
 node {
   def imageLine = 'debian:latest'
   writeFile file: 'anchore_images', text: imageLine
-  anchore name: 'my_image_file', bailOnFail: false
+  anchore name: 'my_image_file', engineCredentialsId: 'my_credentials_id', bailOnFail: false
 }
 ```
 
@@ -146,7 +146,7 @@ to `true`. This will help prevent new security issues from being introduced.
 node {
   def imageLine = 'debian:latest'
   writeFile file: 'anchore_images', text: imageLine
-  anchore name: 'my_image_file'
+  anchore name: 'my_image_file', engineCredentialsId: 'my_credentials_id'
 }
 ```
 
@@ -162,9 +162,8 @@ To update your pipeline to include annotations on images your team is building, 
 node {
   def imageLine = 'debian:latest'
   writeFile file: 'anchore_images', text: imageLine
-  anchore name: 'my_image_file', bailOnFail: false
+  anchore name: 'my_image_file', engineCredentialsId: 'my_credentials_id', annotations: [[key: 'image_owner', value: 'my_team']]
 }
-anchore name: 'my_image_file', annotations: [[key: 'image_owner', value: 'my_team']],
 ```
 
 As your organization's DevOps maturity progresses, you may find that you not only want to report on image scan 
@@ -178,7 +177,7 @@ bundle to your image scans, not the unique UUID of your policy and update your p
 node {
   def imageLine = 'debian:latest'
   writeFile file: 'anchore_images', text: imageLine
-  anchore 'my_image_file', annotations: [[key: 'my_key', value: 'my_value']], policyBundleId: 'myUUID'
+  anchore 'my_image_file', engineCredentialsId: 'my_credentials_id', annotations: [[key: 'my_key', value: 'my_value']], policyBundleId: 'myUUID'
 }
 ```
 
