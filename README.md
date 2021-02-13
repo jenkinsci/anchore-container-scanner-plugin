@@ -108,9 +108,9 @@ A Jenkins job will:
         staging registry
     2. Anchore Engine performs analysis on the image
     3. Anchore Engine performs a policy evaluation on the image.
-4.The Anchore plugin polls the Anchore Engine for a user defined
+4. The Anchore plugin polls the Anchore Engine for a user defined
     period until the analysis and policy evaluation is complete
-5.Based on user configuration, the Anchore pkygub may fail the build
+5. Based on user configuration, the Anchore pkygub may fail the build
     in the case of a Policy violation or allow the built to continue
     with warnings.
 
