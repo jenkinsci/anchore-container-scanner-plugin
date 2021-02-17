@@ -23,7 +23,7 @@ The plugin uses Anchore Engine to scan a container image. It interacts with Anch
 
 1. A Jenkins job will build a container image, and push the image to a registry that is pre-configured in the Anchore Engine (see pre-requisites below)
 2. The anchore build step will interact with the Anchore Engine by 'adding' the image (which instructs the Anchore Engine to pull the image from the registry), and then performing a policy evaluation check on the image. The build step can optionally be configured to fail the build if the policy evaluation results in a 'STOP' action.
-3. the plugin will store the resulting policy evaluation results with the job, for later inspection/review
+3. The plugin will store the resulting policy evaluation results with the job, for later inspection/review
 
 The plugin can be used in Freestyle and Pipeline jobs.
 
