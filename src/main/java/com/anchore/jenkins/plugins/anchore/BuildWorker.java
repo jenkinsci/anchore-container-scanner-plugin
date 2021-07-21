@@ -332,6 +332,7 @@ public class BuildWorker {
 
           int tryCount = 0;
           int maxCount = Integer.parseInt(config.getEngineRetries());
+          int interval = Integer.parseInt(config.getPollInterval());
           Boolean done = false;
           HttpGet httpget = new HttpGet(theurl);
           httpget.addHeader("Content-Type", "application/json");
@@ -342,7 +343,7 @@ public class BuildWorker {
           do { // try this at least once regardless what the retry count is
             if (sleep) {
               console.logDebug("Snoozing before retrying anchore-engine get policy evaluation");
-              Thread.sleep(1000);
+              Thread.sleep(interval * 1000);
               sleep = false;
             }
 

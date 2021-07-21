@@ -19,6 +19,10 @@
       <f:textbox default="${descriptor.DEFAULT_ENGINE_RETRIES}"/>
     </f:entry>
 
+    <f:entry title="Anchore Engine poll interval" field="pollInterval">
+      <f:textbox default="${descriptor.DEFAULT_POLL_INTERVAL}"/>
+    </f:entry>
+
     <f:entry title="Anchore Engine policy bundle ID" field="policyBundleId">
       <f:textbox default="${descriptor.DEFAULT_POLICY_BUNDLE_ID}"/>
     </f:entry>

@@ -59,6 +59,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   // Assigning the defaults here for pipeline builds
   private String name;
   private String engineRetries = DescriptorImpl.DEFAULT_ENGINE_RETRIES;
+  private String pollInterval = DescriptorImpl.DEFAULT_POLL_INTERVAL;
   private boolean bailOnFail = DescriptorImpl.DEFAULT_BAIL_ON_FAIL;
   private boolean bailOnPluginFail = DescriptorImpl.DEFAULT_BAIL_ON_PLUGIN_FAIL;
   private String policyBundleId = DescriptorImpl.DEFAULT_POLICY_BUNDLE_ID;
@@ -80,6 +81,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
   public String getEngineRetries() {
     return engineRetries;
+  }
+
+  public String getPollInterval() {
+    return pollInterval;
   }
 
   public boolean getBailOnFail() {
@@ -122,6 +127,11 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   @DataBoundSetter
   public void setEngineRetries(String engineRetries) {
     this.engineRetries = engineRetries;
+  }
+
+  @DataBoundSetter
+  public void setPollInterval(String pollInterval) {
+    this.pollInterval = pollInterval;
   }
 
   @DataBoundSetter
@@ -218,7 +228,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       }
 
       /* Instantiate config and a new build worker */
-      config = new BuildConfig(name, engineRetries, bailOnFail,
+      config = new BuildConfig(name, engineRetries, pollInterval, bailOnFail,
           bailOnPluginFail, policyBundleId, annotations, autoSubscribeTagUpdates, forceAnalyze, globalConfig.getDebug(),
           // messy build time overrides, ugh!
           !Strings.isNullOrEmpty(engineurl) ? engineurl : globalConfig.getEngineurl(),
@@ -307,6 +317,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     // Default job level config that may be used both by config.jelly and an instance of AnchoreBuilder
     public static final String DEFAULT_NAME = "anchore_images";
     public static final String DEFAULT_ENGINE_RETRIES = "300";
+    public static final String DEFAULT_POLL_INTERVAL = "10";
     public static final boolean DEFAULT_BAIL_ON_FAIL = true;
     public static final boolean DEFAULT_BAIL_ON_PLUGIN_FAIL = true;
     public static final String DEFAULT_PLUGIN_MODE = "anchoreengine";

@@ -12,6 +12,7 @@ public class BuildConfig {
   // Build configuration
   private String name;
   private String engineRetries;
+  private String pollInterval;
   private boolean bailOnFail;
   private boolean bailOnPluginFail;
   private String policyBundleId;
@@ -26,11 +27,12 @@ public class BuildConfig {
   private String enginepass;
   private boolean engineverify;
 
-  public BuildConfig(String name,  String engineRetries, boolean bailOnFail, boolean bailOnPluginFail,
+  public BuildConfig(String name,  String engineRetries,  String pollInterval, boolean bailOnFail, boolean bailOnPluginFail,
       String policyBundleId, List<Annotation> annotations, boolean autoSubscribeTagUpdates, boolean forceAnalyze, boolean debug,
       String engineurl, String engineuser, String enginepass, boolean engineverify) {
     this.name = name;
     this.engineRetries = engineRetries;
+    this.pollInterval = pollInterval;
     this.bailOnFail = bailOnFail;
     this.bailOnPluginFail = bailOnPluginFail;
     this.policyBundleId = policyBundleId;
@@ -50,6 +52,10 @@ public class BuildConfig {
 
   public String getEngineRetries() {
     return engineRetries;
+  }
+
+  public String getPollInterval() {
+    return pollInterval;
   }
 
   public boolean getBailOnFail() {
@@ -108,6 +114,7 @@ public class BuildConfig {
     // Build properties
     consoleLog.logInfo("[build] name: " + name);
     consoleLog.logInfo("[build] engineRetries: " + engineRetries);
+    consoleLog.logInfo("[build] pollInterval: " + pollInterval);
     consoleLog.logInfo("[build] policyBundleId: " + policyBundleId);
     if (null != annotations && !annotations.isEmpty()) {
       for (Annotation a : annotations) {
