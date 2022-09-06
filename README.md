@@ -85,7 +85,7 @@ This first example imagines a scenario where your team is just getting started w
 node {
   def imageLine = 'debian:latest'
   writeFile file: 'anchore_images', text: imageLine
-  anchore name: 'my_image_file', engineCredentialsId: 'my_credentials_id', bailOnFail: false
+  anchore name: 'anchore_images', engineCredentialsId: 'my_credentials_id', bailOnFail: false
 }
 ```
 
@@ -94,7 +94,7 @@ Once the issues identified by the scan have been fixed that parameter should be 
 node {
   def imageLine = 'debian:latest'
   writeFile file: 'anchore_images', text: imageLine
-  anchore name: 'my_image_file', engineCredentialsId: 'my_credentials_id'
+  anchore name: 'anchore_images', engineCredentialsId: 'my_credentials_id'
 }
 ```
 
@@ -105,7 +105,7 @@ To update your pipeline to include annotations on images your team is building, 
 node {
   def imageLine = 'debian:latest'
   writeFile file: 'anchore_images', text: imageLine
-  anchore name: 'my_image_file', engineCredentialsId: 'my_credentials_id', annotations: [[key: 'image_owner', value: 'my_team']]
+  anchore name: 'anchore_images', engineCredentialsId: 'my_credentials_id', annotations: [[key: 'image_owner', value: 'my_team']]
 }
 ```
 
@@ -116,7 +116,7 @@ Information about how to customize policy bundles is available [here](https://do
 node {
   def imageLine = 'debian:latest'
   writeFile file: 'anchore_images', text: imageLine
-  anchore 'my_image_file', engineCredentialsId: 'my_credentials_id', annotations: [[key: 'my_key', value: 'my_value']], policyBundleId: 'myUUID'
+  anchore 'anchore_images', engineCredentialsId: 'my_credentials_id', annotations: [[key: 'my_key', value: 'my_value']], policyBundleId: 'myUUID'
 }
 ```
 
