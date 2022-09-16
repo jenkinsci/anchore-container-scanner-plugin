@@ -18,5 +18,8 @@ target/
 .idea
 *.iml
 
+# hpi:run data
+/work/
+
 # OS
 .DS_Store

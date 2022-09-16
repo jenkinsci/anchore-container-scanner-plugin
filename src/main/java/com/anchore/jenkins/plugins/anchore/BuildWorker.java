@@ -546,8 +546,7 @@ public class BuildWorker {
                   JSONArray vulnArray = new JSONArray();
                   vulnArray.addAll(Arrays
                       .asList(input, vulnJson.getString("vuln"), vulnJson.getString("severity"), vulnJson.getString("package"),
-                          vulnJson.getString("fix"),
-                          "<a href='" + vulnJson.getString("url") + "'>" + vulnJson.getString("url") + "</a>"));
+                          vulnJson.getString("fix"), vulnJson.getString("url")));
                   dataJson.add(vulnArray);
                 }
               }

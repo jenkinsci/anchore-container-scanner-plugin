@@ -95,7 +95,7 @@ public class AnchoreAction implements SimpleBuildStep.LastBuildAction {
   }
 
   public String getGateOutputUrl() {
-    return this.gateOutputUrl;
+    return encodeURL(this.gateOutputUrl);
   }
 
   public Map<String, String> getQueryOutputUrls() {
@@ -119,10 +119,12 @@ public class AnchoreAction implements SimpleBuildStep.LastBuildAction {
     try {
       // Fetch values in the map to verify the underlying map is functional
       if (null != this.queryOutputUrls) {
-        fixedQueryOutputUrls.putAll(this.queryOutputUrls);
+        for (Map.Entry<String, String> entry : this.queryOutputUrls.entrySet()) {
+          fixedQueryOutputUrls.put(entry.getKey(), encodeURL(entry.getValue()));
+        }
       }
     } catch (Exception e) {
-      String base_path = this.gateOutputUrl.substring(0, this.gateOutputUrl.lastIndexOf('/'));
+      String base_path = encodeURL(this.gateOutputUrl.substring(0, this.gateOutputUrl.lastIndexOf('/')));
       int query_num = 0;
       for (String key : this.queryOutputUrls.keySet()) {
         fixedQueryOutputUrls.put(key, base_path + "/anchore_query_" + String.valueOf(++query_num) + ".json");
@@ -144,7 +146,7 @@ public class AnchoreAction implements SimpleBuildStep.LastBuildAction {
   }
 
   public String getCveListingUrl() {
-    return cveListingUrl;
+    return encodeURL(cveListingUrl);
   }
 
   public String getGateReportUrl() {
@@ -195,5 +197,14 @@ public class AnchoreAction implements SimpleBuildStep.LastBuildAction {
         return r;
       }
     }
+  }
+
+  private static String encodeURL(String s) {
+    if (s == null) {
+      return s;
+    }
+    return s.replaceAll("\"", "%22")
+            .replaceAll("\n", "%0A")
+            .replaceAll("\r", "");
   }
 }

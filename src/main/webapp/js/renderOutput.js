@@ -14,66 +14,47 @@ const severityLookup = {
 }
 
 function gateAction(source, type, val) {
-  var el = '<span>' + source + '</span>';
-  if ((typeof source === 'string') && source.trim().toLowerCase().match(/(stop|go|warn)/g)) {
-    switch (source.trim().toLowerCase()) {
-      case 'stop': {
-        el = '<span style="display:none;">' + actionLookup[source.toLowerCase()]
-            + '</span><span class="label label-danger">' + source.toUpperCase() + '</span>';
-        break;
-      }
-      case 'go': {
-        el = '<span style="display:none;">' + actionLookup[source.toLowerCase()]
-            + '</span><span class="label label-success">' + source.toUpperCase() + '</span>';
-        break;
-      }
-      case 'warn': {
-        el = '<span style = "display:none;">' + actionLookup[source.toLowerCase()]
-            + '</span><span class="label label-warning">' + source.toUpperCase() + '</span>';
-        break;
-      }
+  source = escapeHtml(source);
+  var classes = "";
+  switch (source.toLowerCase()) {
+    case 'stop': {
+      classes = 'label-danger';
+      break;
+    }
+    case 'go': {
+      classes = 'label-success';
+      break;
+    }
+    case 'warn': {
+      classes = 'label-warning';
+      break;
     }
   }
-  return el;
+  return '<span class="label ' + classes + '">' + source.toUpperCase() + '</span>';
 }
 
 function severity(source, type, val) {
-  var el = '<span>' + source + '</span>';
-  if ((typeof source === 'string') && source.trim().toLowerCase().match(/(critical|high|medium|low|negligible|unknown)/g)) {
-    switch (source.trim().toLowerCase()) {
-      case 'critical': {
-        el = '<span style="display:none;">' + severityLookup[source.toLowerCase()]
-            + '</span><span class="label label-danger">' + source + '</span>';
-        break;
-      }
-      case 'high': {
-        el = '<span style="display:none;">' + severityLookup[source.toLowerCase()]
-            + '</span><span class="label label-warning">' + source + '</span>';
-        break;
-      }
-      case 'medium': {
-        el = '<span style = "display:none;">' + severityLookup[source.toLowerCase()]
-            + '</span><span class="label label-info">' + source + '</span>';
-        break;
-      }
-      case 'low': {
-        el = '<span style="display:none;">' + severityLookup[source.toLowerCase()]
-            + '</span><span class="label label-success">' + source + '</span>';
-        break;
-      }
-      case 'negligible': {
-        el = '<span style="display:none;">' + severityLookup[source.toLowerCase()]
-            + '</span><span class="label label-default">' + source + '</span>';
-        break;
-      }
-      case 'unknown': {
-        el = '<span style = "display:none;">' + severityLookup[source.toLowerCase()]
-            + '</span><span class="label label-default">' + source + '</span>';
-        break;
-      }
+  source = escapeHtml(source);
+  var classes = "label-default";
+  switch (source.toLowerCase()) {
+    case 'critical': {
+      classes = 'label-danger';
+      break;
+    }
+    case 'high': {
+      classes = 'label-warning';
+      break;
+    }
+    case 'medium': {
+      classes = 'label-info';
+      break;
+    }
+    case 'low': {
+      classes = 'label-success';
+      break;
     }
   }
-  return el;
+  return '<span class="label ' + classes + '">' + source + '</span>';
 }
 
 function buildPolicyEvalTable(tableId, outputFile) {
@@ -101,8 +82,12 @@ function buildPolicyEvalTable(tableId, outputFile) {
           {
             targets: [0, 1, 2],
             render: function (source, type, val) {
-              return '<span style="word-break: break-all;">' + source + '</span>';
+              return '<span style="word-break: break-all;">' + renderCell(source) + '</span>';
             }
+          },
+          {
+            targets: [3, 4, 5, 7, 8],
+            render: renderCell
           },
           {
             targets: 6,
@@ -133,43 +118,12 @@ function buildTableFromAnchoreOutput(tableId, outputFile) {
       jQuery(tableId).DataTable({
         retrieve: true,
         data: rows,
-        columns: headers
-      });
-    });
-  });
-}
-
-function buildTableFromAnchoreOutputWithUrls(tableId, outputFile, index) {
-  var urlRegex = /(https?:\/\/[^\s\)]+)/g;
-
-  jQuery.getJSON(outputFile, function (data) {
-    var headers = [];
-    var rows = [];
-
-    jQuery.each(data, function (counter, imageIdObj) {
-      if (headers.length === 0) {
-        jQuery.each(imageIdObj.result.header, function (i, header) {
-          var headerObj = new Object();
-          headerObj.title = header.replace('_', ' ');
-          headers.push(headerObj);
-        });
-      }
-
-      jQuery.merge(rows, imageIdObj.result.rows);
-    });
-
-    jQuery(document).ready(function () {
-      jQuery(tableId).DataTable({
-        retrieve: true,
-        data: rows,
         columns: headers,
         columnDefs: [
           {
-            render: function (data, type, row) {
-              return data.replace(urlRegex, '<a href="$1">$1</a>');
-            },
-            targets: index
-          }
+            targets: [0, 1, 2, 3, 4, 5],
+            render: renderCell
+          },
         ]
       });
     });
@@ -185,21 +139,25 @@ function buildPolicyEvalSummaryTable(tableId, tableObj) {
       order: [[4, 'asc']],
       columnDefs: [
         {
+          targets: 0,
+          render: renderCell
+        },
+        {
           targets: 1,
           render: function (source, type, val) {
-            return '<span class="label label-danger">' + source + '</span>';
+            return '<span class="label label-danger">' + escapeHtml(source) + '</span>';
           }
         },
         {
           targets: 2,
           render: function (source, type, val) {
-            return '<span class="label label-warning">' + source + '</span>';
+            return '<span class="label label-warning">' + escapeHtml(source) + '</span>';
           }
         },
         {
           targets: 3,
           render: function (source, type, val) {
-            return '<span class="label label-success">' + source + '</span>';
+            return '<span class="label label-success">' + escapeHtml(source) + '</span>';
           }
         },
         {
@@ -221,11 +179,54 @@ function buildSecurityTable(tableId, outputFile) {
         order: [[2, 'asc'], [0, 'asc']],
         columnDefs: [
           {
+            targets: [0, 1, 3, 4],
+            render: renderCell
+          },
+          {
             targets: 2,
             render: severity
+          },
+          {
+            targets: 5,
+            render: renderLinkCell
           }
         ]
       });
     });
   });
+}
+
+const LINK_REGEX = /.*>(https?:\/\/)([^<]+)<.*/g;
+const URL_REGEX = /(https?:\/\/[^\s)'"<]+)/g;
+
+function renderLinkCell(data) {
+  // originally links were embedded in some data, just extract the URL
+  if (LINK_REGEX.test(data)) {
+    data = data.replace(LINK_REGEX, "$1$2");
+  }
+  return renderCell(data);
+}
+
+function renderCell(data) {
+  if (typeof data == "string") {
+    data = escapeHtml(data)
+    return data.replace(URL_REGEX, '<a href="$1">$1</a>');
+  }
+  return data;
+}
+
+function escapeHtml(text) {
+  if (text === undefined || text === null) {
+    return "";
+  }
+  if (typeof text !== "string") {
+    return "" + text;
+  }
+  return text
+      .trim()
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
 }

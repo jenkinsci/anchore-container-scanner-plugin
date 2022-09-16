@@ -1,6 +1,6 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
-  <l:layout norefresh="true">
+  <l:layout title="${it.pageTitle}" norefresh="true">
     <st:include it="${it.build}" page="sidepanel.jelly" />
 
     <l:main-panel>
@@ -8,6 +8,13 @@
         <j:when test="${!empty(it.gateOutputUrl)}">
 
           <link rel="stylesheet" type="text/css" href="${resURL}/plugin/anchore-container-scanner/css/bootstrap.min.css"/>
+          <style type="text/css">
+            .page-header {
+              margin: 0;
+              padding-bottom: 0;
+              border-bottom: 0;
+            }
+          </style>
           <link rel="stylesheet" type="text/css" href="${resURL}/plugin/anchore-container-scanner/css/dataTables.bootstrap.min.css"/>
 
           <script type="text/javascript" src="${resURL}/plugin/anchore-container-scanner/js/jquery.min.js"></script>
