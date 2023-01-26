@@ -19,10 +19,10 @@ In the typical workflow this container image is then run through automated testi
 
 ## Plugin Usage
 
-The plugin uses Anchore Engine to scan a container image. It interacts with Anchore Engine over the published API. The usage model generally conforms to the following flow:
+The plugin uses Anchore to scan a container image. It interacts with your Anchore deployment via its API. The usage model generally conforms to the following flow:
 
-1. A Jenkins job will build a container image, and push the image to a registry that is pre-configured in the Anchore Engine (see pre-requisites below)
-2. The anchore build step will interact with the Anchore Engine by 'adding' the image (which instructs the Anchore Engine to pull the image from the registry), and then performing a policy evaluation check on the image. The build step can optionally be configured to fail the build if the policy evaluation results in a 'STOP' action.
+1. A Jenkins job will build a container image, and push the image to a registry that is pre-configured in your Anchore deployment (see pre-requisites below)
+2. The anchore build step will interact with your Anchore deployment by 'adding' the image (which instructs your Anchore deployment to pull the image from the registry), and then performing a policy evaluation check on the image. The build step can optionally be configured to fail the build if the policy evaluation results in a 'STOP' action.
 3. The plugin will store the resulting policy evaluation results with the job, for later inspection/review
 
 The plugin can be used in Freestyle and Pipeline jobs.
@@ -31,12 +31,12 @@ The plugin can be used in Freestyle and Pipeline jobs.
 
 Before getting started
 
-1. Anchore Engine must be installed within your environment, with its service API being accessible from all Jenkins workers. [Click here](https://github.com/anchore/anchore-engine) to get started with Anchore Engine 
-2. A docker registry must exist and be configured within Anchore Engine, as the plugin will be instructing the Anchore Engine to pull images from a registry.
-3. All authentication credentials/Anchore Engine API endpoint information must be available as input to the plugin at configuration time.
+1. Anchore must be installed within your environment, with its service API being accessible from all Jenkins workers. [Click here](https://docs.anchore.com/current/docs/deployment/) to get started with Anchore 
+2. A docker registry must exist and be configured within Anchore, as the plugin will be instructing your Anchore deployment to pull images from a registry.
+3. All authentication credentials/Anchore API endpoint information must be available as input to the plugin at configuration time.
 
 Once the plugin is installed, configure the plugin to interact with 
-Anchore Engine in Jenkins global settings or at build time.
+Anchore in Jenkins global settings or at build time.
 
 ## Installation
 
@@ -48,10 +48,10 @@ Configuring the plugin in Jenkins global settings makes it available to any Jenk
 
 For global settings, go to the __Manage Jenkins > Configure System__ view and look for _Anchore Container Image Scanner_ section
 
-- Input _Engine URL_ to point to your Anchore Engine installation  
+- Input _Engine URL_ to point to your Anchore installation  
   >Note: Ensure that the /v1 route is included in the URL
-- Input Anchore Engine account username and password for _Engine Username_ and _Engine Password_ respectively 
-- (Optional) If the Anchore Engine uses a user created certificate that is not signed by a standard certificate authority then select uncheck _Verify SSL_
+- Input Anchore account username and password for _Engine Username_ and _Engine Password_ respectively 
+- (Optional) If your Anchore deployment uses a user created certificate that is not signed by a standard certificate authority then select uncheck _Verify SSL_
 - (Optional) For a verbose log of plugin execution check _Enable DEBUG logging_  
 
 ## Adding Anchore Scanning to Jenkins Build
@@ -63,11 +63,11 @@ A Jenkins job will:
 
 1. Build a container image
 2. Push the image to a Docker Registry, typically a staging registry for QA
-3. Use Anchore plugin in a Pipeline job or add Anchore Container Image Scanner build step to a Freestyle job to instruct the Anchore Engine to analyze the image
-    1. Anchore Engine downloads (pulls) the image layers from the staging registry
-    2. Anchore Engine performs analysis on the image
-    3. Anchore Engine performs a policy evaluation on the image.
-4. The Anchore plugin polls the Anchore Engine for a user defined period until the analysis and policy evaluation is complete
+3. Use Anchore plugin in a Pipeline job or add Anchore Container Image Scanner build step to a Freestyle job to instruct your Anchore deployment to analyze the image
+    1. Anchore downloads (pulls) the image layers from the staging registry
+    2. Anchore performs analysis on the image
+    3. Anchore performs a policy evaluation on the image.
+4. The Anchore plugin polls the Anchore API for a user defined period until the analysis and policy evaluation is complete
 5. Based on user configuration, the Anchore plugin may fail the build in the case of a Policy violation or allow the built to continue with warnings.
 
 When run, the Anchore plugin will look for a file named _anchore\_images_ in the project workspace. This file should contain the name(s) of containers to be scanned and optionally include the Dockerfile. 
@@ -78,7 +78,7 @@ See [here](https://www.jenkins.io/doc/pipeline/steps/anchore-container-scanner/)
 ### Pipeline Examples
   >Note: These examples use scripted pipeline snippets, but the specific commands can also be used in declarative pipeline scripts.
   >
-  >These examples take a single, publicly-available image tag ('debian:latest'), put it into a file, and send that file to Anchore engine for analysis with various analysis options specified.
+  >These examples take a single, publicly-available image tag ('debian:latest'), put it into a file, and send that file to Anchore for analysis with various analysis options specified.
 
 This first example imagines a scenario where your team is just getting started with Anchore, and anticipates that the tool will find some issues that will need to be fixed. In order to not block the CI build until those issues have been fixed, the `bailOnFail` parameter has been temporarily set to `false`.
 ```
@@ -111,7 +111,7 @@ node {
 
 As your organization's DevOps maturity progresses, you may find that you not only want to report on image scan data from different teams differently, you may also want to customize those scans to more closely control how the images you are developing are being scanned.
 
-Information about how to customize policy bundles is available [here](https://docs.anchore.com/current/docs/engine/general/concepts/policy/bundles/). To apply a specific policy bundle to your image scans, not the unique UUID of your policy and update your pipeline script as shown below.
+Information about how to customize policy bundles is available [here](https://docs.anchore.com/current/docs/overview/concepts/policy/bundles). To apply a specific policy bundle to your image scans, not the unique UUID of your policy and update your pipeline script as shown below.
 ```
 node {
   def imageLine = 'debian:latest'
