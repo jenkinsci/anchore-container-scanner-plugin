@@ -15,15 +15,15 @@
       <f:checkbox name="bailOnPluginFail" checked="${instance.bailOnPluginFail}" default="${descriptor.DEFAULT_BAIL_ON_PLUGIN_FAIL}"/>
     </f:entry>
 
-    <f:entry title="Anchore Engine operation retries" field="engineRetries">
+    <f:entry title="Anchore Enterprise operation retries" field="engineRetries">
       <f:textbox default="${descriptor.DEFAULT_ENGINE_RETRIES}"/>
     </f:entry>
 
-    <f:entry title="Anchore Engine policy bundle ID" field="policyBundleId">
+    <f:entry title="Anchore Enterprise policy bundle ID" field="policyBundleId">
       <f:textbox default="${descriptor.DEFAULT_POLICY_BUNDLE_ID}"/>
     </f:entry>
 
-    <f:entry title="Anchore Engine image annotations" help="/plugin/anchore-container-scanner/help/help-Annotations.html">
+    <f:entry title="Anchore Enterprise image annotations" help="/plugin/anchore-container-scanner/help/help-Annotations.html">
       <f:repeatableProperty field="annotations" noAddButton="false" add="Add annotation" default="${null}">
         <f:entry>
           <div align="right">
@@ -33,25 +33,25 @@
       </f:repeatableProperty>
     </f:entry>
 
-    <f:entry title="Anchore Engine auto-subscribe tag updates" field="autoSubscribeTagUpdates">
+    <f:entry title="Anchore Enterprise auto-subscribe tag updates" field="autoSubscribeTagUpdates">
       <f:checkbox name="autoSubscribeTagUpdates" checked="${instance.autoSubscribeTagUpdates}" default="${descriptor.DEFAULT_AUTOSUBSCRIBE_TAG_UPDATES}"/>
     </f:entry>
 
-    <f:entry title="Anchore Engine force image analysis" field="forceAnalyze">
+    <f:entry title="Anchore Enterprise force image analysis" field="forceAnalyze">
       <f:checkbox name="forceAnalyze" checked="${instance.forceAnalyze}" default="${descriptor.DEFAULT_FORCE_ANALYZE}"/>
     </f:entry>
 
     <f:section title="Override Global Configuration">
-      <f:entry title="Anchore Engine URL" field="engineurl" help="/plugin/anchore-container-scanner/help/help-OverrideAEURL.html">
+      <f:entry title="Anchore Enterprise URL" field="engineurl" help="/plugin/anchore-container-scanner/help/help-OverrideAEURL.html">
         <f:textbox name="engineurl" default=""/>
       </f:entry>
 
-      <f:entry field="engineCredentialsId" title="Anchore Engine credentials"
+      <f:entry field="engineCredentialsId" title="Anchore Enterprise credentials"
         help="/plugin/anchore-container-scanner/help/help-OverrideAECredentials.html">
         <c:select/>
       </f:entry>
 
-      <f:entry title="Anchore Engine verify SSL" field="engineverify">
+      <f:entry title="Anchore Enterprise verify SSL" field="engineverify">
         <f:checkbox name="engineverify" checked="${instance.engineverify}" default="${false}"/>
       </f:entry>
     </f:section>
