@@ -324,7 +324,7 @@ public class BuildWorker {
       console.logDebug("Using Enterprise API v1");
       return runGatesEngineV1();
     }
-    console.logDebug("Using Enterprise API v2");
+    console.logDebug("Using Enterprise API v" + config.getEngineApiVersion());
     return runGatesEngineV2();
   }
 
