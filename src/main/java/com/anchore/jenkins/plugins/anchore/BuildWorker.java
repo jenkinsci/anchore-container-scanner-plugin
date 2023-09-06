@@ -235,19 +235,45 @@ public class BuildWorker {
           if (!Strings.isNullOrEmpty(queryStr)) {
             theurl += "?" + queryStr;
           }
+          console.logDebug("Adding image using Enterprise API " + config.getEngineApiVersion());
+          JSONObject jsonBody = new JSONObject();
 
           // Prep request body
-          JSONObject jsonBody = new JSONObject();
-          jsonBody.put("tag", tag);
-          if (null != dfile) {
-            jsonBody.put("dockerfile", dfile);
-          }
-          if (null != config.getAnnotations() && !config.getAnnotations().isEmpty()) {
-            JSONObject annotations = new JSONObject();
-            for (Annotation a : config.getAnnotations()) {
-              annotations.put(a.getKey(), a.getValue());
+          if (config.getEngineApiVersion() == API_VERSION.v1) {
+            jsonBody = new JSONObject();
+            jsonBody.put("tag", tag);
+            if (null != dfile) {
+              jsonBody.put("dockerfile", dfile);
             }
-            jsonBody.put("annotations", annotations);
+            if (null != config.getAnnotations() && !config.getAnnotations().isEmpty()) {
+              JSONObject annotations = new JSONObject();
+              for (Annotation a : config.getAnnotations()) {
+                annotations.put(a.getKey(), a.getValue());
+              }
+              jsonBody.put("annotations", annotations);
+            }
+
+          } else {
+            JSONObject jTag = new JSONObject();
+
+            jTag.put("pull_string", tag);
+            if (null != dfile) {
+              jTag.put("dockerfile", dfile);
+            }
+        
+            if (null != config.getAnnotations() && !config.getAnnotations().isEmpty()) {
+              JSONObject annotations = new JSONObject();
+              for (Annotation a : config.getAnnotations()) {
+                annotations.put(a.getKey(), a.getValue());
+              }
+              jsonBody.put("annotations", annotations);
+            }
+
+            JSONObject tagSource = new JSONObject();
+
+            tagSource.put("tag", jTag);
+
+            jsonBody.put("source", tagSource);
           }
 
           String body = jsonBody.toString();
@@ -324,7 +350,7 @@ public class BuildWorker {
       console.logDebug("Using Enterprise API v1");
       return runGatesEngineV1();
     }
-    console.logDebug("Using Enterprise API v" + config.getEngineApiVersion());
+    console.logDebug("Using Enterprise API " + config.getEngineApiVersion());
     return runGatesEngineV2();
   }
 

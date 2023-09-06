@@ -53,7 +53,7 @@ Configuring the plugin in Jenkins global settings makes it available to any Jenk
 For global settings, go to the __Manage Jenkins > Configure System__ view and look for _Anchore Container Image Scanner_ section
 
 - Input _Anchore Enterprise URL_ to point to your Anchore installation  
-  >Note: Ensure that the /v2 route is included in the URL
+  >Note: Ensure that the /v2 route is included in the URL *or* /v1 if using a pre v4.9 version of Enteprise.
 - Input Anchore account username and password for _Anchore Enterprise Username_ and _Anchore Enterprise Password_ respectively 
 - (Optional) If your Anchore deployment uses a user created certificate that is not signed by a standard certificate authority then select uncheck _Verify SSL_
 - (Optional) For a verbose log of plugin execution check _Enable DEBUG logging_  
