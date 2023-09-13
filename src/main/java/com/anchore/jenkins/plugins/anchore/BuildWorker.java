@@ -218,15 +218,12 @@ public class BuildWorker {
           // Prep POST request
           String theurl = config.getEngineurl().replaceAll("/+$", "") + "/images";
 
-          // Disable autosubscribe if necessary
-          if (!config.getAutoSubscribeTagUpdates()){
-            queryList.add(Util.GET_VERSION_KEY(config.getEngineApiVersion(), "autosubscribe") + "=false");
-          }
 
-          // Enable force if necessary
-          if (config.getForceAnalyze()) {
-            queryList.add("force=true");
-          }
+          String should_auto_subscribe = config.getAutoSubscribeTagUpdates() ? "true" : "false";
+          queryList.add(Util.GET_VERSION_KEY(config.getEngineApiVersion(), "autosubscribe") + "=" + should_auto_subscribe);
+
+          String should_force_image_add = config.getForceAnalyze() ? "true" : "false";
+          queryList.add("force=" + should_force_image_add);
 
           if (!queryList.isEmpty()){
             queryStr = Joiner.on('&').skipNulls().join(queryList);
