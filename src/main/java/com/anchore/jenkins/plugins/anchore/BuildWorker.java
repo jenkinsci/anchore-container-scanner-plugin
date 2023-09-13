@@ -983,8 +983,8 @@ public class BuildWorker {
         
         if (!Strings.isNullOrEmpty(repoTag)) {
           console.logInfo("Policy evaluation summary for " + repoTag + " - stop: " + (stop - stop_wl) + " (+" + stop_wl
-              + " whitelisted), warn: " + (warn - warn_wl) + " (+" + warn_wl + " whitelisted), go: " + (go - go_wl) + " (+"
-              + go_wl + " whitelisted), final: " + final_action);
+              + " allowlisted), warn: " + (warn - warn_wl) + " (+" + warn_wl + " allowlisted), go: " + (go - go_wl) + " (+"
+              + go_wl + " allowlisted), final: " + final_action);
 
           JSONObject summaryRow = new JSONObject();
           summaryRow.put(GATE_SUMMARY_COLUMN.Repo_Tag.toString(), repoTag);
@@ -995,8 +995,8 @@ public class BuildWorker {
           summaryRows.add(summaryRow);
         } else {
           console.logInfo("Policy evaluation summary for " + imageDigest + " - stop: " + (stop - stop_wl) + " (+" + stop_wl
-              + " whitelisted), warn: " + (warn - warn_wl) + " (+" + warn_wl + " whitelisted), go: " + (go - go_wl) + " (+"
-              + go_wl + " whitelisted), final: " + final_action);
+              + " allowlisted), warn: " + (warn - warn_wl) + " (+" + warn_wl + " allowlisted), go: " + (go - go_wl) + " (+"
+              + go_wl + " allowlisted), final: " + final_action);
           JSONObject summaryRow = new JSONObject();
           summaryRow.put(GATE_SUMMARY_COLUMN.Repo_Tag.toString(), repoTag.toString());
           summaryRow.put(GATE_SUMMARY_COLUMN.Stop_Actions.toString(), (stop - stop_wl));

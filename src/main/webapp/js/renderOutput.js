@@ -110,8 +110,8 @@ function buildPolicyEvalTable(tableId, outputFile) {
             "sTitle": "Gate Action"
           },
           {
-            "title": "Whitelisted",
-            "sTitle": "Whitelisted"
+            "title": "Allowlisted",
+            "sTitle": "Allowlisted"
           },
           {
             "title": "Policy Id",
