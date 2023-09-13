@@ -289,6 +289,9 @@ function renderCell(data) {
     data = escapeHtml(data)
     return data.replace(URL_REGEX, '<a href="$1">$1</a>');
   }
+  else if (typeof data == "object") {
+    return !!data
+  }
   return data;
 }
 
