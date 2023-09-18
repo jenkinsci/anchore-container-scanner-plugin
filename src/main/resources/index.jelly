@@ -3,5 +3,5 @@
   This view is used to render the installed plugins page.
 -->
 <div>
-  This plugin provides container image scanning using Anchore Engine
+  This plugin provides container image scanning using Anchore Enterprise
 </div>

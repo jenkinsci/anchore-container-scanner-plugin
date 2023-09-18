@@ -58,19 +58,95 @@ function severity(source, type, val) {
 }
 
 function buildPolicyEvalTable(tableId, outputFile) {
+  // This is the table that details all the specific vulnerabilities found
   jQuery.getJSON(outputFile, function (data) {
     var headers = [];
     var rows = [];
+
     jQuery.each(data, function (imageId, imageIdObj) {
-      if (headers.length === 0) {
+      // API v1 data 
+      if (imageIdObj.hasOwnProperty('result')) {
+        if (headers.length === 0) {
         jQuery.each(imageIdObj.result.header, function (i, header) {
           var headerObj = new Object();
           headerObj.title = header.replace('_', ' ');
           headers.push(headerObj);
         });
+        }
+        jQuery.merge(rows, imageIdObj.result.rows);
+      } else {
+        // Assume API v2 data
+        var image_digest = imageIdObj.image_digest;
+        var gate_results = imageIdObj.gate_results;
+        var repo_tag =imageIdObj.repo_tag;
+
+        headers = [
+          {
+            "title": "Image Id",
+            "sTitle": "Image Id"
+          },
+          {
+            "title": "Repo Tag",
+            "sTitle": "Repo Tag"
+          },
+          {
+            "title": "Trigger Id",
+            "sTitle": "Trigger Id"
+          },
+          {
+            "title": "Gate",
+            "sTitle": "Gate"
+          },
+          {
+            "title": "Trigger",
+            "sTitle": "Trigger"
+          },
+          {
+            "title": "Check Output",
+            "sTitle": "Check Output"
+          },
+          {
+            "title": "Gate Action",
+            "sTitle": "Gate Action"
+          },
+          {
+            "title": "Allowlisted",
+            "sTitle": "Allowlisted"
+          },
+          {
+            "title": "Policy Id",
+            "sTitle": "Policy Id"
+          },
+          {
+            "title": "Recommendation",
+            "sTitle": "Recommendation"
+          },
+          {
+            "title": "rule id",
+            "sTitle": "rule id"
+          }
+        ]
+
+        gate_results.forEach((result) => {
+          rows.push([
+            image_digest.replace('sha256:', ''), 
+            repo_tag,
+            result.trigger_id,
+            result.gate,
+            result.trigger,
+            result.message,
+            result.action,
+            result.allowlisted,
+            result.policy_id,
+            result.recommendation,
+            result.rule_id,
+            ]);
+        });
       }
-      jQuery.merge(rows, imageIdObj.result.rows);
-    });
+    }
+  , function (error) {
+    console.log(error);
+  });
 
     jQuery(document).ready(function () {
       jQuery(tableId).DataTable({
@@ -131,6 +207,7 @@ function buildTableFromAnchoreOutput(tableId, outputFile) {
 }
 
 function buildPolicyEvalSummaryTable(tableId, tableObj) {
+  // This is the first table shownn on the policy eval page
   jQuery(document).ready(function () {
     jQuery(tableId).DataTable({
       retrieve: true,
@@ -211,6 +288,9 @@ function renderCell(data) {
   if (typeof data == "string") {
     data = escapeHtml(data)
     return data.replace(URL_REGEX, '<a href="$1">$1</a>');
+  }
+  else if (typeof data == "object") {
+    return !!data
   }
   return data;
 }

@@ -66,7 +66,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   private boolean autoSubscribeTagUpdates = DescriptorImpl.DEFAULT_AUTOSUBSCRIBE_TAG_UPDATES;
   private boolean forceAnalyze = DescriptorImpl.DEFAULT_FORCE_ANALYZE;
 
-  // Override global config. Supported for anchore-engine mode config only
+  // Override global config. Supported for anchore-enterprise mode config only
   private String engineurl = DescriptorImpl.EMPTY_STRING;
   private String engineCredentialsId = DescriptorImpl.EMPTY_STRING;
   private boolean engineverify = false;
@@ -197,7 +197,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       String engineuser = null;
       String enginepass = null;
       if (!Strings.isNullOrEmpty(engineCredentialsId)) {
-        console.logDebug("Found build override for anchore-engine credentials. Processing Jenkins credential ID ");
+        console.logDebug("Found build override for anchore-enterprise credentials. Processing Jenkins credential ID ");
         try {
           StandardUsernamePasswordCredentials creds = CredentialsProvider
               .findCredentialById(engineCredentialsId, StandardUsernamePasswordCredentials.class, run,

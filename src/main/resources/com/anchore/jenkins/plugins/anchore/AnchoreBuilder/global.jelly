@@ -3,15 +3,15 @@
 
   <f:section title="Anchore Container Image Scanner">
 
-    <f:entry title="Engine URL" field="engineurl">
-      <f:textbox name="engineurl" default="http://your_anchore_engine_host_ip:your_anchore_engine_port/v1"/>
+    <f:entry title="Anchore Enterprise URL" field="engineurl">
+      <f:textbox name="engineurl" default="http://your_anchore_enterprise_host_ip:your_anchore_enterprise_port/v2"/>
     </f:entry>
 
-    <f:entry title="Engine Username" field="engineuser">
+    <f:entry title="Anchore Enterprise Username" field="engineuser">
       <f:textbox name="engineuser" default=""/>
     </f:entry>
 
-    <f:entry title="Engine Password" field="enginepass">
+    <f:entry title="Anchore Enterprise Password" field="enginepass">
       <f:password name="enginepass"/>
     </f:entry>
 

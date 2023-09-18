@@ -1,6 +1,7 @@
 package com.anchore.jenkins.plugins.anchore;
 
 
+import com.anchore.jenkins.plugins.anchore.Util.API_VERSION;
 import java.util.List;
 
 /**
@@ -25,6 +26,7 @@ public class BuildConfig {
   private String engineuser;
   private String enginepass;
   private boolean engineverify;
+  private API_VERSION engineApiVersion;
 
   public BuildConfig(String name,  String engineRetries, boolean bailOnFail, boolean bailOnPluginFail,
       String policyBundleId, List<Annotation> annotations, boolean autoSubscribeTagUpdates, boolean forceAnalyze, boolean debug,
@@ -42,6 +44,7 @@ public class BuildConfig {
     this.engineuser = engineuser;
     this.enginepass = enginepass;
     this.engineverify = engineverify;
+    this.engineApiVersion = Util.GET_API_VERSION_FROM_URL(engineurl);
   }
 
   public String getName() {
@@ -94,6 +97,10 @@ public class BuildConfig {
 
   public boolean getEngineverify() {
     return engineverify;
+  }
+
+  public API_VERSION getEngineApiVersion() {
+    return engineApiVersion;
   }
 
   public void print(ConsoleLog consoleLog) {

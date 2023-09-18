@@ -4,6 +4,10 @@
 >- [Password stored in plaintext](https://jenkins.io/security/advisory/2018-07-30/#SECURITY-1039)
 >- [Credentials stored in plaintext](https://jenkins.io/security/advisory/2019-11-21/#SECURITY-1539)
 
+> ANCHORE ENGINE USERS NOTICE
+>- As of 2023, [Anchore Engine](https://github.com/anchore/anchore-engine) is no longer maintained. There will be no future versions released. Users are advised to use Syft and Grype.
+>- Future versions of this Jenkins plugin _may_ break support for existing anchore-engine installations. No timeframe is scheduled.
+
 ## Description
 
 Anchore is a container inspection and analytics platform that enables operators to analyze, inspect, perform security scans, and evaluate custom policies against container images. The Anchore plugin can be used in a Pipeline job or added as a build step to a Freestyle job to automate the process of running an anchore analysis, evaluating custom anchore policies against images, and performing image anchore security scans. 
@@ -48,9 +52,9 @@ Configuring the plugin in Jenkins global settings makes it available to any Jenk
 
 For global settings, go to the __Manage Jenkins > Configure System__ view and look for _Anchore Container Image Scanner_ section
 
-- Input _Engine URL_ to point to your Anchore installation  
-  >Note: Ensure that the /v1 route is included in the URL
-- Input Anchore account username and password for _Engine Username_ and _Engine Password_ respectively 
+- Input _Anchore Enterprise URL_ to point to your Anchore installation  
+  >Note: Ensure that the /v2 route is included in the URL *or* /v1 if using a pre v4.9 version of Enteprise.
+- Input Anchore account username and password for _Anchore Enterprise Username_ and _Anchore Enterprise Password_ respectively 
 - (Optional) If your Anchore deployment uses a user created certificate that is not signed by a standard certificate authority then select uncheck _Verify SSL_
 - (Optional) For a verbose log of plugin execution check _Enable DEBUG logging_  
 

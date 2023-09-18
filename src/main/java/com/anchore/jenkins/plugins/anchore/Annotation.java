@@ -35,7 +35,7 @@ public class Annotation extends AbstractDescribableImpl<Annotation> implements S
 
     @Override
     public String getDisplayName() {
-      return "Anchore Engine Image Annotation";
+      return "Anchore Enterprise Image Annotation";
     }
   }
 }
