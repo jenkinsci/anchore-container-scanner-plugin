@@ -123,6 +123,8 @@ public class AnchoreProjectAction implements Action {
       rangeAxis.setStandardTickUnits(NumberAxis.createIntegerTickUnits());
 
       StackedAreaRenderer ar = new StackedAreaRenderer2() {
+        private static final long serialVersionUID = 8254915273728909997L;
+
         @Override
         public String generateURL(CategoryDataset data, int row, int column) {
           NumberOnlyBuildLabel label = (NumberOnlyBuildLabel) data.getColumnKey(column);
