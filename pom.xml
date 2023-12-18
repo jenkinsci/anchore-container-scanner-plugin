@@ -27,7 +27,7 @@
   <properties>
     <!-- Baseline Jenkins version you use to build the plugin. Users must have this version or newer to run. -->
     <jenkins.version>2.222.4</jenkins.version>
-    <!-- Java Level to use. Java 7 required when using core >= 1.612 -->
+    <!-- Java Level to use. Java 8 required when using core >= 1.612 -->
     <java.level>8</java.level>
     <!-- Jenkins Test Harness version you use to test the plugin. -->
     <!-- For Jenkins version >= 1.580.1 use JTH 2.x or higher. -->
@@ -134,13 +134,13 @@
                 <artifactItem>
                   <groupId>org.webjars</groupId>
                   <artifactId>jquery</artifactId>
-                  <version>1.12.3</version>
+                  <version>1.12.4</version>
                   <includes>**/jquery*.min.js</includes>
                 </artifactItem>
                 <artifactItem>
                   <groupId>org.webjars</groupId>
                   <artifactId>datatables</artifactId>
-                  <version>1.10.11</version>
+                  <version>1.10.25</version>
                   <includes>
                     **/jquery.dataTables.min.js,**/dataTables.bootstrap.min.js,**/dataTables.bootstrap.min.css
                   </includes>
@@ -148,7 +148,7 @@
                 <artifactItem>
                   <groupId>org.webjars</groupId>
                   <artifactId>bootstrap</artifactId>
-                  <version>3.3.7-1</version>
+                  <version>3.4.1</version>
                   <includes>**/bootstrap.min.css,**/bootstrap.min.js,**/fonts/*</includes>
                 </artifactItem>
               </artifactItems>
@@ -174,13 +174,13 @@
               <resources>
                 <resource>
                   <targetPath>js</targetPath>
-                  <directory>${project.build.directory}/webjars/META-INF/resources/webjars/jquery/1.12.3</directory>
+                  <directory>${project.build.directory}/webjars/META-INF/resources/webjars/jquery/1.12.4</directory>
                 </resource>
                 <resource>
-                  <directory>${project.build.directory}/webjars/META-INF/resources/webjars/datatables/1.10.11</directory>
+                  <directory>${project.build.directory}/webjars/META-INF/resources/webjars/datatables/1.10.25</directory>
                 </resource>
                 <resource>
-                  <directory>${project.build.directory}/webjars/META-INF/resources/webjars/bootstrap/3.3.7-1</directory>
+                  <directory>${project.build.directory}/webjars/META-INF/resources/webjars/bootstrap/3.4.1</directory>
                 </resource>
                 <!-- also copy existing resources to use them in the HPL for testing -->
                 <resource>
