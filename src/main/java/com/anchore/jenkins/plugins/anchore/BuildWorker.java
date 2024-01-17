@@ -943,13 +943,12 @@ public class BuildWorker {
     if (gatesJson != null) {
       JSONArray summaryRows = new JSONArray();
 
-      int stop = 0, warn = 0, go = 0, stop_wl = 0, warn_wl = 0, go_wl = 0;
-
       for (Object gateResult : gatesJson) {
         JSONArray evaluationFindingContent = JSONObject.fromObject(gateResult).getJSONArray("gate_results");
         String repoTag = JSONObject.fromObject(gateResult).getString("repo_tag");
         String imageDigest = JSONObject.fromObject(gateResult).getString("image_digest");
         String final_action = JSONObject.fromObject(gateResult).getString("final_action");
+        int stop = 0, warn = 0, go = 0, stop_wl = 0, warn_wl = 0, go_wl = 0;
 
         for (Object finding : evaluationFindingContent) {
           if (null != finding) {
