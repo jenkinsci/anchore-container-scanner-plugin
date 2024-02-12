@@ -5,7 +5,7 @@ build:  # Should be run in project root	- results go in `target/`
 		-v maven-repo:/root/.m2 \
 		-v "${shell pwd}":/usr/src/mymaven \
 		-w /usr/src/mymaven \
-		maven:3.9.3-eclipse-temurin-8-focal \
+		maven:3.9.6-eclipse-temurin-11-focal \
 		mvn clean install
 
 
