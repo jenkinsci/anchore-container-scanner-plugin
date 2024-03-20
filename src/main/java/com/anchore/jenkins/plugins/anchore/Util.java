@@ -22,34 +22,4 @@ public class Util {
     }
     return API_VERSION.v1;
   }
-
-  public static final String GET_VERSION_KEY(API_VERSION apiVersion, String key) {
-    switch(key) {
-      case "autosubscribe":
-        switch(apiVersion) {
-          case v1:
-            return "autosubscribe";
-          case v2:
-            return "auto_subscribe";
-        }
-        break;
-      case "imageDigest":
-        switch(apiVersion) {
-          case v1:
-            return "imageDigest";
-          case v2:
-            return "image_digest";
-        }
-        break;
-      case "policyId":
-        switch(apiVersion) {
-          case v1:
-            return "policyId";
-          case v2:
-            return "policy_id";
-        }
-        break;
-    }
-    return key;
-  }
 }

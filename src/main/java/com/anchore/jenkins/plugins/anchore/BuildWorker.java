@@ -220,7 +220,7 @@ public class BuildWorker {
 
 
           String should_auto_subscribe = config.getAutoSubscribeTagUpdates() ? "true" : "false";
-          queryList.add(Util.GET_VERSION_KEY(config.getEngineApiVersion(), "autosubscribe") + "=" + should_auto_subscribe);
+          queryList.add("auto_subscribe=" + should_auto_subscribe);
 
           String should_force_image_add = config.getForceAnalyze() ? "true" : "false";
           queryList.add("force=" + should_force_image_add);
@@ -237,7 +237,7 @@ public class BuildWorker {
 
           // Prep request body
           if (config.getEngineApiVersion() == API_VERSION.v1) {
-			throw new AbortException("Requires Anchore Enterprise v2 API that can be found in Anchore Enterprise >= 4.9");
+            throw new AbortException("Requires Anchore Enterprise v2 API that can be found in Anchore Enterprise >= 4.9");
           } else {
             JSONObject jTag = new JSONObject();
 
@@ -285,7 +285,7 @@ public class BuildWorker {
               // TODO EntityUtils.consume(entity2);
 
               JSONObject respJson = JSONObject.fromObject(responseBody);
-              imageDigest = JSONObject.fromObject(respJson).getString(Util.GET_VERSION_KEY(config.getEngineApiVersion(), "imageDigest"));
+              imageDigest = JSONObject.fromObject(respJson).getString("image_digest");
 
               console.logInfo("Analysis request accepted, received image digest " + imageDigest);
               input_image_imageDigest.put(tag, imageDigest);
@@ -363,7 +363,7 @@ public class BuildWorker {
               config.getEngineurl().replaceAll("/+$", "") + "/images/" + imageDigest + "/check?tag=" + tag + "&detail=true";
 
           if (!Strings.isNullOrEmpty(config.getPolicyBundleId())) {
-            theurl += "&" + Util.GET_VERSION_KEY(config.getEngineApiVersion(), "policyId") + "=" + config.getPolicyBundleId();
+            theurl += "&policy_id=" + config.getPolicyBundleId();
           }
           console.logDebug("anchore-enterprise get policy evaluation URL: " + theurl);
 
