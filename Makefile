@@ -16,4 +16,4 @@ run-jenkins:
 
 .PHONY: run-jenkins-oldest  # The minimum version supported by the project
 run-jenkins-oldest:
-	docker run -p 8080:8080 -p 50000:50000 --restart=on-failure -v jenkins_home:/var/jenkins_home jenkins/jenkins:2.414.3-lts-jdk11
+	docker run -p 8080:8080 -p 50000:50000 --restart=on-failure -v jenkins_home:/var/jenkins_home jenkins/jenkins:2.426.3-lts-jdk11
