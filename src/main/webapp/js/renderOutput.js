@@ -64,85 +64,73 @@ function buildPolicyEvalTable(tableId, outputFile) {
     var rows = [];
 
     jQuery.each(data, function (imageId, imageIdObj) {
-      // API v1 data 
-      if (imageIdObj.hasOwnProperty('result')) {
-        if (headers.length === 0) {
-        jQuery.each(imageIdObj.result.header, function (i, header) {
-          var headerObj = new Object();
-          headerObj.title = header.replace('_', ' ');
-          headers.push(headerObj);
-        });
+      // Assume API v2 data
+      var image_digest = imageIdObj.image_digest;
+      var gate_results = imageIdObj.gate_results;
+      var repo_tag =imageIdObj.repo_tag;
+
+      headers = [
+        {
+          "title": "Image Id",
+          "sTitle": "Image Id"
+        },
+        {
+          "title": "Repo Tag",
+          "sTitle": "Repo Tag"
+        },
+        {
+          "title": "Trigger Id",
+          "sTitle": "Trigger Id"
+        },
+        {
+          "title": "Gate",
+          "sTitle": "Gate"
+        },
+        {
+          "title": "Trigger",
+          "sTitle": "Trigger"
+        },
+        {
+          "title": "Check Output",
+          "sTitle": "Check Output"
+        },
+        {
+          "title": "Gate Action",
+          "sTitle": "Gate Action"
+        },
+        {
+          "title": "Allowlisted",
+          "sTitle": "Allowlisted"
+        },
+        {
+          "title": "Policy Id",
+          "sTitle": "Policy Id"
+        },
+        {
+          "title": "Recommendation",
+          "sTitle": "Recommendation"
+        },
+        {
+          "title": "rule id",
+          "sTitle": "rule id"
         }
-        jQuery.merge(rows, imageIdObj.result.rows);
-      } else {
-        // Assume API v2 data
-        var image_digest = imageIdObj.image_digest;
-        var gate_results = imageIdObj.gate_results;
-        var repo_tag =imageIdObj.repo_tag;
+      ]
 
-        headers = [
-          {
-            "title": "Image Id",
-            "sTitle": "Image Id"
-          },
-          {
-            "title": "Repo Tag",
-            "sTitle": "Repo Tag"
-          },
-          {
-            "title": "Trigger Id",
-            "sTitle": "Trigger Id"
-          },
-          {
-            "title": "Gate",
-            "sTitle": "Gate"
-          },
-          {
-            "title": "Trigger",
-            "sTitle": "Trigger"
-          },
-          {
-            "title": "Check Output",
-            "sTitle": "Check Output"
-          },
-          {
-            "title": "Gate Action",
-            "sTitle": "Gate Action"
-          },
-          {
-            "title": "Allowlisted",
-            "sTitle": "Allowlisted"
-          },
-          {
-            "title": "Policy Id",
-            "sTitle": "Policy Id"
-          },
-          {
-            "title": "Recommendation",
-            "sTitle": "Recommendation"
-          },
-          {
-            "title": "rule id",
-            "sTitle": "rule id"
-          }
-        ]
-
-        gate_results.forEach((result) => {
-          rows.push([
-            image_digest.replace('sha256:', ''), 
-            repo_tag,
-            result.trigger_id,
-            result.gate,
-            result.trigger,
-            result.message,
-            result.action,
-            result.allowlisted,
-            result.policy_id,
-            result.recommendation,
-            result.rule_id,
-            ]);
-        });
-      }
+      gate_results.forEach((result) => {
+        rows.push([
+          image_digest.replace('sha256:', ''), 
+          repo_tag,
+          result.trigger_id,
+          result.gate,
+          result.trigger,
+          result.message,
+          result.action,
+          result.allowlisted,
+          result.policy_id,
+          result.recommendation,
+          result.rule_id,
+          ]);
+      });
     }
   , function (error) {
     console.log(error);

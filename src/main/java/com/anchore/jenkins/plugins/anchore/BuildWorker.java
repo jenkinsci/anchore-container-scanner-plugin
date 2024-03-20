@@ -220,7 +220,7 @@ public class BuildWorker {
 
 
           String should_auto_subscribe = config.getAutoSubscribeTagUpdates() ? "true" : "false";
-          queryList.add(Util.GET_VERSION_KEY(config.getEngineApiVersion(), "autosubscribe") + "=" + should_auto_subscribe);
+          queryList.add("auto_subscribe=" + should_auto_subscribe);
 
           String should_force_image_add = config.getForceAnalyze() ? "true" : "false";
           queryList.add("force=" + should_force_image_add);
@@ -237,19 +237,7 @@ public class BuildWorker {
 
           // Prep request body
           if (config.getEngineApiVersion() == API_VERSION.v1) {
-            jsonBody = new JSONObject();
-            jsonBody.put("tag", tag);
-            if (null != dfile) {
-              jsonBody.put("dockerfile", dfile);
-            }
-            if (null != config.getAnnotations() && !config.getAnnotations().isEmpty()) {
-              JSONObject annotations = new JSONObject();
-              for (Annotation a : config.getAnnotations()) {
-                annotations.put(a.getKey(), a.getValue());
-              }
-              jsonBody.put("annotations", annotations);
-            }
-
+            throw new AbortException("Requires Anchore Enterprise v2 API that can be found in Anchore Enterprise >= 4.9");
           } else {
             JSONObject jTag = new JSONObject();
 
@@ -296,14 +284,8 @@ public class BuildWorker {
               String responseBody = EntityUtils.toString(response.getEntity());
               // TODO EntityUtils.consume(entity2);
 
-              // In v1 API this is a list
-              if (config.getEngineApiVersion() == API_VERSION.v1) {
-                JSONArray respJson = JSONArray.fromObject(responseBody);
-                imageDigest = JSONObject.fromObject(respJson.get(0)).getString(Util.GET_VERSION_KEY(config.getEngineApiVersion(), "imageDigest"));
-              } else {
-                JSONObject respJson = JSONObject.fromObject(responseBody);
-                imageDigest = JSONObject.fromObject(respJson).getString(Util.GET_VERSION_KEY(config.getEngineApiVersion(), "imageDigest"));
-              }
+              JSONObject respJson = JSONObject.fromObject(responseBody);
+              imageDigest = JSONObject.fromObject(respJson).getString("image_digest");
 
               console.logInfo("Analysis request accepted, received image digest " + imageDigest);
               input_image_imageDigest.put(tag, imageDigest);
@@ -344,188 +326,10 @@ public class BuildWorker {
 
   public GATE_ACTION runGates() throws AbortException {
     if (config.getEngineApiVersion() == API_VERSION.v1) {
-      console.logDebug("Using Enterprise API v1");
-      return runGatesEngineV1();
+	  throw new AbortException("Requires Anchore Enterprise v2 API that can be found in Anchore Enterprise >= 4.9");
     }
     console.logDebug("Using Enterprise API " + config.getEngineApiVersion());
     return runGatesEngineV2();
-  }
-
-  private GATE_ACTION runGatesEngineV1() throws AbortException {
-    String username = config.getEngineuser();
-    String password = config.getEnginepass();
-    boolean sslverify = config.getEngineverify();
-
-    CredentialsProvider credsProvider = new BasicCredentialsProvider();
-    credsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
-    HttpClientContext context = HttpClientContext.create();
-    context.setCredentialsProvider(credsProvider);
-
-    //Credentials defaultcreds = new UsernamePasswordCredentials(username, password);
-    FilePath jenkinsOutputDirFP = new FilePath(workspace, jenkinsOutputDirName);
-    FilePath jenkinsGatesOutputFP = new FilePath(jenkinsOutputDirFP, gateOutputFileName);
-    int counter = 0;
-
-    finalAction = GATE_ACTION.PASS;
-    if (analyzed) {
-      try {
-        JSONObject gate_results = new JSONObject();
-
-        for (Map.Entry<String, String> entry : input_image_imageDigest.entrySet()) {
-          String tag = entry.getKey();
-          String imageDigest = entry.getValue();
-
-          console.logInfo("Waiting for analysis of " + tag + ", polling status periodically");
-
-          Boolean anchore_eval_status = false;
-          String theurl =
-              config.getEngineurl().replaceAll("/+$", "") + "/images/" + imageDigest + "/check?tag=" + tag + "&detail=true";
-
-          if (!Strings.isNullOrEmpty(config.getPolicyBundleId())) {
-            theurl += "&" + Util.GET_VERSION_KEY(config.getEngineApiVersion(), "policyId") + "=" + config.getPolicyBundleId();
-          }
-          console.logDebug("anchore-enterprise get policy evaluation URL: " + theurl);
-
-          int tryCount = 0;
-          int maxCount = Integer.parseInt(config.getEngineRetries());
-          Boolean done = false;
-          HttpGet httpget = new HttpGet(theurl);
-          httpget.addHeader("Content-Type", "application/json");
-          int statusCode;
-          String serverMessage = null;
-          boolean sleep = false;
-
-          do { // try this at least once regardless what the retry count is
-            if (sleep) {
-              console.logDebug("Snoozing before retrying anchore-enterprise get policy evaluation");
-              Thread.sleep(1000);
-              sleep = false;
-            }
-
-            tryCount++;
-            try (CloseableHttpClient httpclient = makeHttpClient(sslverify)) {
-              console.logDebug("Attempting anchore-enterprise get policy evaluation (" + tryCount + "/" + maxCount + ")");
-
-              try (CloseableHttpResponse response = httpclient.execute(httpget, context)) {
-                statusCode = response.getStatusLine().getStatusCode();
-
-                if (statusCode != 200) {
-                  serverMessage = EntityUtils.toString(response.getEntity());
-                  console.logDebug(
-                      "anchore-enterprise get policy evaluation failed. URL: " + theurl + ", status: " + response.getStatusLine()
-                          + ", error: " + serverMessage);
-                  // Thread.sleep(1000); sleeping here keeps connection open. Unnecessary if the retries have been exhausted
-                  sleep = true;
-                } else {
-                  // Read the response body.
-                  String responseBody = EntityUtils.toString(response.getEntity());
-                  // TODO EntityUtils.consume(entity2);
-                  JSONArray respJson = JSONArray.fromObject(responseBody);
-                  JSONObject tag_eval_obj = JSONObject.fromObject(JSONArray.fromObject(
-                      JSONArray.fromObject(JSONObject.fromObject(JSONObject.fromObject(respJson.get(0)).getJSONObject(imageDigest))))
-                      .get(0));
-                  JSONArray tag_evals = null;
-                  for (Object key : tag_eval_obj.keySet()) {
-                    tag_evals = tag_eval_obj.getJSONArray((String) key);
-                    break;
-                  }
-                  //JSONArray tag_evals = JSONObject.fromObject(JSONArray.fromObject(JSONArray.fromObject(JSONObject.fromObject
-                  // (JSONObject.fromObject(respJson.get(0)).getJSONObject(imageDigest)))).get(0)).getJSONArray(tag);
-                  if (null == tag_evals) {
-                    throw new AbortException(
-                        "Failed to analyze " + tag + " due to missing tag eval records in anchore-enterprise policy evaluation response");
-                  }
-                  if (tag_evals.size() < 1) {
-                    // try again until we get an eval
-                    console
-                        .logDebug("anchore-enterprise get policy evaluation response contains no tag eval records. May snooze and retry");
-                    // Thread.sleep(1000); sleeping here keeps connection open. Unnecessary if the retries have been exhausted
-                    sleep = true;
-                  } else {
-                    counter = counter + 1;
-                    writeResponseToFile(counter, jenkinsOutputDirFP, responseBody);
-
-
-                    // String eval_status = JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0)).getJSONArray(tag).get(0))
-                    // .getString("status");
-                    String eval_status = JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0))).getString("status");
-                    JSONObject gate_result = JSONObject.fromObject(JSONObject.fromObject(
-                        JSONObject.fromObject(JSONObject.fromObject(tag_evals.get(0)).getJSONObject("detail")).getJSONObject("result"))
-                        .getJSONObject("result"));
-
-                    console.logDebug("anchore-enterprise get policy evaluation status: " + eval_status);
-                    console.logDebug("anchore-enterprise get policy evaluation result: " + gate_result.toString());
-                    for (Object key : gate_result.keySet()) {
-                      try {
-                        gate_results.put((String) key, gate_result.getJSONObject((String) key));
-                      } catch (Exception e) {
-                        console.logDebug("Ignoring error parsing policy evaluation result key: " + key);
-                      }
-                    }
-
-                    // we actually got a real result
-                    // this is the only way this gets flipped to true
-                    if (eval_status.equals("pass")) {
-                      anchore_eval_status = true;
-                    }
-                    done = true;
-                    console.logInfo("Completed analysis and processed policy evaluation result");
-                  }
-                }
-              } catch (Throwable e) {
-                throw e;
-              }
-            } catch (Throwable e) {
-              throw e;
-            }
-          } while (!done && tryCount < maxCount);
-
-          if (!done) {
-            if (statusCode != 200) {
-              console.logWarn(
-                  "anchore-enterprise get policy evaluation failed. HTTP method: GET, URL: " + theurl + ", status: " + statusCode
-                      + ", error: " + serverMessage);
-            }
-            console.logWarn("Exhausted all attempts polling anchore-enterprise. Analysis is incomplete for " + imageDigest);
-            throw new AbortException(
-                "Timed out waiting for anchore-enterprise analysis to complete (increasing engineRetries might help). Check above logs "
-                    + "for errors from anchore-enterprise");
-          } else {
-            // only set to stop if an eval is successful and is reporting fail
-            if (!anchore_eval_status) {
-              finalAction = GATE_ACTION.FAIL;
-            }
-          }
-        }
-
-        try {
-          console.logDebug("Writing policy evaluation result to " + jenkinsGatesOutputFP.getRemote());
-          try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(jenkinsGatesOutputFP.write(), StandardCharsets.UTF_8))) {
-            bw.write(gate_results.toString());
-          }
-        } catch (IOException | InterruptedException e) {
-          console.logWarn("Failed to write policy evaluation output to " + jenkinsGatesOutputFP.getRemote(), e);
-          throw new AbortException("Failed to write policy evaluation output to " + jenkinsGatesOutputFP.getRemote());
-        }
-
-        generateGatesSummaryV1(gate_results);
-        console.logInfo("Anchore Container Image Scanner Plugin step result - " + finalAction);
-        return finalAction;
-      } catch (AbortException e) { // probably caught one of the thrown exceptions, let it pass through
-        throw e;
-      } catch (Exception e) { // caught unknown exception, log it and wrap it
-        console.logError("Failed to execute anchore-enterprise policy evaluation due to an unexpected error", e);
-        throw new AbortException(
-            "Failed to execute anchore-enterprise policy evaluation due to an unexpected error. Please refer to above logs for more "
-                + "information");
-      }
-    } else {
-      console.logError(
-          "Image(s) were not added to anchore-enterprise (or a prior attempt to add images may have failed). Re-submit image(s) to "
-              + "anchore-enterprise before attempting policy evaluation");
-      throw new AbortException("Submit image(s) to anchore-enterprise for analysis before attempting policy evaluation");
-    }
-
   }
 
   private GATE_ACTION runGatesEngineV2() throws AbortException {
@@ -559,7 +363,7 @@ public class BuildWorker {
               config.getEngineurl().replaceAll("/+$", "") + "/images/" + imageDigest + "/check?tag=" + tag + "&detail=true";
 
           if (!Strings.isNullOrEmpty(config.getPolicyBundleId())) {
-            theurl += "&" + Util.GET_VERSION_KEY(config.getEngineApiVersion(), "policyId") + "=" + config.getPolicyBundleId();
+            theurl += "&policy_id=" + config.getPolicyBundleId();
           }
           console.logDebug("anchore-enterprise get policy evaluation URL: " + theurl);
 
@@ -797,143 +601,6 @@ public class BuildWorker {
           "Image(s) were not added to anchore-enterprise (or a prior attempt to add images may have failed). Re-submit image(s) to "
               + "anchore-enterprise before attempting vulnerability listing");
       throw new AbortException("Submit image(s) to anchore-enterprise for analysis before attempting vulnerability listing");
-    }
-  }
-
-  private void generateGatesSummaryV1(JSONObject gatesJson) {
-    console.logDebug("Summarizing policy evaluation results");
-    if (gatesJson != null) {
-      JSONArray summaryRows = new JSONArray();
-      // Populate once and reuse
-      int numColumns = 0, repoTagIndex = -1, gateNameIndex = -1, gateActionIndex = -1, whitelistedIndex = -1;
-
-      for (Object imageKey : gatesJson.keySet()) {
-        JSONObject content = gatesJson.getJSONObject((String) imageKey);
-        if (null != content) {
-          JSONObject result = content.getJSONObject("result");
-          if (null != result) {
-            // populate data from header element once, most likely for the first image
-            if (numColumns <= 0 || repoTagIndex < 0 || gateNameIndex < 0 || gateActionIndex < 0 || whitelistedIndex < 0) {
-              JSONArray header = result.getJSONArray("header");
-              if (null != header) {
-                numColumns = header.size();
-                for (int i = 0; i < header.size(); i++) {
-                  switch (header.getString(i)) {
-                    case "Repo_Tag":
-                      repoTagIndex = i;
-                      break;
-                    case "Gate":
-                      gateNameIndex = i;
-                      break;
-                    case "Gate_Action":
-                      gateActionIndex = i;
-                      break;
-                    case "Whitelisted":
-                      whitelistedIndex = i;
-                      break;
-                    default:
-                      break;
-                  }
-                }
-              } else {
-                console.logWarn("\'header\' element not found in gate output, skipping summary computation for " + imageKey);
-                continue;
-              }
-            } else {
-              // indices have been populated, reuse it
-            }
-
-            if (numColumns <= 0 || repoTagIndex < 0 || gateNameIndex < 0 || gateActionIndex < 0) {
-              console.logWarn("Either \'header\' element has no columns or column indices (for Repo_Tag, Gate, Gate_Action) not "
-                  + "initialized, skipping summary computation for " + imageKey);
-              continue;
-            }
-
-            JSONArray rows = result.getJSONArray("rows");
-            if (null != rows) {
-              int stop = 0, warn = 0, go = 0, stop_wl = 0, warn_wl = 0, go_wl = 0;
-              String repoTag = null;
-
-              for (int i = 0; i < rows.size(); i++) {
-                JSONArray row = rows.getJSONArray(i);
-                if (row.size() == numColumns) {
-                  if (Strings.isNullOrEmpty(repoTag)) {
-                    repoTag = row.getString(repoTagIndex);
-                  }
-                  if (!row.getString(gateNameIndex).equalsIgnoreCase("FINAL")) {
-                    switch (row.getString(gateActionIndex).toLowerCase()) {
-                      case "stop":
-                        stop++;
-                        stop_wl = (whitelistedIndex != -1 && !(row.getString(whitelistedIndex).equalsIgnoreCase("none") || row
-                            .getString(whitelistedIndex).equalsIgnoreCase("false"))) ? ++stop_wl : stop_wl;
-                        break;
-                      case "warn":
-                        warn++;
-                        warn_wl = (whitelistedIndex != -1 && !(row.getString(whitelistedIndex).equalsIgnoreCase("none") || row
-                            .getString(whitelistedIndex).equalsIgnoreCase("false"))) ? ++warn_wl : warn_wl;
-                        break;
-                      case "go":
-                        go++;
-                        go_wl = (whitelistedIndex != -1 && !(row.getString(whitelistedIndex).equalsIgnoreCase("none") || row
-                            .getString(whitelistedIndex).equalsIgnoreCase("false"))) ? ++go_wl : go_wl;
-                        break;
-                      default:
-                        break;
-                    }
-                  }
-                } else {
-                  console.logWarn("Expected " + numColumns + " elements but got " + row.size() + ", skipping row " + row
-                      + " in summary computation for " + imageKey);
-                }
-              }
-
-              totalStopActionCount += (stop - stop_wl);
-              totalWarnActionCount += (warn - warn_wl);
-              totalGoActionCount += (go - go_wl);
-              
-              if (!Strings.isNullOrEmpty(repoTag)) {
-                console.logInfo("Policy evaluation summary for " + repoTag + " - stop: " + (stop - stop_wl) + " (+" + stop_wl
-                    + " whitelisted), warn: " + (warn - warn_wl) + " (+" + warn_wl + " whitelisted), go: " + (go - go_wl) + " (+"
-                    + go_wl + " whitelisted), final: " + result.getString("final_action"));
-
-                JSONObject summaryRow = new JSONObject();
-                summaryRow.put(GATE_SUMMARY_COLUMN.Repo_Tag.toString(), repoTag);
-                summaryRow.put(GATE_SUMMARY_COLUMN.Stop_Actions.toString(), (stop - stop_wl));
-                summaryRow.put(GATE_SUMMARY_COLUMN.Warn_Actions.toString(), (warn - warn_wl));
-                summaryRow.put(GATE_SUMMARY_COLUMN.Go_Actions.toString(), (go - go_wl));
-                summaryRow.put(GATE_SUMMARY_COLUMN.Final_Action.toString(), result.getString("final_action"));
-                summaryRows.add(summaryRow);
-              } else {
-                console.logInfo("Policy evaluation summary for " + imageKey + " - stop: " + (stop - stop_wl) + " (+" + stop_wl
-                    + " whitelisted), warn: " + (warn - warn_wl) + " (+" + warn_wl + " whitelisted), go: " + (go - go_wl) + " (+"
-                    + go_wl + " whitelisted), final: " + result.getString("final_action"));
-                JSONObject summaryRow = new JSONObject();
-                summaryRow.put(GATE_SUMMARY_COLUMN.Repo_Tag.toString(), imageKey.toString());
-                summaryRow.put(GATE_SUMMARY_COLUMN.Stop_Actions.toString(), (stop - stop_wl));
-                summaryRow.put(GATE_SUMMARY_COLUMN.Warn_Actions.toString(), (warn - warn_wl));
-                summaryRow.put(GATE_SUMMARY_COLUMN.Go_Actions.toString(), (go - go_wl));
-                summaryRow.put(GATE_SUMMARY_COLUMN.Final_Action.toString(), result.getString("final_action"));
-                summaryRows.add(summaryRow);
-
-                console.logWarn("Repo_Tag element not found in gate output, using imageId: " + imageKey);
-              }
-            } else { // rows object not found
-              console.logWarn("\'rows\' element not found in gate output, skipping summary computation for " + imageKey);
-            }
-          } else { // result object not found, log and move on
-            console.logWarn("\'result\' element not found in gate output, skipping summary computation for " + imageKey);
-          }
-        } else { // no content found for a given image id, log and move on
-          console.logWarn("No mapped object found in gate output, skipping summary computation for " + imageKey);
-        }
-      }
-
-      gateSummary = new JSONObject();
-      gateSummary.put("header", generateDataTablesColumnsForGateSummary());
-      gateSummary.put("rows", summaryRows);
-
-    } else { // could not load gates output to json object
-      console.logWarn("Invalid input to generate gates summary");
     }
   }
 
