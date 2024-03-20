@@ -359,19 +359,14 @@ public class BuildWorker {
           console.logInfo("Waiting for analysis of " + tag + ", polling status periodically");
 
           Boolean anchore_eval_status = false;
-          String theurl =
-              config.getEngineurl().replaceAll("/+$", "") + "/images/" + imageDigest + "/check?tag=" + tag + "&detail=true";
-
-          if (!Strings.isNullOrEmpty(config.getPolicyBundleId())) {
-            theurl += "&policy_id=" + config.getPolicyBundleId();
-          }
-          console.logDebug("anchore-enterprise get policy evaluation URL: " + theurl);
+          String imageURL =
+              config.getEngineurl().replaceAll("/+$", "") + "/images/" + imageDigest;
 
           int tryCount = 0;
           int maxCount = Integer.parseInt(config.getEngineRetries());
           Boolean done = false;
-          HttpGet httpget = new HttpGet(theurl);
-          httpget.addHeader("Content-Type", "application/json");
+          HttpGet httpgetCheckAnalysis = new HttpGet(imageURL);
+          httpgetCheckAnalysis.addHeader("Content-Type", "application/json");
           int statusCode;
           String serverMessage = null;
           boolean sleep = false;
@@ -386,59 +381,127 @@ public class BuildWorker {
 
             tryCount++;
             try (CloseableHttpClient httpclient = makeHttpClient(sslverify)) {
-              console.logDebug("Attempting anchore-enterprise get policy evaluation (" + tryCount + "/" + maxCount + ")");
+              console.logDebug("Attempting anchore-enterprise check for image analysis (" + tryCount + "/" + maxCount + ")");
 
-              try (CloseableHttpResponse response = httpclient.execute(httpget, context)) {
-                statusCode = response.getStatusLine().getStatusCode();
+              try (CloseableHttpResponse responseCheckAnalysis = httpclient.execute(httpgetCheckAnalysis, context)) {
+                statusCode = responseCheckAnalysis.getStatusLine().getStatusCode();
 
                 if (statusCode != 200) {
-                  serverMessage = EntityUtils.toString(response.getEntity());
+                  serverMessage = EntityUtils.toString(responseCheckAnalysis.getEntity());
                   console.logDebug(
-                      "anchore-enterprise get policy evaluation failed. URL: " + theurl + ", status: " + response.getStatusLine()
+                      "anchore-enterprise get analysis status failed. URL: " + imageURL + ", status: " + responseCheckAnalysis.getStatusLine()
                           + ", error: " + serverMessage);
                   sleep = true;
                 } else {
-                  // Read the response body.
-                  String responseBody = EntityUtils.toString(response.getEntity());
-                  
-                  JSONObject topDocument = (JSONObject) JSONSerializer.toJSON(responseBody);
-                  evaluations = topDocument.getJSONArray("evaluations");                  
-                  JSONObject policyJsonObject = evaluations.getJSONObject(0);
-                  JSONObject evaluationDetails = policyJsonObject.getJSONObject("details");
-                  JSONArray evaluationFindings = evaluationDetails.getJSONArray("findings");
+                  // Look for analyzed image before proceeding
+                  String responseBodyCheckAnalysis = EntityUtils.toString(responseCheckAnalysis.getEntity());
+                  JSONObject imageResponse = (JSONObject) JSONSerializer.toJSON(responseBodyCheckAnalysis);
+                  String imageAnalysisStatus = imageResponse.getString("analysis_status");
 
-
-                  if (evaluations.size() < 1) {
-                    // try again until we get an eval
-                    console
-                        .logDebug("anchore-enterprise get policy evaluation response contains no evaluations records. May snooze and retry");
+                  if (!imageAnalysisStatus.equals("analyzed")) {
+                    console.logDebug("anchore-enterprise get analysis status: " + imageAnalysisStatus);
                     sleep = true;
                   } else {
-                    counter = counter + 1;
-                    writeResponseToFile(counter, jenkinsOutputDirFP, responseBody);
-
-                    String gate_resulting_action = policyJsonObject.getString("final_action");
+                    // Get the list of ancestors to determine base image
+                    String ancestorsURL = imageURL + "/ancestors";
+                    HttpGet httpgetAncestors = new HttpGet(ancestorsURL);
+                    httpgetAncestors.addHeader("Content-Type", "application/json");
                     
-                    JSONObject gate_result = new JSONObject();
+                    try (CloseableHttpResponse responseAncestors = httpclient.execute(httpgetAncestors, context)) {
+                      
+                      statusCode = responseAncestors.getStatusLine().getStatusCode();
+                      
+                      if (statusCode != 200) {
+                        
+                        serverMessage = EntityUtils.toString(responseAncestors.getEntity());
+                        
+                        console.logDebug(
+                            "anchore-enterprise get ancestors failed. URL: " + ancestorsURL + ", status: " + responseAncestors.getStatusLine()
+                                + ", error: " + serverMessage);
+                        sleep = true;
+                      } else {
+                        // Get the last ancestor to determine the base image
+                        String responseBodyAncestors = EntityUtils.toString(responseAncestors.getEntity());
 
-                    gate_result.put("image_digest", imageDigest);
-                    gate_result.put("repo_tag", topDocument.getString("evaluated_tag"));
-                    gate_result.put("final_action", gate_resulting_action);
-                    gate_result.put("gate_results", evaluationFindings);
+                        String policyCheckURL = null;
 
-                    gate_results.add(gate_result);
-                  
-                    console.logDebug("anchore-enterprise get policy evaluation result: " + gate_resulting_action.toString());
+                        JSONArray ancestors = (JSONArray) JSONSerializer.toJSON(responseBodyAncestors);
+                        if (ancestors.size() < 1) {
+                          console.logDebug("anchore-enterprise get ancestors response contains no records for image: " + ancestorsURL);
+                          policyCheckURL =
+                              config.getEngineurl().replaceAll("/+$", "") + "/images/" + imageDigest + "/check?tag=" + tag
+                                  + "&detail=true";
+                        } else {
+                          JSONObject lastAncestor = ancestors.getJSONObject(ancestors.size() - 1);
+                          String baseImageDigest = lastAncestor.getString("image_digest");
+                          policyCheckURL =
+                              config.getEngineurl().replaceAll("/+$", "") + "/images/" + imageDigest + "/check?tag=" + tag
+                                  + "&detail=true&base_digest=" + baseImageDigest;
+                        }
 
-                    // we actually got a real result
-                    // this is the only way this gets flipped to true
-                    if (policyJsonObject.getString("status").equals("pass")) {
-                      anchore_eval_status = true;
+                        if (!Strings.isNullOrEmpty(config.getPolicyBundleId())) {
+                          policyCheckURL += "&policy_id=" + config.getPolicyBundleId();
+                        }
+                        console.logDebug("anchore-enterprise get policy evaluation URL: " + policyCheckURL);
+
+                        HttpGet httpgetPolicyCheck = new HttpGet(policyCheckURL);
+                        httpgetPolicyCheck.addHeader("Content-Type", "application/json");
+
+                        try (CloseableHttpResponse responsePolicyCheck = httpclient.execute(httpgetPolicyCheck, context)) {
+                          statusCode = responsePolicyCheck.getStatusLine().getStatusCode();
+
+                          if (statusCode != 200) {
+                            serverMessage = EntityUtils.toString(responsePolicyCheck.getEntity());
+                            console.logDebug(
+                                "anchore-enterprise get policy evaluation failed. URL: " + policyCheckURL + ", status: " + statusCode
+                                    + ", error: " + serverMessage);
+                            sleep = true;
+                          } else {
+                            // Read the response body.
+                            String responseBodyPolicyCheck = EntityUtils.toString(responsePolicyCheck.getEntity());
+                            
+                            JSONObject topDocument = (JSONObject) JSONSerializer.toJSON(responseBodyPolicyCheck);
+                            evaluations = topDocument.getJSONArray("evaluations");                  
+                            JSONObject policyJsonObject = evaluations.getJSONObject(0);
+                            JSONObject evaluationDetails = policyJsonObject.getJSONObject("details");
+                            JSONArray evaluationFindings = evaluationDetails.getJSONArray("findings");
+
+                            if (evaluations.size() < 1) {
+                              // try again until we get an eval
+                              console
+                                  .logDebug("anchore-enterprise get policy evaluation response contains no evaluations records. May snooze and retry");
+                              sleep = true;
+                            } else {
+                              counter = counter + 1;
+                              writeResponseToFile(counter, jenkinsOutputDirFP, responseBodyPolicyCheck);
+
+                              String gate_resulting_action = policyJsonObject.getString("final_action");
+                              
+                              JSONObject gate_result = new JSONObject();
+
+                              gate_result.put("image_digest", imageDigest);
+                              gate_result.put("repo_tag", topDocument.getString("evaluated_tag"));
+                              gate_result.put("final_action", gate_resulting_action);
+                              gate_result.put("gate_results", evaluationFindings);
+
+                              gate_results.add(gate_result);
+                            
+                              console.logDebug("anchore-enterprise get policy evaluation result: " + gate_resulting_action.toString());
+
+                              // we actually got a real result
+                              // this is the only way this gets flipped to true
+                              if (policyJsonObject.getString("status").equals("pass")) {
+                                anchore_eval_status = true;
+                              }
+                              console.logDebug("anchore-enterprise get policy evaluation status: " + anchore_eval_status);
+
+                              done = true;
+                              console.logInfo("Completed analysis and processed policy evaluation result");
+                            }
+                          }
+                        }
+                      }
                     }
-                    console.logDebug("anchore-enterprise get policy evaluation status: " + anchore_eval_status);
-
-                    done = true;
-                    console.logInfo("Completed analysis and processed policy evaluation result");
                   }
                 }
               } catch (Throwable e) {
@@ -452,7 +515,7 @@ public class BuildWorker {
           if (!done) {
             if (statusCode != 200) {
               console.logWarn(
-                  "anchore-enterprise get policy evaluation failed. HTTP method: GET, URL: " + theurl + ", status: " + statusCode
+                  "anchore-enterprise get policy evaluation failed. HTTP method: GET, URL: " + imageURL + ", status: " + statusCode
                       + ", error: " + serverMessage);
             }
             console.logWarn("Exhausted all attempts polling anchore-enterprise. Analysis is incomplete for " + imageDigest);

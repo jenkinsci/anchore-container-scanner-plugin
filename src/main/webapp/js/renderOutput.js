@@ -103,6 +103,10 @@ function buildPolicyEvalTable(tableId, outputFile) {
           "sTitle": "Allowlisted"
         },
         {
+          "title": "Inherited From Base",
+          "sTitle": "Inherited From Base"
+        },
+        {
           "title": "Policy ID",
           "sTitle": "Policy ID"
         },
@@ -126,6 +130,7 @@ function buildPolicyEvalTable(tableId, outputFile) {
           result.message,
           result.action,
           result.allowlisted,
+          result.inherited_from_base,
           result.policy_id,
           result.recommendation,
           result.rule_id,
