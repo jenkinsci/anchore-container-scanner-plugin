@@ -71,16 +71,16 @@ function buildPolicyEvalTable(tableId, outputFile) {
 
       headers = [
         {
-          "title": "Image Id",
-          "sTitle": "Image Id"
+          "title": "Image ID",
+          "sTitle": "Image ID"
         },
         {
           "title": "Repo Tag",
           "sTitle": "Repo Tag"
         },
         {
-          "title": "Trigger Id",
-          "sTitle": "Trigger Id"
+          "title": "Trigger ID",
+          "sTitle": "Trigger ID"
         },
         {
           "title": "Gate",
@@ -103,16 +103,16 @@ function buildPolicyEvalTable(tableId, outputFile) {
           "sTitle": "Allowlisted"
         },
         {
-          "title": "Policy Id",
-          "sTitle": "Policy Id"
+          "title": "Policy ID",
+          "sTitle": "Policy ID"
         },
         {
           "title": "Recommendation",
           "sTitle": "Recommendation"
         },
         {
-          "title": "rule id",
-          "sTitle": "rule id"
+          "title": "Rule ID",
+          "sTitle": "Rule ID"
         }
       ]
 
