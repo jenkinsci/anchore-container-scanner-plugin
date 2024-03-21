@@ -408,13 +408,9 @@ public class BuildWorker {
                     httpgetAncestors.addHeader("Content-Type", "application/json");
                     
                     try (CloseableHttpResponse responseAncestors = httpclient.execute(httpgetAncestors, context)) {
-                      
                       statusCode = responseAncestors.getStatusLine().getStatusCode();
-                      
                       if (statusCode != 200) {
-                        
                         serverMessage = EntityUtils.toString(responseAncestors.getEntity());
-                        
                         console.logDebug(
                             "anchore-enterprise get ancestors failed. URL: " + ancestorsURL + ", status: " + responseAncestors.getStatusLine()
                                 + ", error: " + serverMessage);
@@ -578,7 +574,7 @@ public class BuildWorker {
       try {
         JSONObject securityJson = new JSONObject();
         JSONArray columnsJson = new JSONArray();
-        for (String column : Arrays.asList("Tag", "CVE ID", "Severity", "Vulnerability Package", "Fix Available", "URL")) {
+        for (String column : Arrays.asList("Tag", "CVE ID", "Severity", "Vulnerability Package", "Fix Available", "Inherited From Base", "URL")) {
           JSONObject columnJson = new JSONObject();
           columnJson.put("title", column);
           columnsJson.add(columnJson);
@@ -590,44 +586,82 @@ public class BuildWorker {
           String digest = entry.getValue();
 
           try (CloseableHttpClient httpclient = makeHttpClient(sslverify)) {
-            console.logInfo("Querying vulnerability listing for " + input);
-            String theurl = config.getEngineurl().replaceAll("/+$", "") + "/images/" + digest + "/vuln/all";
-            HttpGet httpget = new HttpGet(theurl);
-            httpget.addHeader("Content-Type", "application/json");
-
-            console.logDebug("anchore-enterprise get vulnerability listing URL: " + theurl);
-            try (CloseableHttpResponse response = httpclient.execute(httpget, context)) {
-              int statusCode = response.getStatusLine().getStatusCode();
+            String ancestorsURL = config.getEngineurl().replaceAll("/+$", "") + "/images/" + digest + "/ancestors";
+            HttpGet httpgetAncestors = new HttpGet(ancestorsURL);
+            httpgetAncestors.addHeader("Content-Type", "application/json");
+            
+            try (CloseableHttpResponse responseAncestors = httpclient.execute(httpgetAncestors, context)) {
+              int statusCode = responseAncestors.getStatusLine().getStatusCode();
               if (statusCode != 200) {
-                String serverMessage = EntityUtils.toString(response.getEntity());
-                console.logWarn(
-                    "anchore-enterprise get vulnerability listing failed. URL: " + theurl + ", status: " + response.getStatusLine()
+                String serverMessage = EntityUtils.toString(responseAncestors.getEntity());
+                console.logDebug(
+                    "anchore-enterprise get ancestors failed. URL: " + ancestorsURL + ", status: " + responseAncestors.getStatusLine()
                         + ", error: " + serverMessage);
                 throw new AbortException("Failed to fetch vulnerability listing from anchore-enterprise");
               } else {
-                String responseBody = EntityUtils.toString(response.getEntity());
-                // Write api response to a file as it is
-                String jenkinsAEResponseFileName = AE_VULNS_PREFIX + (++counter) + JSON_FILE_EXTENSION;
-                FilePath jenkinsAEResponseFP = new FilePath(jenkinsOutputDirFP, jenkinsAEResponseFileName);
-                try {
-                  console.logDebug("Writing anchore-enterprise vulnerabilities listing response to " + jenkinsAEResponseFP.getRemote());
-                  try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(jenkinsAEResponseFP.write(), StandardCharsets.UTF_8))) {
-                    bw.write(responseBody);
-                  }
-                } catch (IOException | InterruptedException e) {
-                  console.logWarn("Failed to write anchore-enterprise vulnerabilities listing response to " + jenkinsAEResponseFP.getRemote(), e);
-                  throw new AbortException("Failed to write anchore-enterprise vulnerabilities listing response to " + jenkinsAEResponseFP.getRemote());
+                // Get the last ancestor to determine the base image
+                String responseBodyAncestors = EntityUtils.toString(responseAncestors.getEntity());
+
+                String vulnListURL = null;
+
+                JSONArray ancestors = (JSONArray) JSONSerializer.toJSON(responseBodyAncestors);
+                if (ancestors.size() < 1) {
+                  console.logDebug("anchore-enterprise get ancestors response contains no records for image: " + ancestorsURL);
+                  vulnListURL = config.getEngineurl().replaceAll("/+$", "") + "/images/" + digest + "/vuln/all";
+                } else {
+                  JSONObject lastAncestor = ancestors.getJSONObject(ancestors.size() - 1);
+                  String baseImageDigest = lastAncestor.getString("image_digest");
+                  vulnListURL = config.getEngineurl().replaceAll("/+$", "") + "/images/" + digest + "/vuln/all"
+                          + "?base_digest=" + baseImageDigest;
                 }
 
-                JSONObject responseJson = JSONObject.fromObject(responseBody);
-                JSONArray vulList = responseJson.getJSONArray("vulnerabilities");
-                for (int i = 0; i < vulList.size(); i++) {
-                  JSONObject vulnJson = vulList.getJSONObject(i);
-                  JSONArray vulnArray = new JSONArray();
-                  vulnArray.addAll(Arrays
-                      .asList(input, vulnJson.getString("vuln"), vulnJson.getString("severity"), vulnJson.getString("package"),
-                          vulnJson.getString("fix"), vulnJson.getString("url")));
-                  dataJson.add(vulnArray);
+                console.logInfo("Querying vulnerability listing for " + input);
+                HttpGet httpget = new HttpGet(vulnListURL);
+                httpget.addHeader("Content-Type", "application/json");
+
+                console.logDebug("anchore-enterprise get vulnerability listing URL: " + vulnListURL);
+                try (CloseableHttpResponse response = httpclient.execute(httpget, context)) {
+                  statusCode = response.getStatusLine().getStatusCode();
+                  if (statusCode != 200) {
+                    String serverMessage = EntityUtils.toString(response.getEntity());
+                    console.logWarn(
+                        "anchore-enterprise get vulnerability listing failed. URL: " + vulnListURL + ", status: " + response.getStatusLine()
+                            + ", error: " + serverMessage);
+                    throw new AbortException("Failed to fetch vulnerability listing from anchore-enterprise");
+                  } else {
+                    String responseBody = EntityUtils.toString(response.getEntity());
+                    // Write api response to a file as it is
+                    String jenkinsAEResponseFileName = AE_VULNS_PREFIX + (++counter) + JSON_FILE_EXTENSION;
+                    FilePath jenkinsAEResponseFP = new FilePath(jenkinsOutputDirFP, jenkinsAEResponseFileName);
+                    try {
+                      console.logDebug("Writing anchore-enterprise vulnerabilities listing response to " + jenkinsAEResponseFP.getRemote());
+                      try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(jenkinsAEResponseFP.write(), StandardCharsets.UTF_8))) {
+                        bw.write(responseBody);
+                      }
+                    } catch (IOException | InterruptedException e) {
+                      console.logWarn("Failed to write anchore-enterprise vulnerabilities listing response to " + jenkinsAEResponseFP.getRemote(), e);
+                      throw new AbortException("Failed to write anchore-enterprise vulnerabilities listing response to " + jenkinsAEResponseFP.getRemote());
+                    }
+
+                    JSONObject responseJson = JSONObject.fromObject(responseBody);
+                    JSONArray vulList = responseJson.getJSONArray("vulnerabilities");
+                    for (int i = 0; i < vulList.size(); i++) {
+                      JSONObject vulnJson = vulList.getJSONObject(i);
+                      JSONArray vulnArray = new JSONArray();
+                      if (ancestors.size() < 1) {
+                        vulnArray.addAll(Arrays
+                            .asList(input, vulnJson.getString("vuln"), vulnJson.getString("severity"), vulnJson.getString("package"),
+                                vulnJson.getString("fix"), "false", vulnJson.getString("url")));
+                      } else {
+                        vulnArray.addAll(Arrays
+                            .asList(input, vulnJson.getString("vuln"), vulnJson.getString("severity"), vulnJson.getString("package"),
+                                vulnJson.getString("fix"), vulnJson.getString("inherited_from_base"), vulnJson.getString("url")));
+                      }
+                      dataJson.add(vulnArray);
+                    }
+                  }
+                } catch (Throwable t) {
+                  throw t;
                 }
               }
             } catch (Throwable t) {
