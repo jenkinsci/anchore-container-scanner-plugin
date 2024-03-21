@@ -469,6 +469,24 @@ public class BuildWorker {
                               sleep = true;
                             } else {
                               counter = counter + 1;
+  
+                              // remove records where inherited_from_base is true
+                              if (config.getExcludeFromBaseImage()) {
+                                for (Iterator<Object> it = evaluationFindings.iterator(); it.hasNext();) {
+                                  JSONObject finding = (JSONObject) it.next();
+                                  if (finding.getString("inherited_from_base").equals("true")) {
+                                    it.remove();
+                                  }
+                                }
+
+                                // convert back to a string of the whole response with the changes
+                                evaluationDetails.put("findings", evaluationFindings);
+                                policyJsonObject.put("details", evaluationDetails);
+                                evaluations.set(0, policyJsonObject);
+                                topDocument.put("evaluations", evaluations);
+                                responseBodyPolicyCheck = topDocument.toString();
+                              }
+
                               writeResponseToFile(counter, jenkinsOutputDirFP, responseBodyPolicyCheck);
 
                               String gate_resulting_action = policyJsonObject.getString("final_action");
@@ -653,9 +671,20 @@ public class BuildWorker {
                             .asList(input, vulnJson.getString("vuln"), vulnJson.getString("severity"), vulnJson.getString("package"),
                                 vulnJson.getString("fix"), "false", vulnJson.getString("url")));
                       } else {
-                        vulnArray.addAll(Arrays
-                            .asList(input, vulnJson.getString("vuln"), vulnJson.getString("severity"), vulnJson.getString("package"),
-                                vulnJson.getString("fix"), vulnJson.getString("inherited_from_base"), vulnJson.getString("url")));
+                        if (config.getExcludeFromBaseImage()) {
+                          if (vulnJson.getString("inherited_from_base").equals("true")) {
+                            continue;
+                          } else {
+                            vulnArray.addAll(Arrays
+                                .asList(input, vulnJson.getString("vuln"), vulnJson.getString("severity"), vulnJson.getString("package"),
+                                    vulnJson.getString("fix"), vulnJson.getString("inherited_from_base"), vulnJson.getString("url")));
+                          }
+                          
+                        } else {
+                          vulnArray.addAll(Arrays
+                              .asList(input, vulnJson.getString("vuln"), vulnJson.getString("severity"), vulnJson.getString("package"),
+                                  vulnJson.getString("fix"), vulnJson.getString("inherited_from_base"), vulnJson.getString("url")));
+                        }
                       }
                       dataJson.add(vulnArray);
                     }
