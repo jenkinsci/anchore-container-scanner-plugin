@@ -504,9 +504,7 @@ public class BuildWorker {
 
                               // we actually got a real result
                               // this is the only way this gets flipped to true
-                              if (policyJsonObject.getString("status").equals("pass")) {
-                                anchore_eval_status = true;
-                              }
+                              anchore_eval_status = policyJsonObject.getString("status").equals("pass");
                               console.logDebug("anchore-enterprise get policy evaluation status: " + anchore_eval_status);
 
                               done = true;
