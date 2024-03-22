@@ -41,6 +41,10 @@
       <f:checkbox name="forceAnalyze" checked="${instance.forceAnalyze}" default="${descriptor.DEFAULT_FORCE_ANALYZE}"/>
     </f:entry>
 
+    <f:entry title="Exclude 'Inherited From Base' from results" field="excludeFromBaseImage">
+      <f:checkbox name="excludeFromBaseImage" checked="${instance.excludeFromBaseImage}" default="${descriptor.DEFAULT_EXCLUDE_FROM_BASE_IMAGE}"/>
+    </f:entry>
+
     <f:section title="Override Global Configuration">
       <f:entry title="Anchore Enterprise URL" field="engineurl" help="/plugin/anchore-container-scanner/help/help-OverrideAEURL.html">
         <f:textbox name="engineurl" default=""/>

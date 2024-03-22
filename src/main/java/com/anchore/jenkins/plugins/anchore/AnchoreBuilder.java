@@ -65,6 +65,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   private List<Annotation> annotations;
   private boolean autoSubscribeTagUpdates = DescriptorImpl.DEFAULT_AUTOSUBSCRIBE_TAG_UPDATES;
   private boolean forceAnalyze = DescriptorImpl.DEFAULT_FORCE_ANALYZE;
+  private boolean excludeFromBaseImage = DescriptorImpl.DEFAULT_EXCLUDE_FROM_BASE_IMAGE;
 
   // Override global config. Supported for anchore-enterprise mode config only
   private String engineurl = DescriptorImpl.EMPTY_STRING;
@@ -104,6 +105,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
   public boolean getForceAnalyze() {
     return forceAnalyze;
+  }
+
+  public boolean getExcludeFromBaseImage() {
+    return excludeFromBaseImage;
   }
 
   public String getEngineurl() {
@@ -152,6 +157,11 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   @DataBoundSetter
   public void setForceAnalyze(boolean forceAnalyze) {
     this.forceAnalyze = forceAnalyze;
+  }
+
+  @DataBoundSetter
+  public void setExcludeFromBaseImage(boolean excludeFromBaseImage) {
+    this.excludeFromBaseImage = excludeFromBaseImage;
   }
 
   @DataBoundSetter
@@ -219,7 +229,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
       /* Instantiate config and a new build worker */
       config = new BuildConfig(name, engineRetries, bailOnFail,
-          bailOnPluginFail, policyBundleId, annotations, autoSubscribeTagUpdates, forceAnalyze, globalConfig.getDebug(),
+          bailOnPluginFail, policyBundleId, annotations, autoSubscribeTagUpdates, forceAnalyze, excludeFromBaseImage, globalConfig.getDebug(),
           // messy build time overrides, ugh!
           !Strings.isNullOrEmpty(engineurl) ? engineurl : globalConfig.getEngineurl(),
           !Strings.isNullOrEmpty(engineuser) ? engineuser : globalConfig.getEngineuser(),
@@ -314,6 +324,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     public static final String EMPTY_STRING = "";
     public static final boolean DEFAULT_AUTOSUBSCRIBE_TAG_UPDATES = true;
     public static final boolean DEFAULT_FORCE_ANALYZE = false;
+    public static final boolean DEFAULT_EXCLUDE_FROM_BASE_IMAGE = false;
 
     // Global configuration
     private boolean debug;

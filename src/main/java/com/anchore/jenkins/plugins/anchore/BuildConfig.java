@@ -19,6 +19,7 @@ public class BuildConfig {
   private List<Annotation> annotations;
   private boolean autoSubscribeTagUpdates;
   private boolean forceAnalyze;
+  private boolean excludeFromBaseImage;
 
   // Global configuration
   private boolean debug;
@@ -29,8 +30,8 @@ public class BuildConfig {
   private API_VERSION engineApiVersion;
 
   public BuildConfig(String name,  String engineRetries, boolean bailOnFail, boolean bailOnPluginFail,
-      String policyBundleId, List<Annotation> annotations, boolean autoSubscribeTagUpdates, boolean forceAnalyze, boolean debug,
-      String engineurl, String engineuser, String enginepass, boolean engineverify) {
+      String policyBundleId, List<Annotation> annotations, boolean autoSubscribeTagUpdates, boolean forceAnalyze, boolean excludeFromBaseImage,
+      boolean debug, String engineurl, String engineuser, String enginepass, boolean engineverify) {
     this.name = name;
     this.engineRetries = engineRetries;
     this.bailOnFail = bailOnFail;
@@ -39,6 +40,7 @@ public class BuildConfig {
     this.annotations = annotations;
     this.autoSubscribeTagUpdates = autoSubscribeTagUpdates;
     this.forceAnalyze = forceAnalyze;
+    this.excludeFromBaseImage = excludeFromBaseImage;
     this.debug = debug;
     this.engineurl = engineurl;
     this.engineuser = engineuser;
@@ -77,6 +79,10 @@ public class BuildConfig {
 
   public boolean getForceAnalyze() {
     return forceAnalyze;
+  }
+
+  public boolean getExcludeFromBaseImage() {
+    return excludeFromBaseImage;
   }
 
   public boolean getDebug() {
