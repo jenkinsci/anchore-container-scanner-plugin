@@ -70,6 +70,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   // Override global config. Supported for anchore-enterprise mode config only
   private String engineurl = DescriptorImpl.EMPTY_STRING;
   private String engineCredentialsId = DescriptorImpl.EMPTY_STRING;
+  private String engineaccount = DescriptorImpl.EMPTY_STRING;
   private boolean engineverify = false;
   // More flags to indicate boolean override, ugh!
   private boolean isEngineverifyOverrride = false;
@@ -117,6 +118,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
   public String getEngineCredentialsId() {
     return engineCredentialsId;
+  }
+
+  public String getEngineaccount() {
+    return engineaccount;
   }
 
   public boolean getEngineverify() {
@@ -172,6 +177,11 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   @DataBoundSetter
   public void setEngineCredentialsId(String engineCredentialsId) {
     this.engineCredentialsId = engineCredentialsId;
+  }
+
+  @DataBoundSetter
+  public void setEngineaccount(String engineaccount) {
+    this.engineaccount = engineaccount;
   }
 
   @DataBoundSetter
@@ -234,6 +244,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
           !Strings.isNullOrEmpty(engineurl) ? engineurl : globalConfig.getEngineurl(),
           !Strings.isNullOrEmpty(engineuser) ? engineuser : globalConfig.getEngineuser(),
           !Strings.isNullOrEmpty(enginepass) ? enginepass : globalConfig.getEnginepass().getPlainText(),
+          !Strings.isNullOrEmpty(engineaccount) ? engineaccount : globalConfig.getEngineaccount(),
           isEngineverifyOverrride ? engineverify : globalConfig.getEngineverify());
       worker = new BuildWorker(run, workspace, launcher, listener, config);
 
@@ -243,6 +254,9 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       }
       if (!Strings.isNullOrEmpty(engineuser) && !Strings.isNullOrEmpty(enginepass)) {
         console.logInfo("Build override set for Anchore Engine credentials");
+      }
+      if (!Strings.isNullOrEmpty(engineaccount)) {
+        console.logInfo("Build override set for Anchore Engine account");
       }
       if (isEngineverifyOverrride) {
         console.logInfo("Build override set for Anchore Engine verify SSL");
@@ -331,6 +345,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     private String engineurl;
     private String engineuser;
     private Secret enginepass;
+    private String engineaccount;
     private boolean engineverify;
 
     // Upgrade case, you can never really remove these variables once they are introduced
@@ -358,6 +373,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
       this.enginepass = enginepass;
     }
 
+    public void setEngineaccount(String engineaccount) {
+      this.engineaccount = engineaccount;
+    }
+
     public void setEngineverify(boolean engineverify) {
       this.engineverify = engineverify;
     }
@@ -381,6 +400,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
     public Secret getEnginepass() {
       return enginepass;
+    }
+
+    public String getEngineaccount() {
+      return engineaccount;
     }
 
     public boolean getEngineverify() {

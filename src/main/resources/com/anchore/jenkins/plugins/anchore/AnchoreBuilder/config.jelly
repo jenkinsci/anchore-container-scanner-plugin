@@ -55,6 +55,10 @@
         <c:select/>
       </f:entry>
 
+      <f:entry title="Anchore Enterprise account" field="engineaccount" help="/plugin/anchore-container-scanner/help/help-OverrideAEAccount.html">
+        <f:textbox name="engineaccount" default=""/>
+      </f:entry>
+
       <f:entry title="Anchore Enterprise verify SSL" field="engineverify">
         <f:checkbox name="engineverify" checked="${instance.engineverify}" default="${false}"/>
       </f:entry>
