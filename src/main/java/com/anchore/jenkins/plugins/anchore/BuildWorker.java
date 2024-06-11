@@ -31,6 +31,7 @@ import net.sf.json.JSONObject;
 import net.sf.json.JSONSerializer;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.http.Header;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
@@ -45,6 +46,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 
 /**
@@ -172,10 +174,16 @@ public class BuildWorker {
     runAnalyzerEngine();
   }
 
-  private static CloseableHttpClient makeHttpClient(boolean verify) {
+  private static CloseableHttpClient makeHttpClient(boolean verify, String account) {
     CloseableHttpClient httpclient = null;
+    List<Header> headers = new ArrayList<>();
+    if (!Strings.isNullOrEmpty(account)) {
+      Header header = new BasicHeader("x-anchore-account", account);
+      headers.add(header);
+    }
+
     if (verify) {
-      httpclient = HttpClients.createDefault();
+      httpclient = HttpClients.custom().setDefaultHeaders(headers).build();
     } else {
       //SSLContextBuilder builder;
 
@@ -186,7 +194,7 @@ public class BuildWorker {
         builder.loadTrustMaterial(null, new TrustSelfSignedStrategy());
         SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(builder.build(),
             SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
-        httpclient = HttpClients.custom().setSSLSocketFactory(sslsf).build();
+        httpclient = HttpClients.custom().setSSLSocketFactory(sslsf).setDefaultHeaders(headers).build();
       } catch (Exception e) {
         System.out.println(e);
       }
@@ -198,6 +206,7 @@ public class BuildWorker {
     String imageDigest = null;
     String username = config.getEngineuser();
     String password = config.getEnginepass();
+    String account = config.getEngineaccount();
     boolean sslverify = config.getEngineverify();
 
     CredentialsProvider credsProvider = new BasicCredentialsProvider();
@@ -214,7 +223,7 @@ public class BuildWorker {
 
         console.logInfo("Submitting " + tag + " for analysis");
 
-        try (CloseableHttpClient httpclient = makeHttpClient(sslverify)) {
+        try (CloseableHttpClient httpclient = makeHttpClient(sslverify, account)) {
           // Prep POST request
           String theurl = config.getEngineurl().replaceAll("/+$", "") + "/images";
 
@@ -335,6 +344,7 @@ public class BuildWorker {
   private GATE_ACTION runGatesEngineV2() throws AbortException {
     String username = config.getEngineuser();
     String password = config.getEnginepass();
+    String account = config.getEngineaccount();
     boolean sslverify = config.getEngineverify();
 
     CredentialsProvider credsProvider = new BasicCredentialsProvider();
@@ -380,7 +390,7 @@ public class BuildWorker {
             }
 
             tryCount++;
-            try (CloseableHttpClient httpclient = makeHttpClient(sslverify)) {
+            try (CloseableHttpClient httpclient = makeHttpClient(sslverify, account)) {
               console.logDebug("Attempting anchore-enterprise check for image analysis (" + tryCount + "/" + maxCount + ")");
 
               try (CloseableHttpResponse responseCheckAnalysis = httpclient.execute(httpgetCheckAnalysis, context)) {
@@ -577,6 +587,7 @@ public class BuildWorker {
     if (analyzed) {
       String username = config.getEngineuser();
       String password = config.getEnginepass();
+      String account = config.getEngineaccount();
       boolean sslverify = config.getEngineverify();
 
       FilePath jenkinsOutputDirFP = new FilePath(workspace, jenkinsOutputDirName);
@@ -601,7 +612,7 @@ public class BuildWorker {
           String input = entry.getKey();
           String digest = entry.getValue();
 
-          try (CloseableHttpClient httpclient = makeHttpClient(sslverify)) {
+          try (CloseableHttpClient httpclient = makeHttpClient(sslverify, account)) {
             String ancestorsURL = config.getEngineurl().replaceAll("/+$", "") + "/images/" + digest + "/ancestors";
             HttpGet httpgetAncestors = new HttpGet(ancestorsURL);
             httpgetAncestors.addHeader("Content-Type", "application/json");

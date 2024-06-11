@@ -26,12 +26,13 @@ public class BuildConfig {
   private String engineurl;
   private String engineuser;
   private String enginepass;
+  private String engineaccount;
   private boolean engineverify;
   private API_VERSION engineApiVersion;
 
   public BuildConfig(String name,  String engineRetries, boolean bailOnFail, boolean bailOnPluginFail,
       String policyBundleId, List<Annotation> annotations, boolean autoSubscribeTagUpdates, boolean forceAnalyze, boolean excludeFromBaseImage,
-      boolean debug, String engineurl, String engineuser, String enginepass, boolean engineverify) {
+      boolean debug, String engineurl, String engineuser, String enginepass, String engineaccount, boolean engineverify) {
     this.name = name;
     this.engineRetries = engineRetries;
     this.bailOnFail = bailOnFail;
@@ -45,6 +46,7 @@ public class BuildConfig {
     this.engineurl = engineurl;
     this.engineuser = engineuser;
     this.enginepass = enginepass;
+    this.engineaccount = engineaccount;
     this.engineverify = engineverify;
     this.engineApiVersion = Util.GET_API_VERSION_FROM_URL(engineurl);
   }
@@ -101,6 +103,10 @@ public class BuildConfig {
     return enginepass;
   }
 
+  public String getEngineaccount() {
+    return engineaccount;
+  }
+
   public boolean getEngineverify() {
     return engineverify;
   }
@@ -116,6 +122,7 @@ public class BuildConfig {
     consoleLog.logInfo("[build] engineurl: " + engineurl);
     consoleLog.logInfo("[build] engineuser: " + engineuser);
     consoleLog.logInfo("[build] enginepass: " + "****");
+    consoleLog.logInfo("[build] engineaccount: " + engineaccount);
     consoleLog.logInfo("[build] engineverify: " + String.valueOf(engineverify));
 
     // Build properties

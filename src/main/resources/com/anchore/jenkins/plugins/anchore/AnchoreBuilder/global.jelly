@@ -15,6 +15,10 @@
       <f:password name="enginepass"/>
     </f:entry>
 
+    <f:entry title="Anchore Enterprise Account" field="engineaccount">
+      <f:textbox name="engineaccount" default=""/>
+    </f:entry>
+
     <f:entry title="Verify SSL" field="engineverify">
       <f:checkbox name="engineverify" checked="${descriptor.engineverify}" default="${true}"/>
     </f:entry>
