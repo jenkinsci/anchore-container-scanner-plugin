@@ -426,7 +426,7 @@ public class BuildWorker {
                                 + ", error: " + serverMessage);
                         sleep = true;
                       } else {
-                        // Get the last ancestor to determine the base image
+                        // Get the base image from ancestors
                         String responseBodyAncestors = EntityUtils.toString(responseAncestors.getEntity());
 
                         String policyCheckURL = null;
@@ -438,8 +438,25 @@ public class BuildWorker {
                               config.getEngineurl().replaceAll("/+$", "") + "/images/" + imageDigest + "/check?tag=" + tag
                                   + "&detail=true";
                         } else {
-                          JSONObject lastAncestor = ancestors.getJSONObject(ancestors.size() - 1);
-                          String baseImageDigest = lastAncestor.getString("image_digest");
+                          String baseImageDigest = null;
+
+                          // Get the chosen_base image from API
+                          for (int i = 0; i < ancestors.size(); i++) {
+                            JSONObject ancestor = ancestors.getJSONObject(i);
+                            if (ancestor.getBoolean("chosen_base_image")) {
+                              console.logDebug("found base image from API");
+                              baseImageDigest = ancestor.getString("image_digest");
+                              break;
+                            }
+                          }
+
+                          // Get the last ancestor to determine the base image if no chosen_base image from API
+                          // This is required for compatibility with < Anchore Enterprise 5.7
+                          if (baseImageDigest == null) {
+                            JSONObject lastAncestor = ancestors.getJSONObject(ancestors.size() - 1);
+                            baseImageDigest = lastAncestor.getString("image_digest");
+                          }
+
                           policyCheckURL =
                               config.getEngineurl().replaceAll("/+$", "") + "/images/" + imageDigest + "/check?tag=" + tag
                                   + "&detail=true&base_digest=" + baseImageDigest;
@@ -636,8 +653,25 @@ public class BuildWorker {
                   console.logDebug("anchore-enterprise get ancestors response contains no records for image: " + ancestorsURL);
                   vulnListURL = config.getEngineurl().replaceAll("/+$", "") + "/images/" + digest + "/vuln/all";
                 } else {
-                  JSONObject lastAncestor = ancestors.getJSONObject(ancestors.size() - 1);
-                  String baseImageDigest = lastAncestor.getString("image_digest");
+                  String baseImageDigest = null;
+
+                  // Get the chosen_base image from API
+                  for (int i = 0; i < ancestors.size(); i++) {
+                    JSONObject ancestor = ancestors.getJSONObject(i);
+                    if (ancestor.getBoolean("chosen_base_image")) {
+                      console.logDebug("found base image from API");
+                      baseImageDigest = ancestor.getString("image_digest");
+                      break;
+                    }
+                  }
+
+                  // Get the last ancestor to determine the base image if no chosen_base image from API
+                  // This is required for compatibility with < Anchore Enterprise 5.7
+                  if (baseImageDigest == null) {
+                    JSONObject lastAncestor = ancestors.getJSONObject(ancestors.size() - 1);
+                    baseImageDigest = lastAncestor.getString("image_digest");
+                  }
+
                   vulnListURL = config.getEngineurl().replaceAll("/+$", "") + "/images/" + digest + "/vuln/all"
                           + "?base_digest=" + baseImageDigest;
                 }
