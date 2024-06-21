@@ -13,6 +13,7 @@ public class BuildConfig {
   // Build configuration
   private String name;
   private String engineRetries;
+  private String engineRetryInterval;
   private boolean bailOnFail;
   private boolean bailOnPluginFail;
   private String policyBundleId;
@@ -30,11 +31,12 @@ public class BuildConfig {
   private boolean engineverify;
   private API_VERSION engineApiVersion;
 
-  public BuildConfig(String name,  String engineRetries, boolean bailOnFail, boolean bailOnPluginFail,
+  public BuildConfig(String name, String engineRetries, String engineRetryInterval, boolean bailOnFail, boolean bailOnPluginFail,
       String policyBundleId, List<Annotation> annotations, boolean autoSubscribeTagUpdates, boolean forceAnalyze, boolean excludeFromBaseImage,
       boolean debug, String engineurl, String engineuser, String enginepass, String engineaccount, boolean engineverify) {
     this.name = name;
     this.engineRetries = engineRetries;
+    this.engineRetryInterval = engineRetryInterval;
     this.bailOnFail = bailOnFail;
     this.bailOnPluginFail = bailOnPluginFail;
     this.policyBundleId = policyBundleId;
@@ -57,6 +59,10 @@ public class BuildConfig {
 
   public String getEngineRetries() {
     return engineRetries;
+  }
+
+  public String getEngineRetryInterval() {
+    return engineRetryInterval;
   }
 
   public boolean getBailOnFail() {
@@ -128,6 +134,7 @@ public class BuildConfig {
     // Build properties
     consoleLog.logInfo("[build] name: " + name);
     consoleLog.logInfo("[build] engineRetries: " + engineRetries);
+    consoleLog.logInfo("[build] engineRetryInterval: " + engineRetryInterval);
     consoleLog.logInfo("[build] policyBundleId: " + policyBundleId);
     if (null != annotations && !annotations.isEmpty()) {
       for (Annotation a : annotations) {

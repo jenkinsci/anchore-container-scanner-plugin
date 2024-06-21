@@ -19,6 +19,10 @@
       <f:textbox default="${descriptor.DEFAULT_ENGINE_RETRIES}"/>
     </f:entry>
 
+    <f:entry title="Anchore Enterprise operation retry interval" field="engineRetryInterval">
+      <f:textbox default="${descriptor.DEFAULT_ENGINE_RETRY_INTERVAL}"/>
+    </f:entry>
+
     <f:entry title="Anchore Enterprise policy bundle ID" field="policyBundleId">
       <f:textbox default="${descriptor.DEFAULT_POLICY_BUNDLE_ID}"/>
     </f:entry>
