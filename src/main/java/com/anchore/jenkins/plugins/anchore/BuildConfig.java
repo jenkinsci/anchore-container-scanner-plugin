@@ -24,6 +24,7 @@ public class BuildConfig {
 
   // Global configuration
   private boolean debug;
+  private String anchoreui;
   private String engineurl;
   private String engineuser;
   private String enginepass;
@@ -33,7 +34,7 @@ public class BuildConfig {
 
   public BuildConfig(String name, String engineRetries, String engineRetryInterval, boolean bailOnFail, boolean bailOnPluginFail,
       String policyBundleId, List<Annotation> annotations, boolean autoSubscribeTagUpdates, boolean forceAnalyze, boolean excludeFromBaseImage,
-      boolean debug, String engineurl, String engineuser, String enginepass, String engineaccount, boolean engineverify) {
+      boolean debug, String anchoreui, String engineurl, String engineuser, String enginepass, String engineaccount, boolean engineverify) {
     this.name = name;
     this.engineRetries = engineRetries;
     this.engineRetryInterval = engineRetryInterval;
@@ -45,6 +46,7 @@ public class BuildConfig {
     this.forceAnalyze = forceAnalyze;
     this.excludeFromBaseImage = excludeFromBaseImage;
     this.debug = debug;
+    this.anchoreui = anchoreui;
     this.engineurl = engineurl;
     this.engineuser = engineuser;
     this.enginepass = enginepass;
@@ -95,6 +97,10 @@ public class BuildConfig {
 
   public boolean getDebug() {
     return debug;
+  }
+
+  public String getAnchoreui() {
+    return anchoreui;
   }
 
   public String getEngineurl() {

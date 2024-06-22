@@ -149,9 +149,15 @@ function buildPolicyEvalTable(tableId, outputFile) {
         order: [[6, 'asc']],
         columnDefs: [
           {
-            targets: [0, 1, 2],
+            targets: [0, 2],
             render: function (source, type, val) {
               return '<span style="word-break: break-all;">' + renderCell(source) + '</span>';
+            }
+          },
+          {
+            targets: 1,
+            render: function (source, type, val) {
+              return '<span style="word-break: break-all;">' + renderAnchoreLink(source) + '</span>';
             }
           },
           {
@@ -210,7 +216,7 @@ function buildPolicyEvalSummaryTable(tableId, tableObj) {
       columnDefs: [
         {
           targets: 0,
-          render: renderCell
+          render: renderAnchoreLink
         },
         {
           targets: 1,
@@ -275,6 +281,21 @@ function renderLinkCell(data) {
     data = data.replace(LINK_REGEX, "$1$2");
   }
   return renderCell(data);
+}
+
+function renderAnchoreLink(data) {
+  if (typeof data == "string") {
+    data = escapeHtml(data)
+	if (URL_REGEX.test(data)) {
+		return data.replace(URL_REGEX, '<a href="$1">') + '</a>';
+	} else {
+		return data;
+	}
+  }
+  else if (typeof data == "object") {
+    return !!data
+  }
+  return data;
 }
 
 function renderCell(data) {
