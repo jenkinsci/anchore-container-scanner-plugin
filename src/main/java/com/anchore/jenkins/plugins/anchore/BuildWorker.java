@@ -345,6 +345,7 @@ public class BuildWorker {
     String username = config.getEngineuser();
     String password = config.getEnginepass();
     String account = config.getEngineaccount();
+    String anchoreui = config.getAnchoreui();
     boolean sslverify = config.getEngineverify();
 
     CredentialsProvider credsProvider = new BasicCredentialsProvider();
@@ -413,6 +414,10 @@ public class BuildWorker {
                     console.logDebug("anchore-enterprise get analysis status: " + imageAnalysisStatus);
                     sleep = true;
                   } else {
+                    String imageRegistry = imageResponse.getJSONArray("image_detail").getJSONObject(0).getString("registry");
+                    String imageRepo = imageResponse.getJSONArray("image_detail").getJSONObject(0).getString("repo");
+                    String imageTag = imageResponse.getJSONArray("image_detail").getJSONObject(0).getString("tag");
+
                     // Get the list of ancestors to determine base image
                     String ancestorsURL = imageURL + "/ancestors";
                     HttpGet httpgetAncestors = new HttpGet(ancestorsURL);
@@ -522,7 +527,16 @@ public class BuildWorker {
                               JSONObject gate_result = new JSONObject();
 
                               gate_result.put("image_digest", imageDigest);
-                              gate_result.put("repo_tag", topDocument.getString("evaluated_tag"));
+                              if (!Strings.isNullOrEmpty(anchoreui)) {
+                                if (!Strings.isNullOrEmpty(account)) {
+                                  gate_result.put("repo_tag", anchoreui.replaceAll("/+$", "")+"/"+account+"/artifacts/image/"+imageRegistry+"/"+imageRepo+"/"+imageTag+"/"+imageDigest+" "+topDocument.getString("evaluated_tag"));
+                                }
+                                else {
+                                  gate_result.put("repo_tag", anchoreui.replaceAll("/+$", "")+"/artifacts/image/"+imageRegistry+"/"+imageRepo+"/"+imageTag+"/"+imageDigest+" "+topDocument.getString("evaluated_tag"));
+                                }
+                              } else {
+                                gate_result.put("repo_tag", topDocument.getString("evaluated_tag"));
+                              }
                               gate_result.put("final_action", gate_resulting_action);
                               gate_result.put("gate_results", evaluationFindings);
 

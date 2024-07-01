@@ -7,6 +7,10 @@
       <f:textbox name="engineurl" default="http://your_anchore_enterprise_host_ip:your_anchore_enterprise_port/v2"/>
     </f:entry>
 
+    <f:entry title="Anchore Enterprise UI URL" field="anchoreui">
+      <f:textbox name="anchoreui" default=""/>
+    </f:entry>
+
     <f:entry title="Anchore Enterprise Username" field="engineuser">
       <f:textbox name="engineuser" default=""/>
     </f:entry>

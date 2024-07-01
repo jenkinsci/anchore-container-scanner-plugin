@@ -69,6 +69,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   private boolean excludeFromBaseImage = DescriptorImpl.DEFAULT_EXCLUDE_FROM_BASE_IMAGE;
 
   // Override global config. Supported for anchore-enterprise mode config only
+  private String anchoreui = DescriptorImpl.EMPTY_STRING;
   private String engineurl = DescriptorImpl.EMPTY_STRING;
   private String engineCredentialsId = DescriptorImpl.EMPTY_STRING;
   private String engineaccount = DescriptorImpl.EMPTY_STRING;
@@ -115,6 +116,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
   public boolean getExcludeFromBaseImage() {
     return excludeFromBaseImage;
+  }
+
+  public String getAnchoreui() {
+    return anchoreui;
   }
 
   public String getEngineurl() {
@@ -177,6 +182,11 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
   @DataBoundSetter
   public void setExcludeFromBaseImage(boolean excludeFromBaseImage) {
     this.excludeFromBaseImage = excludeFromBaseImage;
+  }
+
+  @DataBoundSetter
+  public void setAnchoreui(String anchoreui) {
+    this.anchoreui = anchoreui;
   }
 
   @DataBoundSetter
@@ -247,9 +257,11 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
         }
       }
 
+      String anchoreui = globalConfig.getAnchoreui();
+
       /* Instantiate config and a new build worker */
       config = new BuildConfig(name, engineRetries, engineRetryInterval, bailOnFail,
-          bailOnPluginFail, policyBundleId, annotations, autoSubscribeTagUpdates, forceAnalyze, excludeFromBaseImage, globalConfig.getDebug(),
+          bailOnPluginFail, policyBundleId, annotations, autoSubscribeTagUpdates, forceAnalyze, excludeFromBaseImage, globalConfig.getDebug(), anchoreui,
           // messy build time overrides, ugh!
           !Strings.isNullOrEmpty(engineurl) ? engineurl : globalConfig.getEngineurl(),
           !Strings.isNullOrEmpty(engineuser) ? engineuser : globalConfig.getEngineuser(),
@@ -258,6 +270,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
           isEngineverifyOverrride ? engineverify : globalConfig.getEngineverify());
       worker = new BuildWorker(run, workspace, launcher, listener, config);
 
+      if (Strings.isNullOrEmpty(anchoreui)) {
+        console.logInfo("Anchore UI URL is not set. Links to Anchore UI will not be available");
+      }
+      
       /* Log any build time overrides are at play */
       if (!Strings.isNullOrEmpty(engineurl)) {
         console.logInfo("Build override set for Anchore Engine URL");
@@ -353,6 +369,7 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
 
     // Global configuration
     private boolean debug;
+    private String anchoreui;
     private String engineurl;
     private String engineuser;
     private Secret enginepass;
@@ -370,6 +387,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     @Deprecated
     public void setEnabled(boolean enabled) {
       this.enabled = enabled;
+    }
+
+    public void setAnchoreui(String anchoreui) {
+      this.anchoreui = anchoreui;
     }
 
     public void setEngineurl(String engineurl) {
@@ -399,6 +420,10 @@ public class AnchoreBuilder extends Builder implements SimpleBuildStep {
     @Deprecated
     public boolean getEnabled() {
       return enabled;
+    }
+
+    public String getAnchoreui() {
+      return anchoreui;
     }
 
     public String getEngineurl() {
