@@ -98,7 +98,7 @@
     <dependency>
       <groupId>org.jenkins-ci.plugins</groupId>
       <artifactId>credentials</artifactId>
-      <version>1337.v60b_d7b_c7b_c9f</version>
+      <version>1361.v56f5ca_35d21c</version>
     </dependency>
   </dependencies>
 
