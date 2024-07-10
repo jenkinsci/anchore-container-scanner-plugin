@@ -62,7 +62,7 @@ public class BuildWorker {
   // TODO refactor
   private static final String GATES_OUTPUT_PREFIX = "anchore_gates";
   private static final String CVE_LISTING_PREFIX = "anchore_security";
-  private static final String JENKINS_DIR_NAME_PREFIX = "AnchoreReport.";
+  private static final String JENKINS_DIR_NAME= "AnchoreReport";
   private static final String JSON_FILE_EXTENSION = ".json";
   private static final String AE_VULNS_PREFIX = "anchoreengine-api-response-vulnerabilities-";
   private static final String AE_EVAL_PREFIX = "anchoreengine-api-response-evaluation-";
@@ -981,7 +981,7 @@ public class BuildWorker {
 
       // ArtifactArchiver.perform() cannot parse file paths with commas, which buildId will have in some cases, for
       // example if this is a matrix job. So replace any commas in it with underscores to separate the matrix values.
-      jenkinsOutputDirName = JENKINS_DIR_NAME_PREFIX + buildId.replaceAll(",", "_");
+      jenkinsOutputDirName = JENKINS_DIR_NAME;
       FilePath jenkinsReportDir = new FilePath(workspace, jenkinsOutputDirName);
 
       // Create output directories
