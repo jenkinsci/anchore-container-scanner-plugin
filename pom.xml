@@ -10,7 +10,7 @@
   </parent>
 
   <artifactId>anchore-container-scanner</artifactId>
-  <version>3.1.1</version>
+  <version>3.1.2-SNAPSHOT</version>
   <packaging>hpi</packaging>
   <name>Anchore Container Image Scanner Plugin</name>
   <description>Integrates Jenkins with the Anchore Image Scanner</description>
