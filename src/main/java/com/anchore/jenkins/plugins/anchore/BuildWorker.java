@@ -17,6 +17,7 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -532,11 +533,13 @@ public class BuildWorker {
 
                               gate_result.put("image_digest", imageDigest);
                               if (!Strings.isNullOrEmpty(anchoreui)) {
+                                String encodedImageRegistry = URLEncoder.encode(imageRegistry, StandardCharsets.UTF_8.toString());
+                                String encodedImageRepo = URLEncoder.encode(imageRepo, StandardCharsets.UTF_8.toString());
                                 if (!Strings.isNullOrEmpty(account)) {
-                                  gate_result.put("repo_tag", anchoreui.replaceAll("/+$", "")+"/"+account+"/artifacts/image/"+imageRegistry+"/"+imageRepo+"/"+imageTag+"/"+imageDigest+" "+topDocument.getString("evaluated_tag"));
+                                  gate_result.put("repo_tag", anchoreui.replaceAll("/+$", "")+"/"+account+"/artifacts/image/"+encodedImageRegistry+"/"+encodedImageRepo+"/"+imageTag+"/"+imageDigest+" "+topDocument.getString("evaluated_tag"));
                                 }
                                 else {
-                                  gate_result.put("repo_tag", anchoreui.replaceAll("/+$", "")+"/artifacts/image/"+imageRegistry+"/"+imageRepo+"/"+imageTag+"/"+imageDigest+" "+topDocument.getString("evaluated_tag"));
+                                  gate_result.put("repo_tag", anchoreui.replaceAll("/+$", "")+"/artifacts/image/"+encodedImageRegistry+"/"+encodedImageRepo+"/"+imageTag+"/"+imageDigest+" "+topDocument.getString("evaluated_tag"));
                                 }
                               } else {
                                 gate_result.put("repo_tag", topDocument.getString("evaluated_tag"));
