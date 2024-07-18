@@ -449,10 +449,14 @@ public class BuildWorker {
                           // Get the chosen_base image from API
                           for (int i = 0; i < ancestors.size(); i++) {
                             JSONObject ancestor = ancestors.getJSONObject(i);
-                            if (ancestor.getBoolean("chosen_base_image")) {
-                              console.logDebug("found base image from API");
-                              baseImageDigest = ancestor.getString("image_digest");
-                              break;
+                            // If chosen_base_image key exists in the response, use it.
+                            // This is required for compatibility with < Anchore Enterprise 5.7
+                            if (ancestor.has("chosen_base_image")) {
+                              if (ancestor.getBoolean("chosen_base_image")) {
+                                console.logDebug("found base image from API");
+                                baseImageDigest = ancestor.getString("image_digest");
+                                break;
+                              }
                             }
                           }
 
@@ -673,10 +677,14 @@ public class BuildWorker {
                   // Get the chosen_base image from API
                   for (int i = 0; i < ancestors.size(); i++) {
                     JSONObject ancestor = ancestors.getJSONObject(i);
-                    if (ancestor.getBoolean("chosen_base_image")) {
-                      console.logDebug("found base image from API");
-                      baseImageDigest = ancestor.getString("image_digest");
-                      break;
+                    // If chosen_base_image key exists in the response, use it.
+                    // This is required for compatibility with < Anchore Enterprise 5.7
+                    if (ancestor.has("chosen_base_image")) {
+                      if (ancestor.getBoolean("chosen_base_image")) {
+                        console.logDebug("found base image from API");
+                        baseImageDigest = ancestor.getString("image_digest");
+                        break;
+                      }
                     }
                   }
 
