@@ -12,7 +12,7 @@ public class Util {
 
   public enum LOG_LEVEL {DEBUG, WARN, INFO, ERROR}
 
-  public enum GATE_SUMMARY_COLUMN {Repo_Tag, Stop_Actions, Warn_Actions, Go_Actions, Final_Action}
+  public enum GATE_SUMMARY_COLUMN {Repo_Tag, Stop_Actions, Warn_Actions, Go_Actions, Final_Action, Stop_Action_Details}
 
   public enum API_VERSION {v1, v2}
 

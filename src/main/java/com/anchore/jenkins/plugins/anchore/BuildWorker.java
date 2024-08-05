@@ -499,6 +499,9 @@ public class BuildWorker {
                             JSONObject policyJsonObject = evaluations.getJSONObject(0);
                             JSONObject evaluationDetails = policyJsonObject.getJSONObject("details");
                             JSONArray evaluationFindings = evaluationDetails.getJSONArray("findings");
+                            String gate_resulting_action = policyJsonObject.getString("final_action");
+                            String gate_resulting_reason = policyJsonObject.getString("final_action_reason");
+                            String gate_result_details = "";
 
                             if (evaluations.size() < 1) {
                               // try again until we get an eval
@@ -507,6 +510,15 @@ public class BuildWorker {
                               sleep = true;
                             } else {
                               counter = counter + 1;
+
+                              if (gate_resulting_action.equals("stop")) {
+                                if (gate_resulting_reason.equals("policy_evaluation")) {
+                                  gate_result_details = "Policy evaluation failed";
+                                } else {
+                                  // Catch all for other stop actions
+                                  gate_result_details = "Failed due to " + gate_resulting_reason;
+                                }
+                              }
   
                               // remove records where inherited_from_base is true
                               if (config.getExcludeFromBaseImage()) {
@@ -515,6 +527,12 @@ public class BuildWorker {
                                   if (finding.getString("inherited_from_base").equals("true")) {
                                     it.remove();
                                   }
+                                }
+
+                                // Check for case where all findings are inherited from base image
+                                if ((evaluationFindings.size() == 0) && gate_resulting_action.equals("stop") && gate_resulting_reason.equals("policy_evaluation")) {
+                                    console.logInfo("No findings to evaluate after excluding inherited_from_base. Failure is in base image.");
+                                    gate_result_details = "Failure inherited from base image";
                                 }
 
                                 // convert back to a string of the whole response with the changes
@@ -527,8 +545,6 @@ public class BuildWorker {
 
                               writeResponseToFile(counter, jenkinsOutputDirFP, responseBodyPolicyCheck);
 
-                              String gate_resulting_action = policyJsonObject.getString("final_action");
-                              
                               JSONObject gate_result = new JSONObject();
 
                               gate_result.put("image_digest", imageDigest);
@@ -545,6 +561,7 @@ public class BuildWorker {
                                 gate_result.put("repo_tag", topDocument.getString("evaluated_tag"));
                               }
                               gate_result.put("final_action", gate_resulting_action);
+                              gate_result.put("failure_details", gate_result_details);
                               gate_result.put("gate_results", evaluationFindings);
 
                               gate_results.add(gate_result);
@@ -810,6 +827,7 @@ public class BuildWorker {
         String repoTag = JSONObject.fromObject(gateResult).getString("repo_tag");
         String imageDigest = JSONObject.fromObject(gateResult).getString("image_digest");
         String final_action = JSONObject.fromObject(gateResult).getString("final_action");
+        String failure_details = JSONObject.fromObject(gateResult).getString("failure_details");
         int stop = 0, warn = 0, go = 0, stop_wl = 0, warn_wl = 0, go_wl = 0;
 
         for (Object finding : evaluationFindingContent) {
@@ -853,6 +871,7 @@ public class BuildWorker {
           summaryRow.put(GATE_SUMMARY_COLUMN.Warn_Actions.toString(), (warn - warn_wl));
           summaryRow.put(GATE_SUMMARY_COLUMN.Go_Actions.toString(), (go - go_wl));
           summaryRow.put(GATE_SUMMARY_COLUMN.Final_Action.toString(), final_action);
+          summaryRow.put(GATE_SUMMARY_COLUMN.Stop_Action_Details.toString(), failure_details);
           summaryRows.add(summaryRow);
         } else {
           console.logInfo("Policy evaluation summary for " + imageDigest + " - stop: " + (stop - stop_wl) + " (+" + stop_wl
@@ -864,6 +883,7 @@ public class BuildWorker {
           summaryRow.put(GATE_SUMMARY_COLUMN.Warn_Actions.toString(), (warn - warn_wl));
           summaryRow.put(GATE_SUMMARY_COLUMN.Go_Actions.toString(), (go - go_wl));
           summaryRow.put(GATE_SUMMARY_COLUMN.Final_Action.toString(), final_action);
+          summaryRow.put(GATE_SUMMARY_COLUMN.Stop_Action_Details.toString(), failure_details);
           summaryRows.add(summaryRow);
 
           //console.logWarn("Repo_Tag element not found in gate output, skipping summary computation for " + imageKey);
