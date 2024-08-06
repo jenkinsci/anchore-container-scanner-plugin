@@ -239,7 +239,11 @@ function buildPolicyEvalSummaryTable(tableId, tableObj) {
         {
           targets: 4,
           render: gateAction
-        }
+        },
+		{
+		  targets: 5,
+		  render: renderCell
+		}
       ]
     });
   });
