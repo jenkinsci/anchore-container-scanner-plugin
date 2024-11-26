@@ -411,7 +411,10 @@ public class BuildWorker {
                   JSONObject imageResponse = (JSONObject) JSONSerializer.toJSON(responseBodyCheckAnalysis);
                   String imageAnalysisStatus = imageResponse.getString("analysis_status");
 
-                  if (!imageAnalysisStatus.equals("analyzed")) {
+                  if (imageAnalysisStatus.equals("analysis_failed")) {
+                    console.logWarn("anchore-enterprise reporting analysis failed for " + imageDigest);
+                    throw new AbortException("Analysis failed for " + imageDigest);
+                  } else if (!imageAnalysisStatus.equals("analyzed")) {
                     console.logDebug("anchore-enterprise get analysis status: " + imageAnalysisStatus);
                     sleep = true;
                   } else {
